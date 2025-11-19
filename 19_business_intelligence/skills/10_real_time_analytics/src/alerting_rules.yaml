@@ -1,0 +1,28 @@
+groups:
+  - name: real_time_analytics
+    interval: 30s
+    rules:
+      - alert: HighConsumerLag
+        expr: kafka_consumergroup_lag > 10000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Consumer lag is too high"
+          description: "Consumer {{ $labels.group }} has lag {{ $value }}"
+      
+      - alert: LowThroughput
+        expr: rate(events_processed_total[5m]) < 100
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Event processing throughput is low"
+      
+      - alert: HighErrorRate
+        expr: rate(processing_errors_total[5m]) > 10
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High error rate in stream processing"

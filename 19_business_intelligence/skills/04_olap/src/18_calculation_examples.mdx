@@ -1,0 +1,61 @@
+-- Advanced MDX Calculation Examples
+-- Production patterns for complex analytics
+
+-- ABC Analysis with Classification
+WITH
+MEMBER [Measures].[Cumulative Sales] AS
+    SUM(
+        [Product].[Product].MEMBERS.ITEM(0) : [Product].[Product].CURRENTMEMBER,
+        [Measures].[Sales Amount]
+    )
+MEMBER [Measures].[% of Total] AS
+    [Measures].[Sales Amount] /
+    ([Measures].[Sales Amount], [Product].[Product].[All])
+MEMBER [Measures].[Cumulative %] AS
+    [Measures].[Cumulative Sales] /
+    ([Measures].[Sales Amount], [Product].[Product].[All])
+MEMBER [Measures].[ABC Class] AS
+    IIF(
+        [Measures].[Cumulative %] <= 0.80,
+        "A",
+        IIF([Measures].[Cumulative %] <= 0.95, "B", "C")
+    )
+SELECT
+    {
+        [Measures].[Sales Amount],
+        [Measures].[% of Total],
+        [Measures].[Cumulative Sales],
+        [Measures].[Cumulative %],
+        [Measures].[ABC Class]
+    } ON 0,
+    ORDER([Product].[Product].MEMBERS, [Measures].[Sales Amount], BDESC) ON 1
+FROM [Sales];
+
+-- Customer Retention Cohort Analysis
+WITH
+SET [Months] AS
+    [Date].[Calendar].[Month].MEMBERS
+MEMBER [Measures].[First Purchase Month] AS
+    MIN([Date].[Calendar].CURRENTMEMBER, ([Measures].[Sales Amount], [Customer].[Customer].CURRENTMEMBER))
+MEMBER [Measures].[Months Since First Purchase] AS
+    [Date].[Calendar].CURRENTMEMBER.MEMBER_VALUE -
+    [Measures].[First Purchase Month].MEMBER_VALUE
+MEMBER [Measures].[Cohort Size] AS
+    COUNT(
+        FILTER(
+            [Customer].[Customer].MEMBERS,
+            [Measures].[First Purchase Month] = [Date].[Calendar].CURRENTMEMBER.MEMBER_VALUE
+        )
+    )
+MEMBER [Measures].[Active Customers] AS
+    DISTINCTCOUNT([Customer].[Customer].CURRENTMEMBER)
+MEMBER [Measures].[Retention Rate] AS
+    [Measures].[Active Customers] / [Measures].[Cohort Size]
+SELECT
+    {
+        [Measures].[Cohort Size],
+        [Measures].[Active Customers],
+        [Measures].[Retention Rate]
+    } ON 0,
+    [Months] ON 1
+FROM [Sales];

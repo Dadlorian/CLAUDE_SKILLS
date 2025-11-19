@@ -1,0 +1,98 @@
+# Tableau Advanced Calculations Library
+
+## LOD Expressions
+
+### Customer Lifetime Value
+{ FIXED [Customer ID] : SUM([Revenue]) }
+
+### First Purchase Date
+{ FIXED [Customer ID] : MIN([Order Date]) }
+
+### Cohort Month
+{ FIXED [Customer ID] : DATETRUNC('month', MIN([Order Date])) }
+
+### Average Revenue Per Customer (Exclude dimension filters)
+{ EXCLUDE [Product Category] : AVG([Revenue]) }
+
+### Customer Count in Current Filter Context
+{ INCLUDE [Region] : COUNTD([Customer ID]) }
+
+## Table Calculations
+
+### Running Total
+RUNNING_SUM(SUM([Sales]))
+
+### Percent of Total
+SUM([Sales]) / TOTAL(SUM([Sales]))
+
+### Year over Year Growth
+(ZN(SUM([Sales])) - LOOKUP(ZN(SUM([Sales])), -12)) /
+ABS(LOOKUP(ZN(SUM([Sales])), -12))
+
+### Moving Average (3 periods)
+WINDOW_AVG(SUM([Sales]), -2, 0)
+
+### Rank Dense
+RANK(SUM([Sales]), 'desc')
+
+### Index (row number)
+INDEX()
+
+## Complex Business Logic
+
+### RFM Segmentation
+// Recency Score (1-5)
+IF DATEDIFF('day', [Last Purchase Date], TODAY()) <= 30 THEN 5
+ELSEIF DATEDIFF('day', [Last Purchase Date], TODAY()) <= 90 THEN 4
+ELSEIF DATEDIFF('day', [Last Purchase Date], TODAY()) <= 180 THEN 3
+ELSEIF DATEDIFF('day', [Last Purchase Date], TODAY()) <= 365 THEN 2
+ELSE 1
+END
+
+// Frequency Score (1-5)
+IF [Order Count] >= 50 THEN 5
+ELSEIF [Order Count] >= 20 THEN 4
+ELSEIF [Order Count] >= 10 THEN 3
+ELSEIF [Order Count] >= 5 THEN 2
+ELSE 1
+END
+
+// RFM Segment
+[Recency Score] & [Frequency Score] & [Monetary Score]
+
+### Customer Status
+IF DATEDIFF('day', [Last Purchase Date], TODAY()) <= 90 THEN "Active"
+ELSEIF DATEDIFF('day', [Last Purchase Date], TODAY()) <= 365 THEN "At Risk"
+ELSE "Churned"
+END
+
+### Dynamic Period Comparison
+// Use parameter: Period Comparison (YoY, MoM, QoQ)
+CASE [Period Comparison Parameter]
+WHEN "YoY" THEN
+  DATEADD('year', -1, [Date])
+WHEN "MoM" THEN
+  DATEADD('month', -1, [Date])
+WHEN "QoQ" THEN
+  DATEADD('quarter', -1, [Date])
+END
+
+## Performance Optimized
+
+### Pre-Filter with Context
+// Add to context filter first for better performance
+IF [Date] >= DATEADD('year', -2, TODAY())
+THEN [Calculate Complex Metric]
+END
+
+### Avoid Nested LODs
+// SLOW
+{ FIXED [Customer] :
+  SUM({ FIXED [Order] : SUM([Sales]) })
+}
+
+// FAST
+{ FIXED [Customer], [Order] : SUM([Sales]) }
+
+### Use ATTR for Single Values
+ATTR([Customer Name])  // Instead of MIN([Customer Name])

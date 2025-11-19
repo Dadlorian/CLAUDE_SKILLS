@@ -1,0 +1,385 @@
+{
+  "version": "2.0",
+  "governance_framework": "Enterprise Data Governance",
+  "last_updated": "2025-11-19",
+  "owner": "chief_data_officer",
+  "policies": [
+    {
+      "policy_id": "DATA_QUALITY_01",
+      "name": "Data Quality Requirements",
+      "description": "Minimum quality standards for all datasets",
+      "category": "data_quality",
+      "severity": "critical",
+      "enforcement": "automatic",
+      "rules": [
+        {
+          "rule_id": "DQ_001",
+          "name": "Null Value Threshold",
+          "description": "No more than 5% null values in key columns",
+          "columns": ["customer_id", "order_date", "amount"],
+          "threshold_percent": 5,
+          "check_frequency": "daily",
+          "alert_on_violation": true
+        },
+        {
+          "rule_id": "DQ_002",
+          "name": "Freshness Check",
+          "description": "Data must be refreshed within SLA window",
+          "freshness_max_hours": 24,
+          "check_frequency": "hourly",
+          "alert_on_violation": true
+        },
+        {
+          "rule_id": "DQ_003",
+          "name": "Referential Integrity",
+          "description": "Foreign key relationships must be valid",
+          "checks": [
+            {
+              "source_table": "orders",
+              "source_column": "customer_id",
+              "target_table": "customers",
+              "target_column": "customer_id"
+            }
+          ],
+          "check_frequency": "daily"
+        },
+        {
+          "rule_id": "DQ_004",
+          "name": "No Duplicates",
+          "description": "Primary key fields must be unique",
+          "check_frequency": "daily"
+        }
+      ]
+    },
+    {
+      "policy_id": "ACCESS_CONTROL_01",
+      "name": "Role-Based Access Control",
+      "description": "Defines who can access what data",
+      "category": "security",
+      "severity": "critical",
+      "enforcement": "mandatory",
+      "roles": [
+        {
+          "role_id": "analyst",
+          "name": "Data Analyst",
+          "description": "Can view and query approved datasets",
+          "permissions": [
+            {
+              "action": "read",
+              "resources": ["data_warehouse.*"],
+              "conditions": {
+                "classification": ["PUBLIC", "INTERNAL"]
+              }
+            },
+            {
+              "action": "write",
+              "resources": ["personal_schemas.analyst_*"],
+              "conditions": {}
+            },
+            {
+              "action": "execute_query",
+              "resources": ["select"],
+              "conditions": {}
+            }
+          ],
+          "requires_approval": false
+        },
+        {
+          "role_id": "senior_analyst",
+          "name": "Senior Data Analyst",
+          "description": "Can access confidential data with audit logging",
+          "permissions": [
+            {
+              "action": "read",
+              "resources": ["data_warehouse.*"],
+              "conditions": {
+                "classification": ["PUBLIC", "INTERNAL", "CONFIDENTIAL"]
+              }
+            },
+            {
+              "action": "create_dataset",
+              "resources": ["marts.*"],
+              "conditions": {}
+            },
+            {
+              "action": "modify_table",
+              "resources": ["staging.*"],
+              "conditions": {}
+            }
+          ],
+          "requires_approval": true,
+          "approval_manager": "analytics_engineering_lead"
+        },
+        {
+          "role_id": "data_steward",
+          "name": "Data Steward",
+          "description": "Manages metadata and governance",
+          "permissions": [
+            {
+              "action": "read",
+              "resources": ["*"],
+              "conditions": {}
+            },
+            {
+              "action": "update_metadata",
+              "resources": ["catalog.*"],
+              "conditions": {}
+            },
+            {
+              "action": "approve_access",
+              "resources": ["access_requests"],
+              "conditions": {}
+            }
+          ],
+          "requires_approval": false
+        },
+        {
+          "role_id": "pii_handler",
+          "name": "PII Data Handler",
+          "description": "Handles sensitive PII data",
+          "permissions": [
+            {
+              "action": "read",
+              "resources": ["data_warehouse.*"],
+              "conditions": {
+                "classification": ["PII"]
+              }
+            },
+            {
+              "action": "query_logs",
+              "resources": ["audit_logs"],
+              "conditions": {}
+            }
+          ],
+          "requires_approval": true,
+          "requires_training": "pii_handling_certification",
+          "requires_background_check": true
+        }
+      ]
+    },
+    {
+      "policy_id": "DOCUMENTATION_01",
+      "name": "Documentation Standards",
+      "description": "Metadata documentation requirements",
+      "category": "governance",
+      "severity": "high",
+      "enforcement": "automated_checks",
+      "rules": [
+        {
+          "rule_id": "DOC_001",
+          "requirement": "Every table must have a description",
+          "min_length": 20,
+          "max_length": 500,
+          "penalty": "prevent_promotion_to_gold"
+        },
+        {
+          "rule_id": "DOC_002",
+          "requirement": "Every column must be documented",
+          "min_length": 10,
+          "critical_columns": ["id", "key", "date", "amount", "customer_id"],
+          "penalty": "silver_certification_only"
+        },
+        {
+          "rule_id": "DOC_003",
+          "requirement": "Owner contact information required",
+          "fields": ["owner_name", "owner_email", "owner_team"],
+          "validation": "email_format"
+        },
+        {
+          "rule_id": "DOC_004",
+          "requirement": "Column lineage must be documented",
+          "applies_to": ["marts.*"],
+          "enforced_from_date": "2025-10-01"
+        }
+      ]
+    },
+    {
+      "policy_id": "PII_HANDLING_01",
+      "name": "PII Data Protection",
+      "description": "Rules for handling personally identifiable information",
+      "category": "security",
+      "severity": "critical",
+      "enforcement": "mandatory",
+      "rules": [
+        {
+          "rule_id": "PII_001",
+          "name": "PII Masking",
+          "description": "PII columns must be masked in non-production",
+          "applies_to": ["email", "phone", "ssn", "credit_card", "home_address"],
+          "masking_techniques": {
+            "email": "redact_domain",
+            "phone": "show_last_4_digits",
+            "ssn": "show_last_4_digits",
+            "credit_card": "show_last_4_digits",
+            "home_address": "redact_completely"
+          },
+          "environments": ["dev", "test", "qa"]
+        },
+        {
+          "rule_id": "PII_002",
+          "name": "PII Query Logging",
+          "description": "All PII access must be logged for compliance",
+          "log_retention_days": 2555,
+          "audit_trail": "full",
+          "sensitive_queries_flagged": true
+        },
+        {
+          "rule_id": "PII_003",
+          "name": "PII Data Export Restrictions",
+          "description": "PII can only be exported in approved formats",
+          "allowed_export_formats": ["encrypted_csv", "encrypted_parquet"],
+          "requires_vpn": true,
+          "requires_approval": true
+        },
+        {
+          "rule_id": "PII_004",
+          "name": "Data Retention",
+          "description": "PII retention policies by data type",
+          "retention_policies": {
+            "customer_records": 2555,
+            "transaction_records": 1825,
+            "event_logs": 365,
+            "audit_logs": 2555
+          }
+        }
+      ]
+    },
+    {
+      "policy_id": "NAMING_CONVENTIONS_01",
+      "name": "Naming Conventions",
+      "description": "Standards for naming datasets, columns, and metrics",
+      "category": "standards",
+      "severity": "medium",
+      "enforcement": "automated_checks",
+      "conventions": {
+        "table_naming": {
+          "fact_tables": "fct_.*",
+          "dimension_tables": "dim_.*",
+          "staging_tables": "stg_.*",
+          "raw_tables": "raw_.*",
+          "validation_rules": "snake_case, lowercase"
+        },
+        "column_naming": {
+          "primary_keys": ".*_id$",
+          "foreign_keys": ".*_id$",
+          "booleans": "is_.* or has_.*",
+          "timestamps": ".*_at$ or .*_date$",
+          "validation_rules": "snake_case, lowercase"
+        },
+        "metric_naming": {
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "examples": ["revenue_total", "user_count_active", "churn_rate_monthly"],
+          "validation_rules": "snake_case, no abbreviations unless standard"
+        }
+      }
+    },
+    {
+      "policy_id": "CERTIFICATION_01",
+      "name": "Data Certification Framework",
+      "description": "Levels of data trustworthiness",
+      "category": "quality",
+      "severity": "high",
+      "certification_levels": [
+        {
+          "level": "bronze",
+          "name": "Bronze - Discovered",
+          "criteria": {
+            "has_owner": true,
+            "has_description": true,
+            "documented_columns": false,
+            "dq_checks_passing": false
+          },
+          "sla_uptime": "95%",
+          "refresh_sla": "72_hours",
+          "use_case": "Ad-hoc exploration"
+        },
+        {
+          "level": "silver",
+          "name": "Silver - Validated",
+          "criteria": {
+            "has_owner": true,
+            "has_description": true,
+            "documented_columns": true,
+            "dq_checks_passing": 80,
+            "lineage_documented": true
+          },
+          "sla_uptime": "99%",
+          "refresh_sla": "24_hours",
+          "use_case": "Department reporting"
+        },
+        {
+          "level": "gold",
+          "name": "Gold - Trusted",
+          "criteria": {
+            "has_owner": true,
+            "has_description": true,
+            "documented_columns": true,
+            "dq_checks_passing": 100,
+            "lineage_documented": true,
+            "governed": true,
+            "slo_monitored": true
+          },
+          "sla_uptime": "99.9%",
+          "refresh_sla": "real_time",
+          "use_case": "Executive dashboards, regulated reporting"
+        }
+      ]
+    },
+    {
+      "policy_id": "RETIREMENT_01",
+      "name": "Data Asset Retirement",
+      "description": "Process for deprecating and retiring datasets",
+      "category": "governance",
+      "severity": "medium",
+      "enforcement": "manual_approval",
+      "process": {
+        "notification_phase": {
+          "days": 60,
+          "actions": [
+            "Notify all users of asset",
+            "Recommend replacement datasets",
+            "Track usage impact"
+          ]
+        },
+        "deprecation_phase": {
+          "days": 30,
+          "actions": [
+            "Mark as deprecated",
+            "Prevent new access requests",
+            "Continue existing access with warnings"
+          ]
+        },
+        "retirement_phase": {
+          "days": 1,
+          "actions": [
+            "Revoke all access",
+            "Archive to cold storage",
+            "Keep metadata for audit trail"
+          ]
+        }
+      }
+    }
+  ],
+  "compliance_mappings": {
+    "GDPR": ["DATA_QUALITY_01", "PII_HANDLING_01", "ACCESS_CONTROL_01"],
+    "CCPA": ["PII_HANDLING_01", "ACCESS_CONTROL_01"],
+    "SOX": ["DOCUMENTATION_01", "CERTIFICATION_01"],
+    "HIPAA": ["PII_HANDLING_01", "ACCESS_CONTROL_01"]
+  },
+  "enforcement_escalation": {
+    "warning": {
+      "threshold_violations": 3,
+      "notification": "data_steward"
+    },
+    "enforcement": {
+      "threshold_violations": 5,
+      "action": "restrict_access",
+      "notification": ["data_steward", "cdo"]
+    },
+    "escalation": {
+      "threshold_violations": 10,
+      "action": "remove_certification",
+      "notification": ["cdo", "compliance_team"]
+    }
+  }
+}

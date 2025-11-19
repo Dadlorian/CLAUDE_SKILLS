@@ -1,0 +1,64 @@
+{
+  "type": "kafka",
+  "spec": {
+    "dataSchema": {
+      "dataSource": "events",
+      "timestampSpec": {
+        "column": "timestamp",
+        "format": "millis"
+      },
+      "dimensionsSpec": {
+        "dimensions": [
+          "user_id",
+          "event_type",
+          "country",
+          "device_type"
+        ]
+      },
+      "metricsSpec": [
+        {
+          "type": "count",
+          "name": "count"
+        },
+        {
+          "type": "longSum",
+          "name": "revenue_sum",
+          "fieldName": "revenue"
+        },
+        {
+          "type": "hyperUnique",
+          "name": "unique_users",
+          "fieldName": "user_id"
+        },
+        {
+          "type": "quantilesDoublesSketch",
+          "name": "session_duration_sketch",
+          "fieldName": "session_duration"
+        }
+      ],
+      "granularitySpec": {
+        "type": "uniform",
+        "segmentGranularity": "HOUR",
+        "queryGranularity": "MINUTE",
+        "rollup": true
+      }
+    },
+    "ioConfig": {
+      "topic": "events",
+      "consumerProperties": {
+        "bootstrap.servers": "kafka:9092"
+      },
+      "taskCount": 8,
+      "replicas": 2,
+      "taskDuration": "PT1H",
+      "useEarliestOffset": false
+    },
+    "tuningConfig": {
+      "type": "kafka",
+      "maxRowsPerSegment": 5000000,
+      "maxRowsInMemory": 1000000,
+      "intermediatePersistPeriod": "PT10M",
+      "maxPendingPersists": 0
+    }
+  }
+}

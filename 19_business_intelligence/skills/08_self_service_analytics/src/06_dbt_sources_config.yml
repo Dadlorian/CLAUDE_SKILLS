@@ -1,0 +1,168 @@
+# dbt sources configuration
+# Defines external data sources with freshness checks and documentation
+
+version: 2
+
+sources:
+  - name: production_db
+    description: Production application database (replica for analytics)
+    database: prod_replica
+    schema: public
+    
+    meta:
+      owner: data-engineering-team
+      contains_pii: true
+    
+    tables:
+      - name: users
+        description: User account information from production
+        identifier: users  # actual table name if different
+        
+        freshness:
+          warn_after: {count: 6, period: hour}
+          error_after: {count: 12, period: hour}
+        loaded_at_field: updated_at
+        
+        columns:
+          - name: id
+            description: Primary key
+            tests:
+              - unique
+              - not_null
+          
+          - name: email
+            description: User email address
+            tests:
+              - unique
+              - not_null
+          
+          - name: created_at
+            description: Account creation timestamp
+            tests:
+              - not_null
+          
+          - name: updated_at
+            description: Last update timestamp
+
+      - name: orders
+        description: Customer orders
+        
+        freshness:
+          warn_after: {count: 1, period: hour}
+          error_after: {count: 2, period: hour}
+        loaded_at_field: updated_at
+        
+        columns:
+          - name: id
+            description: Order ID (primary key)
+            tests:
+              - unique
+              - not_null
+          
+          - name: user_id
+            description: Foreign key to users
+            tests:
+              - not_null
+              - relationships:
+                  to: source('production_db', 'users')
+                  field: id
+          
+          - name: order_date
+            description: Date order was placed
+            tests:
+              - not_null
+          
+          - name: total_amount
+            description: Order total
+            tests:
+              - not_null
+              - dbt_utils.expression_is_true:
+                  expression: ">= 0"
+          
+          - name: status
+            description: Order status
+            tests:
+              - accepted_values:
+                  values: ['pending', 'confirmed', 'shipped', 'delivered', 'cancelled']
+
+  - name: marketing_platform
+    description: Marketing automation platform data
+    database: fivetran_db
+    schema: salesforce
+    loader: fivetran
+    
+    tables:
+      - name: campaigns
+        description: Marketing campaigns
+        
+        freshness:
+          warn_after: {count: 24, period: hour}
+        
+        columns:
+          - name: campaign_id
+            tests:
+              - unique
+              - not_null
+          
+          - name: campaign_name
+          - name: start_date
+          - name: end_date
+          - name: budget
+
+  - name: stripe_data
+    description: Stripe payment data via Fivetran
+    database: fivetran_db
+    schema: stripe
+    loader: fivetran
+    
+    tables:
+      - name: charges
+        description: Payment charges
+        
+        freshness:
+          warn_after: {count: 6, period: hour}
+        loaded_at_field: _fivetran_synced
+        
+        columns:
+          - name: id
+            description: Stripe charge ID
+            tests:
+              - unique
+              - not_null
+          
+          - name: customer_id
+            description: Stripe customer ID
+          
+          - name: amount
+            description: Charge amount in cents
+            tests:
+              - not_null
+              - dbt_utils.expression_is_true:
+                  expression: ">= 0"
+          
+          - name: currency
+            tests:
+              - accepted_values:
+                  values: ['usd', 'eur', 'gbp']
+          
+          - name: status
+            tests:
+              - accepted_values:
+                  values: ['succeeded', 'pending', 'failed']
+
+# Exposures (where source data is used)
+exposures:
+  - name: executive_dashboard
+    type: dashboard
+    maturity: high
+    url: https://looker.company.com/dashboards/executive
+    description: Executive KPI dashboard
+    
+    depends_on:
+      - ref('fct_orders')
+      - ref('fct_revenue')
+      - ref('dim_customers')
+    
+    owner:
+      name: Analytics Team
+      email: analytics@company.com

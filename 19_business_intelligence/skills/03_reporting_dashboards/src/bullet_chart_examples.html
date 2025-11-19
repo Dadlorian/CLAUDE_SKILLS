@@ -1,0 +1,169 @@
+<!-- Bullet Chart Examples - Stephen Few's Space-Efficient Alternative to Gauges -->
+<html>
+<head>
+    <title>Bullet Charts (Stephen Few)</title>
+    <style>
+        .bullet-chart {
+            margin: 20px 0;
+            font-family: Arial, sans-serif;
+        }
+        .bullet-label {
+            font-size: 14px;
+            color: #333;
+            margin-bottom: 4px;
+        }
+        .bullet-value {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        .bullet-bar-container {
+            position: relative;
+            height: 30px;
+            width: 300px;
+        }
+        .bullet-range {
+            position: absolute;
+            height: 100%;
+            top: 0;
+        }
+        .bullet-range.poor {
+            background: #F0F0F0;
+            left: 0;
+            width: 60%;
+        }
+        .bullet-range.satisfactory {
+            background: #D0D0D0;
+            left: 60%;
+            width: 20%;
+        }
+        .bullet-range.good {
+            background: #B0B0B0;
+            left: 80%;
+            width: 20%;
+        }
+        .bullet-measure {
+            position: absolute;
+            background: #2C3E50;
+            height: 50%;
+            top: 25%;
+        }
+        .bullet-target {
+            position: absolute;
+            width: 2px;
+            height: 100%;
+            background: #E74C3C;
+            top: 0;
+        }
+        .bullet-scale {
+            font-size: 10px;
+            color: #666;
+            margin-top: 4px;
+        }
+    </style>
+</head>
+<body style="padding: 20px; max-width: 800px; margin: 0 auto;">
+    <h1>Bullet Charts - Stephen Few</h1>
+    <p>Space-efficient alternative to gauge charts, showing performance against target with qualitative ranges.</p>
+
+    <!-- Example 1: Revenue vs Target -->
+    <div class="bullet-chart">
+        <div class="bullet-label">Revenue (Monthly)</div>
+        <div class="bullet-value">$1.2M (120% of target)</div>
+        <div class="bullet-bar-container">
+            <!-- Qualitative ranges -->
+            <div class="bullet-range poor"></div>
+            <div class="bullet-range satisfactory"></div>
+            <div class="bullet-range good"></div>
+            <!-- Featured measure (actual) -->
+            <div class="bullet-measure" style="width: 60%;"></div>
+            <!-- Comparative measure (target) -->
+            <div class="bullet-target" style="left: 50%;"></div>
+        </div>
+        <div class="bullet-scale">
+            <span>$0</span>
+            <span style="float: right;">$2M</span>
+        </div>
+    </div>
+
+    <!-- Example 2: Customer Satisfaction -->
+    <div class="bullet-chart">
+        <div class="bullet-label">Customer Satisfaction (CSAT)</div>
+        <div class="bullet-value">4.5/5 (90%)</div>
+        <div class="bullet-bar-container">
+            <div class="bullet-range poor"></div>
+            <div class="bullet-range satisfactory"></div>
+            <div class="bullet-range good"></div>
+            <div class="bullet-measure" style="width: 90%;"></div>
+            <div class="bullet-target" style="left: 80%;"></div>
+        </div>
+        <div class="bullet-scale">
+            <span>1.0</span>
+            <span style="float: right;">5.0</span>
+        </div>
+    </div>
+
+    <!-- SVG-based Bullet Chart for better control -->
+    <h2>SVG Bullet Chart Example</h2>
+    <svg width="350" height="60" role="img" aria-label="Sales quota achievement: 85% of $100K target">
+        <!-- Background ranges -->
+        <rect x="0" y="15" width="150" height="30" fill="#F0F0F0"/> <!-- Poor -->
+        <rect x="150" y="15" width="75" height="30" fill="#D0D0D0"/> <!-- Satisfactory -->
+        <rect x="225" y="15" width="75" height="30" fill="#B0B0B0"/> <!-- Good -->
+        
+        <!-- Actual performance bar -->
+        <rect x="0" y="22.5" width="255" height="15" fill="#2C3E50"/>
+        
+        <!-- Target marker -->
+        <line x1="200" y1="15" x2="200" y2="45" stroke="#E74C3C" stroke-width="3"/>
+        
+        <!-- Labels -->
+        <text x="0" y="12" font-size="12" fill="#333">Sales Quota: $85K (85% of target)</text>
+        <text x="0" y="58" font-size="10" fill="#666">$0</text>
+        <text x="290" y="58" font-size="10" fill="#666" text-anchor="end">$100K</text>
+    </svg>
+
+    <!-- JavaScript Function to Generate Bullet Chart -->
+    <script>
+    function createBulletChart(config) {
+        const {
+            value,
+            target,
+            max,
+            ranges = [0.6, 0.8, 1.0], // Poor, Satisfactory, Good as % of max
+            label
+        } = config;
+        
+        const width = 300;
+        const height = 30;
+        
+        return `
+            <svg width="${width + 50}" height="${height + 40}" role="img" aria-label="${label}: ${value} vs ${target} target">
+                <!-- Ranges -->
+                <rect x="0" y="0" width="${width * ranges[0]}" height="${height}" fill="#F0F0F0"/>
+                <rect x="${width * ranges[0]}" y="0" width="${width * (ranges[1] - ranges[0])}" height="${height}" fill="#D0D0D0"/>
+                <rect x="${width * ranges[1]}" y="0" width="${width * (ranges[2] - ranges[1])}" height="${height}" fill="#B0B0B0"/>
+                
+                <!-- Actual value bar -->
+                <rect x="0" y="${height * 0.25}" width="${width * (value / max)}" height="${height * 0.5}" fill="#2C3E50"/>
+                
+                <!-- Target line -->
+                <line x1="${width * (target / max)}" y1="0" x2="${width * (target / max)}" y2="${height}" stroke="#E74C3C" stroke-width="2"/>
+                
+                <!-- Scale -->
+                <text x="0" y="${height + 15}" font-size="10" fill="#666">0</text>
+                <text x="${width}" y="${height + 15}" font-size="10" fill="#666" text-anchor="end">${max}</text>
+            </svg>
+        `;
+    }
+    
+    // Usage Example
+    console.log(createBulletChart({
+        value: 85000,
+        target: 100000,
+        max: 120000,
+        label: "Monthly Revenue"
+    }));
+    </script>
+</body>
+</html>

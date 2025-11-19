@@ -1,0 +1,423 @@
+# Access Control Configuration
+# Role-Based Access Control (RBAC) for Analytics Platform
+# Version: 2.0
+
+version: "2.0"
+config_type: "rbac"
+last_updated: "2025-11-19"
+managed_by: "data_governance_team"
+
+# Global Settings
+global_settings:
+  enforce_mfa: true
+  session_timeout_minutes: 60
+  audit_all_access: true
+  require_vpn_for_sensitive_data: true
+  enforce_row_level_security: true
+  data_classification_required: true
+
+# Role Definitions
+roles:
+  # Executive Role
+  - role_id: "executive"
+    name: "Executive"
+    description: "C-level and executives with strategic view"
+    team_assigned: ["executive_leadership"]
+
+    permissions:
+      databases:
+        - database: "*"
+          schemas: ["executive_summaries"]
+          access_level: "read"
+          row_filters: []
+
+      datasets:
+        - dataset: "financial_dashboards"
+          access_level: "read"
+          columns: "*"
+
+        - dataset: "kpi_tracker"
+          access_level: "read"
+          columns: "*"
+
+        - dataset: "customer_health"
+          access_level: "read"
+          columns: "*"
+
+      actions:
+        - create_dashboard: false
+        - export_data: true
+        - share_insights: true
+        - schedule_reports: true
+        - create_metrics: false
+
+      data_classifications_accessible:
+        - PUBLIC
+        - INTERNAL
+        - CONFIDENTIAL
+
+      requires_approval: false
+
+  # Business Analyst Role
+  - role_id: "analyst"
+    name: "Business Analyst"
+    description: "Data analysts for daily reporting and insights"
+    team_assigned: ["analytics_team", "business_operations"]
+
+    permissions:
+      databases:
+        - database: "analytics_prod"
+          schemas: ["marts", "analytics_schemas.*"]
+          access_level: "read"
+          row_filters:
+            - "region = user.assigned_region"
+
+        - database: "analytics_dev"
+          schemas: "*"
+          access_level: "read_write"
+          row_filters: []
+
+      datasets:
+        - dataset_pattern: "marts.*"
+          access_level: "read"
+          columns:
+            - exclude: ["ssn", "home_address"]
+
+        - dataset_pattern: "staging.*"
+          access_level: "read_write"
+          columns: "*"
+
+        - dataset: "dim_customer"
+          access_level: "read"
+          columns:
+            - include: ["customer_id", "customer_name", "tier", "segment"]
+            - exclude: ["email", "phone"]
+
+      actions:
+        - create_dashboard: true
+        - export_data: true
+        - download_csv: true
+        - share_insights: true
+        - schedule_reports: true
+        - create_metrics: false
+        - query_raw_data: false
+
+      data_classifications_accessible:
+        - PUBLIC
+        - INTERNAL
+
+      requires_approval: false
+
+      query_limits:
+        max_rows: 1000000
+        timeout_seconds: 600
+        max_queries_per_hour: 100
+
+  # Senior Analyst Role
+  - role_id: "senior_analyst"
+    name: "Senior Analytics Engineer"
+    description: "Advanced analytics with dataset creation capabilities"
+    team_assigned: ["analytics_engineering_team"]
+
+    permissions:
+      databases:
+        - database: "analytics_prod"
+          schemas: "*"
+          access_level: "read_write"
+          row_filters: []
+
+        - database: "analytics_dev"
+          schemas: "*"
+          access_level: "read_write"
+          row_filters: []
+
+        - database: "analytics_staging"
+          schemas: "*"
+          access_level: "read_write"
+          row_filters: []
+
+      datasets:
+        - dataset_pattern: "*"
+          access_level: "read_write"
+          columns:
+            - exclude: ["ssn", "home_address"]
+
+      actions:
+        - create_dataset: true
+        - create_dashboard: true
+        - modify_table: true
+        - export_data: true
+        - download_csv: true
+        - share_insights: true
+        - schedule_reports: true
+        - create_metrics: true
+        - query_raw_data: true
+        - modify_column: true
+        - delete_object: false
+
+      data_classifications_accessible:
+        - PUBLIC
+        - INTERNAL
+        - CONFIDENTIAL
+
+      requires_approval: true
+      approval_manager: "analytics_engineering_lead"
+
+      query_limits:
+        max_rows: 10000000
+        timeout_seconds: 1800
+        max_queries_per_hour: 500
+
+  # Data Steward Role
+  - role_id: "data_steward"
+    name: "Data Steward"
+    description: "Governance and metadata management"
+    team_assigned: ["data_governance_team"]
+
+    permissions:
+      databases:
+        - database: "*"
+          schemas: "*"
+          access_level: "admin"
+          row_filters: []
+
+      actions:
+        - manage_users: true
+        - manage_roles: true
+        - update_metadata: true
+        - approve_access_requests: true
+        - view_audit_logs: true
+        - certify_datasets: true
+        - deprecate_datasets: true
+        - manage_tags: true
+        - export_data: true
+
+      data_classifications_accessible: ["*"]
+
+      requires_approval: false
+
+  # PII Data Handler Role
+  - role_id: "pii_handler"
+    name: "PII Data Specialist"
+    description: "Can access and work with PII data"
+    team_assigned: ["customer_analytics_team", "compliance_team"]
+
+    permissions:
+      databases:
+        - database: "analytics_prod"
+          schemas: ["marts", "raw"]
+          access_level: "read"
+          row_filters:
+            - "contains_pii = true"
+
+      datasets:
+        - dataset_pattern: "*"
+          access_level: "read"
+          columns: "*"
+
+      actions:
+        - query_pii_data: true
+        - export_pii: true
+        - view_audit_logs: true
+        - create_pii_reports: true
+
+      data_classifications_accessible:
+        - PUBLIC
+        - INTERNAL
+        - CONFIDENTIAL
+        - PII
+
+      requires_approval: true
+      approval_manager: "data_governance_lead"
+
+      required_trainings:
+        - "pii_handling_certification"
+        - "gdpr_compliance"
+        - "data_privacy_best_practices"
+
+      required_background_check: true
+
+  # Read-Only Role
+  - role_id: "viewer"
+    name: "Dashboard Viewer"
+    description: "View-only access to published dashboards"
+    team_assigned: []
+
+    permissions:
+      databases: []
+
+      actions:
+        - view_dashboard: true
+        - view_insight: true
+        - download_dashboard_pdf: true
+        - subscribe_to_reports: true
+
+      data_classifications_accessible:
+        - PUBLIC
+
+      requires_approval: false
+
+# Row Level Security (RLS) Policies
+row_level_security:
+  - policy_id: "rls_region_filter"
+    name: "Region-based Row Filter"
+    description: "Restrict data to user's assigned region"
+    applies_to_roles: ["analyst"]
+    tables:
+      - "fct_sales"
+      - "fct_orders"
+      - "customer_metrics"
+    filter_expression: "region = get_user_region(current_user())"
+
+  - policy_id: "rls_department_filter"
+    name: "Department-based Row Filter"
+    description: "Show only department's sales data"
+    applies_to_roles: ["analyst"]
+    tables:
+      - "sales_data"
+    filter_expression: "department_id = get_user_department(current_user())"
+
+# Column Level Security (CLS)
+column_level_security:
+  - policy_id: "cls_mask_pii_email"
+    name: "Mask Email in Non-Production"
+    applies_to_columns: ["email"]
+    applies_to_roles: ["analyst"]
+    applies_to_environments: ["dev", "test", "qa"]
+    masking_type: "redact_domain"  # Show first 3 chars + ***@***.***
+
+  - policy_id: "cls_mask_pii_phone"
+    name: "Mask Phone Number"
+    applies_to_columns: ["phone", "mobile_number"]
+    applies_to_roles: ["analyst"]
+    applies_to_environments: ["dev", "test", "qa"]
+    masking_type: "show_last_4"  # Show only last 4 digits
+
+  - policy_id: "cls_mask_pii_address"
+    name: "Redact Home Address"
+    applies_to_columns: ["home_address"]
+    applies_to_roles: ["analyst"]
+    applies_to_environments: ["dev", "test", "qa"]
+    masking_type: "redact_completely"
+
+# Access Request Workflow
+access_request_workflow:
+  enabled: true
+
+  approval_levels:
+    - level: 1
+      approver_role: "manager"
+      description: "Direct manager approval"
+      timeout_days: 2
+
+    - level: 2
+      approver_role: "data_steward"
+      description: "Data governance approval"
+      timeout_days: 3
+      required_for_classifications: ["CONFIDENTIAL", "PII"]
+
+  escalation:
+    enabled: true
+    escalate_after_days: 5
+    escalate_to: "data_governance_lead"
+
+  audit_trail: true
+  require_justification: true
+  require_duration: true
+
+# Audit & Compliance
+audit_settings:
+  log_all_access: true
+  log_failed_access_attempts: true
+  log_data_exports: true
+  log_metadata_changes: true
+  audit_log_retention_days: 2555  # 7 years
+
+  high_risk_activities:
+    - export_more_than_1m_rows
+    - access_pii_outside_business_hours
+    - bulk_download_customer_data
+    - schema_modification
+    - role_permission_change
+
+  monitoring:
+    alert_on_high_risk: true
+    alert_recipients: ["security_team@company.com", "data_governance@company.com"]
+
+# User-Role Assignments
+user_role_assignments:
+  default_role: "viewer"
+
+  auto_assignment_rules:
+    - condition: "department == 'Finance'"
+      assigned_role: "analyst"
+      assigned_additional_roles: ["pii_handler"]
+
+    - condition: "title LIKE '%Analytics Engineer%'"
+      assigned_role: "senior_analyst"
+
+    - condition: "title LIKE '%Data Steward%'"
+      assigned_role: "data_steward"
+
+    - condition: "department == 'Executive'"
+      assigned_role: "executive"
+
+# API Access Control
+api_access:
+  enabled: true
+
+  endpoints:
+    - endpoint: "/api/metrics/*"
+      allowed_roles: ["analyst", "senior_analyst", "data_steward"]
+      rate_limit: "1000_per_hour"
+      require_api_key: true
+
+    - endpoint: "/api/admin/*"
+      allowed_roles: ["data_steward"]
+      rate_limit: "100_per_hour"
+      require_api_key: true
+      require_mfa: true
+
+# Integration with External Systems
+external_integrations:
+  - system: "snowflake"
+    connection_type: "native"
+    credentials_storage: "vault"
+    network_access: "restricted_to_vpn"
+
+  - system: "dbt_cloud"
+    connection_type: "api"
+    credentials_storage: "vault"
+    webhook_signing: true
+
+# Compliance & Standards
+compliance:
+  standards: ["SOX", "GDPR", "CCPA", "HIPAA"]
+
+  certifications_required:
+    pii_handler:
+      - "pii_handling_certification"
+      - "gdpr_compliance"
+      - "background_check_passed"
+    data_steward:
+      - "data_governance_training"
+      - "compliance_training"
+
+# Access Control Exceptions
+exceptions:
+  - exception_id: "exc_001"
+    user_id: "analyst@example.com"
+    grant_role: "senior_analyst"
+    reason: "Project lead for Q4 analytics initiative"
+    duration_days: 90
+    approved_by: "analytics_lead"
+    approval_date: "2025-10-15"
+    expiration_date: "2026-01-13"
+
+# Configuration Review & Approval
+metadata:
+  last_reviewed: "2025-11-19"
+  reviewed_by: "chief_data_officer"
+  next_review_date: "2025-12-19"
+  review_frequency_days: 30
+  requires_quarterly_audit: true

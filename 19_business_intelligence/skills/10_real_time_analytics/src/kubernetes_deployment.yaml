@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flink-analytics
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: flink-analytics
+  template:
+    metadata:
+      labels:
+        app: flink-analytics
+    spec:
+      containers:
+      - name: flink-taskmanager
+        image: flink:1.18
+        resources:
+          requests:
+            memory: "4Gi"
+            cpu: "2"
+          limits:
+            memory: "8Gi"
+            cpu: "4"
+        env:
+        - name: JOB_MANAGER_RPC_ADDRESS
+          value: "flink-jobmanager"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: flink-jobmanager
+spec:
+  selector:
+    app: flink-jobmanager
+  ports:
+  - port: 8081
+    targetPort: 8081

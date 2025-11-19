@@ -1,0 +1,217 @@
+-- Power BI DAX Measures Library
+
+-- ============================================
+-- BASIC AGGREGATIONS
+-- ============================================
+
+Total Sales =
+SUM(Sales[Amount])
+
+Average Order Value =
+AVERAGE(Sales[Amount])
+
+Distinct Customer Count =
+DISTINCTCOUNT(Sales[CustomerID])
+
+Total Orders =
+COUNTROWS(Sales)
+
+-- ============================================
+-- TIME INTELLIGENCE
+-- ============================================
+
+-- Year-to-Date
+Sales YTD =
+TOTALYTD(
+    SUM(Sales[Amount]),
+    'Date'[Date]
+)
+
+-- Prior Year
+Sales PY =
+CALCULATE(
+    SUM(Sales[Amount]),
+    SAMEPERIODLASTYEAR('Date'[Date])
+)
+
+-- Year-over-Year Growth
+YoY Growth =
+VAR CurrentYear = SUM(Sales[Amount])
+VAR PriorYear = [Sales PY]
+VAR GrowthRate = DIVIDE(CurrentYear - PriorYear, PriorYear)
+RETURN GrowthRate
+
+-- Rolling 12 Months
+Sales L12M =
+CALCULATE(
+    SUM(Sales[Amount]),
+    DATESINPERIOD(
+        'Date'[Date],
+        LASTDATE('Date'[Date]),
+        -12,
+        MONTH
+    )
+)
+
+-- ============================================
+-- ADVANCED PATTERNS
+-- ============================================
+
+-- Customer Lifetime Value
+Customer LTV =
+CALCULATE(
+    SUM(Sales[Amount]),
+    ALLEXCEPT(Sales, Sales[CustomerID])
+)
+
+-- New vs Repeat Customers
+Customer Type =
+VAR FirstPurchase =
+    CALCULATE(
+        MIN(Sales[OrderDate]),
+        ALLEXCEPT(Sales, Sales[CustomerID])
+    )
+VAR CurrentOrder = SELECTEDVALUE(Sales[OrderDate])
+RETURN
+    IF(FirstPurchase = CurrentOrder, "New", "Repeat")
+
+-- Cohort Retention Rate
+Retention Rate =
+VAR CohortSize =
+    CALCULATE(
+        DISTINCTCOUNT(Sales[CustomerID]),
+        FILTER(
+            ALL('Date'),
+            'Date'[YearMonth] = EARLIER('Date'[CohortMonth])
+        )
+    )
+VAR CurrentActiveCustomers = DISTINCTCOUNT(Sales[CustomerID])
+RETURN
+    DIVIDE(CurrentActiveCustomers, CohortSize)
+
+-- ABC Analysis (Pareto)
+ABC Category =
+VAR CurrentProductSales = [Total Sales]
+VAR RunningTotal =
+    CALCULATE(
+        [Total Sales],
+        FILTER(
+            ALL(Products[ProductName]),
+            [Total Sales] >= CurrentProductSales
+        )
+    )
+VAR TotalSales = CALCULATE([Total Sales], ALL(Products))
+VAR Percentage = DIVIDE(RunningTotal, TotalSales)
+RETURN
+    SWITCH(
+        TRUE(),
+        Percentage <= 0.7, "A",
+        Percentage <= 0.9, "B",
+        "C"
+    )
+
+-- ============================================
+-- RANKING
+-- ============================================
+
+-- Product Rank
+Product Rank =
+RANKX(
+    ALL(Products[ProductName]),
+    [Total Sales],
+    ,
+    DESC,
+    DENSE
+)
+
+-- Top N Products
+Top N Products =
+VAR TopNValue = [Top N Parameter]
+VAR CurrentRank = [Product Rank]
+RETURN
+    IF(CurrentRank <= TopNValue, Products[ProductName], "Other")
+
+-- ============================================
+-- CONDITIONAL AGGREGATIONS
+-- ============================================
+
+-- High Value Sales
+High Value Sales =
+CALCULATE(
+    SUM(Sales[Amount]),
+    Sales[Amount] > 1000
+)
+
+-- Electronics Sales
+Electronics Sales =
+CALCULATE(
+    SUM(Sales[Amount]),
+    Products[Category] = "Electronics"
+)
+
+-- ============================================
+-- RATIO AND PERCENTAGES
+-- ============================================
+
+-- Profit Margin
+Profit Margin =
+VAR Revenue = SUM(Sales[Amount])
+VAR Cost = SUM(Sales[Cost])
+RETURN
+    DIVIDE(Revenue - Cost, Revenue)
+
+-- Percent of Total
+% of Total =
+DIVIDE(
+    [Total Sales],
+    CALCULATE([Total Sales], ALL(Products))
+)
+
+-- % of Parent
+% of Category =
+DIVIDE(
+    [Total Sales],
+    CALCULATE([Total Sales], ALLEXCEPT(Products, Products[Category]))
+)
+
+-- ============================================
+-- ERROR HANDLING
+-- ============================================
+
+Safe Division =
+DIVIDE(
+    [Numerator],
+    [Denominator],
+    0  -- Return 0 if denominator is zero
+)
+
+Null to Zero =
+VAR Result = [Some Calculation]
+RETURN
+    IF(ISBLANK(Result), 0, Result)
+
+-- ============================================
+-- DYNAMIC MEASURES
+-- ============================================
+
+-- Dynamic Metric (based on parameter)
+Dynamic Metric =
+SWITCH(
+    SELECTEDVALUE('Metric Selector'[Metric]),
+    "Revenue", [Total Sales],
+    "Profit", [Total Profit],
+    "Orders", [Total Orders],
+    BLANK()
+)
+
+-- Dynamic Time Period
+Dynamic Period Sales =
+VAR SelectedPeriod = SELECTEDVALUE('Period'[Period])
+RETURN
+    SWITCH(
+        SelectedPeriod,
+        "YTD", [Sales YTD],
+        "MTD", [Sales MTD],
+        "L12M", [Sales L12M],
+        [Total Sales]
+    )

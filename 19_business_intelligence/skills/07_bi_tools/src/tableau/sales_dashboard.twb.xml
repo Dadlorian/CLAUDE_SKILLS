@@ -1,0 +1,60 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<!-- Tableau Workbook Structure Example -->
+<!-- This is a simplified view of .twb XML structure -->
+<workbook source-build='2024.1.0' source-platform='mac' version='18.1'>
+  <datasources>
+    <datasource name='Sales Data' version='18.1'>
+      <connection class='snowflake'>
+        <named-connections>
+          <named-connection>
+            <connection authentication='username-password'
+                        dbname='SALES_DB'
+                        schema='PUBLIC'
+                        server='company.snowflakecomputing.com'
+                        username='bi_user'
+                        warehouse='COMPUTE_WH' />
+          </named-connection>
+        </named-connections>
+      </connection>
+      
+      <!-- Calculated Fields -->
+      <column caption='Revenue' datatype='real' name='[Calculation_Revenue]'>
+        <calculation class='tableau' formula='[Quantity] * [Unit Price]' />
+      </column>
+      
+      <column caption='Profit Margin %' datatype='real' name='[Calculation_ProfitMargin]'>
+        <calculation class='tableau' formula='([Revenue] - [Cost]) / [Revenue]' />
+      </column>
+      
+      <column caption='Customer LTV' datatype='real' name='[Calculation_LTV]'>
+        <calculation class='tableau' formula='{ FIXED [Customer ID] : SUM([Revenue]) }' />
+      </column>
+    </datasource>
+  </datasources>
+  
+  <worksheets>
+    <worksheet name='Revenue Trend'>
+      <table>
+        <view>
+          <datasources>
+            <datasource name='Sales Data' />
+          </datasources>
+          <aggregation value='true' />
+        </view>
+      </table>
+    </worksheet>
+  </worksheets>
+  
+  <dashboards>
+    <dashboard name='Sales Dashboard'>
+      <size maxheight='800' maxwidth='1200' minheight='600' minwidth='800' />
+      <zones>
+        <zone h='100' name='Revenue KPI' w='300' x='0' y='0'>
+          <zone-style>
+            <format attr='background' value='#E8F4F8' />
+          </zone-style>
+        </zone>
+      </zones>
+    </dashboard>
+  </dashboards>
+</workbook>

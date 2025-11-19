@@ -1,0 +1,104 @@
+# Azure DevOps Pipeline for Power BI Deployment
+
+trigger:
+  branches:
+    include:
+      - main
+      - develop
+  paths:
+    include:
+      - '**.pbix'
+      - '**.pbit'
+
+pool:
+  vmImage: 'windows-latest'
+
+variables:
+  - group: PowerBI-Variables
+
+stages:
+- stage: Build
+  displayName: 'Build and Validate'
+  jobs:
+  - job: Validate
+    displayName: 'Validate Power BI Files'
+    steps:
+    - task: PowerShell@2
+      displayName: 'Install Power BI Modules'
+      inputs:
+        targetType: 'inline'
+        script: |
+          Install-Module -Name MicrosoftPowerBIMgmt -Force -Scope CurrentUser
+          Install-Module -Name Pester -Force -Scope CurrentUser
+    
+    - task: PowerShell@2
+      displayName: 'Validate PBIX Files'
+      inputs:
+        targetType: 'inline'
+        script: |
+          # Check for PBIX files
+          $pbixFiles = Get-ChildItem -Path . -Filter *.pbix -Recurse
+          if ($pbixFiles.Count -eq 0) {
+            Write-Error "No PBIX files found"
+            exit 1
+          }
+          Write-Host "Found $($pbixFiles.Count) PBIX files"
+
+- stage: DeployQA
+  displayName: 'Deploy to QA'
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/develop'))
+  jobs:
+  - deployment: DeployToQA
+    environment: 'PowerBI-QA'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - task: PowerShell@2
+            displayName: 'Publish to QA Workspace'
+            inputs:
+              targetType: 'inline'
+              script: |
+                $password = ConvertTo-SecureString "$(ServicePrincipalSecret)" -AsPlainText -Force
+                $credential = New-Object System.Management.Automation.PSCredential("$(ServicePrincipalId)", $password)
+                
+                Connect-PowerBIServiceAccount -Credential $credential -ServicePrincipal -TenantId "$(TenantId)"
+                
+                # Publish PBIX files
+                $workspaceId = "$(QA-WorkspaceId)"
+                Get-ChildItem -Filter *.pbix | ForEach-Object {
+                  Write-Host "Publishing $($_.Name) to QA..."
+                  New-PowerBIReport -Path $_.FullName -WorkspaceId $workspaceId -ConflictAction CreateOrOverwrite
+                }
+
+- stage: DeployProd
+  displayName: 'Deploy to Production'
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  jobs:
+  - deployment: DeployToProduction
+    environment: 'PowerBI-Production'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - task: PowerShell@2
+            displayName: 'Publish to Production'
+            inputs:
+              targetType: 'inline'
+              script: |
+                Connect-PowerBIServiceAccount -ServicePrincipal `
+                  -ApplicationId "$(ServicePrincipalId)" `
+                  -CertificateThumbprint "$(CertThumbprint)" `
+                  -TenantId "$(TenantId)"
+                
+                $workspaceId = "$(Prod-WorkspaceId)"
+                
+                Get-ChildItem -Filter *.pbix | ForEach-Object {
+                  Write-Host "Publishing $($_.Name) to Production..."
+                  New-PowerBIReport -Path $_.FullName -WorkspaceId $workspaceId -ConflictAction CreateOrOverwrite
+                }
+                
+                # Refresh datasets
+                Get-PowerBIDataset -WorkspaceId $workspaceId | ForEach-Object {
+                  Invoke-PowerBIRestMethod -Url "groups/$workspaceId/datasets/$($_.Id)/refreshes" -Method Post
+                }

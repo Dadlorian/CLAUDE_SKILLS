@@ -1,0 +1,183 @@
+# Data Catalog Metadata Configuration
+# Defines asset discovery, lineage, and enrichment
+# Version: 1.0
+
+version: "1.0"
+catalog:
+  name: "Enterprise Data Catalog"
+  description: "Centralized metadata registry for all analytics assets"
+  owner: "data_governance_team"
+  sla_response_time: "24 hours"
+
+  # Asset Classification
+  classifications:
+    - id: "PII"
+      name: "Personally Identifiable Information"
+      risk_level: "critical"
+      regulations: ["GDPR", "CCPA", "HIPAA"]
+      access_approval_required: true
+
+    - id: "CONFIDENTIAL"
+      name: "Confidential Business Information"
+      risk_level: "high"
+      regulations: ["SOX"]
+      access_approval_required: true
+
+    - id: "INTERNAL"
+      name: "Internal Use Only"
+      risk_level: "medium"
+      regulations: []
+      access_approval_required: false
+
+    - id: "PUBLIC"
+      name: "Public Information"
+      risk_level: "low"
+      regulations: []
+      access_approval_required: false
+
+  # Data Source Definitions
+  sources:
+    - source_id: "erp_sap"
+      name: "SAP ERP System"
+      type: "database"
+      system: "sap"
+      connection_type: "jdbc"
+      host: "sap-prod.internal"
+      port: 5432
+      database: "sap_prod"
+      owner: "erp_team"
+      sla_freshness: "daily"
+
+      tables:
+        - table_id: "customers"
+          name: "customers"
+          description: "Master customer data from SAP"
+          row_count: 2500000
+          size_bytes: 850000000
+          last_modified: "2025-11-19T02:30:00Z"
+          classifications: ["INTERNAL"]
+          columns:
+            - name: "customer_id"
+              type: "string"
+              description: "Unique customer identifier"
+              is_primary_key: true
+            - name: "customer_name"
+              type: "string"
+              description: "Legal customer name"
+            - name: "email"
+              type: "string"
+              description: "Contact email address"
+              classifications: ["PII"]
+            - name: "phone"
+              type: "string"
+              description: "Contact phone number"
+              classifications: ["PII"]
+
+        - table_id: "orders"
+          name: "orders"
+          description: "Order transaction data"
+          row_count: 15000000
+          size_bytes: 5200000000
+          classifications: ["INTERNAL"]
+
+    - source_id: "data_warehouse"
+      name: "Analytics Data Warehouse"
+      type: "database"
+      system: "snowflake"
+      connection_type: "snowflake_native"
+      warehouse: "analytics_prod"
+      database: "analytics"
+      owner: "analytics_engineering_team"
+      sla_freshness: "real-time"
+
+      schemas:
+        - schema_id: "marts"
+          name: "marts"
+          description: "Analytics-ready fact and dimension tables"
+          tables:
+            - table_id: "fct_sales"
+              name: "fct_sales"
+              description: "Sales fact table with daily granularity"
+              row_count: 50000000
+              size_bytes: 15000000000
+              created: "2024-01-15"
+              classifications: ["CONFIDENTIAL"]
+              business_metrics: ["revenue", "gross_profit", "order_count"]
+
+            - table_id: "dim_customer"
+              name: "dim_customer"
+              description: "Customer dimension with SCD Type 2"
+              row_count: 3000000
+              size_bytes: 2000000000
+              classifications: ["INTERNAL", "PII"]
+
+  # Lineage Tracking
+  lineage:
+    - upstream_asset: "erp_sap.customers"
+      downstream_asset: "data_warehouse.raw.customers"
+      transformation: "direct_sync_full_load"
+      frequency: "daily"
+      last_successful_run: "2025-11-19T03:00:00Z"
+
+    - upstream_asset: "data_warehouse.raw.customers"
+      downstream_asset: "data_warehouse.marts.dim_customer"
+      transformation: "dbt_model_dim_customer"
+      frequency: "daily"
+
+    - upstream_asset: "data_warehouse.marts.fct_sales"
+      downstream_asset: "bi_tool.dashboard_revenue"
+      transformation: "dashboard_query"
+      frequency: "real-time"
+
+  # Metadata Enrichment
+  enrichment:
+    default_metadata:
+      - key: "owner_team"
+        required: true
+        description: "Team responsible for the asset"
+
+      - key: "business_domain"
+        required: true
+        description: "Business domain classification"
+        values: ["finance", "marketing", "sales", "operations", "product"]
+
+      - key: "certification_status"
+        required: true
+        description: "Data quality certification level"
+        values: ["bronze", "silver", "gold"]
+
+      - key: "refresh_interval"
+        required: true
+        description: "How frequently the data is updated"
+
+      - key: "data_quality_score"
+        required: false
+        description: "Automated DQ score (0-100)"
+
+      - key: "documented"
+        required: true
+        type: "boolean"
+        description: "Whether asset is documented"
+
+  # Deprecated Assets
+  deprecation_policy:
+    notification_period_days: 30
+    deprecated_assets:
+      - asset_id: "legacy_customer_table"
+        deprecation_date: "2025-09-01"
+        replacement: "dim_customer"
+        owner: "data_governance_team"
+        reason: "Replaced with SCD Type 2 dimension"
+
+# Metadata enrichment automation settings
+automation:
+  extract_metadata: true
+  schedule: "0 2 * * *"  # 2 AM daily
+  enable_notifications: true
+  failure_retry_count: 3
+
+metadata_standards:
+  description_min_length: 20
+  require_owner_email: true
+  require_business_domain: true
+  sla_response_time_secs: 86400

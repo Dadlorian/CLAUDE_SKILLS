@@ -1,0 +1,132 @@
+/* Responsive Dashboard Utilities */
+/* Mobile-First Approach */
+
+/* Base styles (Mobile) */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    padding: 12px;
+}
+
+/* Responsive Typography */
+.dashboard-title {
+    font-size: clamp(18px, 4vw, 32px);
+}
+
+.kpi-value {
+    font-size: clamp(24px, 6vw, 48px);
+}
+
+.chart-title {
+    font-size: clamp(14px, 3vw, 18px);
+}
+
+/* Tablet and up (768px+) */
+@media (min-width: 768px) {
+    .dashboard-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 16px;
+        padding: 16px;
+    }
+    
+    .kpi-half {
+        grid-column: span 1;
+    }
+    
+    .chart-full {
+        grid-column: span 2;
+    }
+}
+
+/* Desktop (1024px+) */
+@media (min-width: 1024px) {
+    .dashboard-grid {
+        grid-template-columns: repeat(12, 1fr);
+        gap: 24px;
+        padding: 24px;
+    }
+    
+    .kpi-quarter {
+        grid-column: span 3;
+    }
+    
+    .kpi-third {
+        grid-column: span 4;
+    }
+    
+    .kpi-half {
+        grid-column: span 6;
+    }
+    
+    .chart-full {
+        grid-column: span 12;
+    }
+    
+    .chart-half {
+        grid-column: span 6;
+    }
+}
+
+/* Large Desktop (1440px+) */
+@media (min-width: 1440px) {
+    .dashboard-grid {
+        max-width: 1920px;
+        margin: 0 auto;
+    }
+}
+
+/* Container Queries (Modern Browsers) */
+@container (min-width: 400px) {
+    .responsive-card {
+        display: flex;
+        flex-direction: row;
+    }
+}
+
+/* Print Styles */
+@media print {
+    .dashboard-grid {
+        display: block;
+    }
+    
+    .no-print {
+        display: none !important;
+    }
+    
+    .kpi-card, .chart-container {
+        page-break-inside: avoid;
+        margin-bottom: 20px;
+    }
+}
+
+/* Dark Mode */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg-primary: #1E1E1E;
+        --bg-secondary: #2C2C2C;
+        --text-primary: #FFFFFF;
+        --text-secondary: #B0B0B0;
+        --border-color: #404040;
+    }
+}
+
+/* Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* High Contrast Mode */
+@media (prefers-contrast: high) {
+    .dashboard-grid {
+        border: 2px solid currentColor;
+    }
+    
+    .kpi-card {
+        border: 2px solid currentColor;
+    }
+}

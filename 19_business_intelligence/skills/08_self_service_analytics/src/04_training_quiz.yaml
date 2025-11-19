@@ -1,0 +1,138 @@
+# Level 1 Data Consumer Certification Quiz
+
+quiz_metadata:
+  title: "Level 1: Data Consumer Certification"
+  duration_minutes: 15
+  passing_score: 80
+  total_questions: 10
+  certification_level: 1
+
+questions:
+  - id: Q1
+    type: multiple_choice
+    points: 10
+    question: "What is the primary purpose of the data catalog?"
+    options:
+      A: "To store all company data"
+      B: "To help users discover and understand available datasets"
+      C: "To replace the data warehouse"
+      D: "To create dashboards"
+    correct_answer: B
+    explanation: "The data catalog is a searchable inventory that helps users find, understand, and access datasets. It contains metadata, not the data itself."
+
+  - id: Q2
+    type: multiple_choice
+    points: 10
+    question: "What does a data quality score of 85/100 indicate?"
+    options:
+      A: "The data is 85% accurate"
+      B: "85% of records are complete"
+      C: "Overall quality assessment considering completeness, accuracy, freshness, etc."
+      D: "Data can only be used 85% of the time"
+    correct_answer: C
+    explanation: "Quality scores combine multiple dimensions (completeness, accuracy, freshness, consistency) into an overall assessment."
+
+  - id: Q3
+    type: multiple_choice
+    points: 10
+    question: "If you can't find the data you need in the catalog, what should you do?"
+    options:
+      A: "Give up and make a guess"
+      B: "Ask in #data-questions or submit a data request"
+      C: "Try to access the production database directly"
+      D: "Create fake data"
+    correct_answer: B
+    explanation: "Always ask for help through proper channels. Never try to circumvent access controls or make up data."
+
+  - id: Q4
+    type: multiple_choice
+    points: 10
+    question: "What does it mean when data is classified as 'RESTRICTED'?"
+    options:
+      A: "Anyone can access it"
+      B: "Only specific people with approved access can view it"
+      C: "It's deprecated and shouldn't be used"
+      D: "It's only available on Tuesdays"
+    correct_answer: B
+    explanation: "RESTRICTED data (like PII) requires special approval and is limited to those with a legitimate business need."
+
+  - id: Q5
+    type: multiple_choice
+    points: 10
+    question: "When viewing a dashboard, what's the best way to focus on a specific region?"
+    options:
+      A: "Memorize only the numbers for that region"
+      B: "Use the filter controls to select that region"
+      C: "Ask someone to create a new dashboard"
+      D: "Take a screenshot and crop it"
+    correct_answer: B
+    explanation: "Dashboard filters allow you to interactively explore data by different dimensions without needing new dashboards."
+
+  - id: Q6
+    type: multiple_choice
+    points: 10
+    question: "What does 'MRR' stand for in business metrics?"
+    options:
+      A: "Maximum Revenue Rate"
+      B: "Monthly Recurring Revenue"
+      C: "Most Recent Record"
+      D: "Minimum Required Response"
+    correct_answer: B
+    explanation: "MRR (Monthly Recurring Revenue) is a key SaaS metric representing predictable monthly revenue from subscriptions."
+
+  - id: Q7
+    type: true_false
+    points: 10
+    question: "It's okay to share your data platform login credentials with a colleague who needs quick access."
+    correct_answer: false
+    explanation: "Never share credentials. Colleagues should request their own access through proper channels. Sharing credentials violates security policy."
+
+  - id: Q8
+    type: multiple_choice
+    points: 10
+    question: "If you notice data in a dashboard that looks wrong, what should you do?"
+    options:
+      A: "Ignore it and use different data"
+      B: "Report it in #data-questions with details"
+      C: "Try to fix the data yourself"
+      D: "Just assume it's correct"
+    correct_answer: B
+    explanation: "Always report data quality issues. Provide context: what looks wrong, which dashboard, what you expected to see."
+
+  - id: Q9
+    type: multiple_choice
+    points: 10
+    question: "What does 'data freshness' mean?"
+    options:
+      A: "How new the data warehouse is"
+      B: "How recently the data was updated"
+      C: "How many people are using the data"
+      D: "How accurate the data is"
+    correct_answer: B
+    explanation: "Freshness indicates how up-to-date the data is. Check the 'last updated' timestamp to know how recent the data is."
+
+  - id: Q10
+    type: multiple_choice
+    points: 10
+    question: "Where should you go if you need help using the analytics tools?"
+    options:
+      A: "#data-questions Slack channel or office hours"
+      B: "Figure it out yourself"
+      C: "Ask your CEO"
+      D: "Google it and hope for the best"
+    correct_answer: A
+    explanation: "Use official support channels: #data-questions Slack, office hours, or the help documentation. Don't struggle alone!"
+
+post_quiz_actions:
+  on_pass:
+    - award_certification: "Level 1 Data Consumer"
+    - send_badge: digital_badge
+    - grant_access: [data_catalog, public_dashboards]
+    - send_email: "congratulations_template"
+    - add_to_directory: certified_users
+  
+  on_fail:
+    - send_email: "try_again_template"
+    - offer_resources: [video_library, documentation]
+    - allow_retake: true
+    - suggest_office_hours: true

@@ -1,0 +1,116 @@
+{
+  "name": "Few-Tufte Dashboard Theme",
+  "dataColors": [
+    "#4D4D4D",
+    "#5DA5DA",
+    "#FAA43A",
+    "#60BD68",
+    "#F17CB0",
+    "#B2912F",
+    "#B276B2",
+    "#DECF3F"
+  ],
+  "background": "#FFFFFF",
+  "foreground": "#2C3E50",
+  "tableAccent": "#2171B5",
+  "good": "#60BD68",
+  "neutral": "#FAA43A",
+  "bad": "#F15854",
+  "maximum": "#B2912F",
+  "center": "#F7F7F7",
+  "minimum": "#5DA5DA",
+  "null": "#CCCCCC",
+  "textClasses": {
+    "callout": {
+      "fontSize": 45,
+      "fontFace": "Segoe UI",
+      "color": "#2C3E50"
+    },
+    "title": {
+      "fontSize": 14,
+      "fontFace": "Segoe UI Semibold",
+      "color": "#2C3E50"
+    },
+    "header": {
+      "fontSize": 12,
+      "fontFace": "Segoe UI Semibold",
+      "color": "#666666"
+    },
+    "label": {
+      "fontSize": 10,
+      "fontFace": "Segoe UI",
+      "color": "#666666"
+    }
+  },
+  "visualStyles": {
+    "*": {
+      "*": {
+        "background": [
+          {
+            "color": "#FFFFFF",
+            "transparency": 0
+          }
+        ],
+        "border": [
+          {
+            "show": false
+          }
+        ],
+        "gridlines": [
+          {
+            "show": false
+          }
+        ],
+        "title": [
+          {
+            "show": true,
+            "fontSize": 14,
+            "fontColor": "#2C3E50",
+            "fontFamily": "Segoe UI Semibold"
+          }
+        ]
+      }
+    },
+    "card": {
+      "*": {
+        "categoryLabels": [
+          {
+            "fontSize": 12,
+            "color": "#666666"
+          }
+        ],
+        "dataLabels": [
+          {
+            "fontSize": 32,
+            "color": "#2C3E50",
+            "fontFamily": "Segoe UI Semibold"
+          }
+        ]
+      }
+    },
+    "lineChart": {
+      "*": {
+        "dataPoint": [
+          {
+            "fill": "#2171B5"
+          }
+        ],
+        "lineStyles": [
+          {
+            "strokeWidth": 3,
+            "strokeLineJoin": "round"
+          }
+        ]
+      }
+    },
+    "barChart": {
+      "*": {
+        "dataPoint": [
+          {
+            "fill": "#4D4D4D"
+          }
+        ]
+      }
+    }
+  }
+}

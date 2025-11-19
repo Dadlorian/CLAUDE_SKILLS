@@ -1,0 +1,49 @@
+name: 'analytics'
+version: '1.0.0'
+config-version: 2
+
+profile: 'analytics'
+
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+models:
+  analytics:
+    +persist_docs:
+      relation: true
+      columns: true
+
+    staging:
+      +materialized: view
+      +tags: ["staging"]
+      +schema: staging
+
+    intermediate:
+      +materialized: ephemeral
+      +tags: ["intermediate"]
+
+    marts:
+      +materialized: table
+      +tags: ["marts"]
+
+      core:
+        +schema: core
+        +tags: ["core"]
+
+vars:
+  start_date: '2024-01-01'
+  
+on-run-start:
+  - "{{ log('Starting dbt run at ' ~ run_started_at, info=True) }}"
+
+on-run-end:
+  - "{{ log('dbt run completed at ' ~ run_started_at, info=True) }}"

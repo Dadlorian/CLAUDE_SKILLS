@@ -1,0 +1,72 @@
+RETAIL SALES STAR SCHEMA - ENTITY RELATIONSHIP DIAGRAM (Text Format)
+
+                        DIM_DATE
+                     ┌──────────────┐
+                     │ date_key (PK)│
+                     │ date         │
+                     │ day_name     │
+                     │ month_name   │
+                     │ quarter      │
+                     │ year         │
+                     └──────────────┘
+                            │
+                            │ 1:N
+                            │
+    DIM_CUSTOMER           ▼                    DIM_PRODUCT
+ ┌─────────────────┐  ┌────────────────────┐  ┌──────────────────┐
+ │customer_key (PK)│  │FACT_SALES          │  │product_key (PK)  │
+ │customer_id      │  │──────────────────  │  │product_id        │
+ │customer_name    │◄─┤sales_key (PK)      │─►│product_name      │
+ │customer_type    │N:1│date_key (FK)       │1:N│subcategory       │
+ │address          │  │customer_key (FK)   │  │category          │
+ │city             │  │product_key (FK)    │  │department        │
+ │state            │  │store_key (FK)      │  │brand             │
+ │segment          │  │promotion_key (FK)  │  │unit_price        │
+ │effective_date   │  │transaction_number  │  │effective_date    │
+ │expiration_date  │  │line_number         │  │expiration_date   │
+ │current_flag     │  │quantity            │  │current_flag      │
+ └─────────────────┘  │extended_price      │  └──────────────────┘
+                      │discount_amount     │
+                      │tax_amount          │
+                      │total_amount        │
+                      └────────────────────┘
+                            ▲       ▲
+                            │       │
+                        N:1 │       │ N:1
+                            │       │
+                     ┌──────────┐   └────────────┐
+                     │          │                │
+                  DIM_STORE                  DIM_PROMOTION
+               ┌──────────────┐           ┌──────────────────┐
+               │store_key (PK)│           │promotion_key(PK) │
+               │store_id      │           │promotion_id      │
+               │store_name    │           │promotion_name    │
+               │address       │           │promotion_type    │
+               │city          │           │discount_type     │
+               │state         │           │start_date        │
+               │region        │           │end_date          │
+               │district      │           │effective_date    │
+               │store_type    │           │expiration_date   │
+               │square_feet   │           │current_flag      │
+               └──────────────┘           └──────────────────┘
+
+GRAIN: One row per product per sales transaction line item
+
+KEY RELATIONSHIPS:
+- Each fact row references exactly one customer (N:1)
+- Each fact row references exactly one product (N:1)
+- Each fact row references exactly one store (N:1)
+- Each fact row references exactly one date (N:1)
+- Each fact row references exactly one promotion (N:1 or may reference "No Promotion")
+
+DIMENSIONAL ATTRIBUTES:
+- All dimensions are denormalized (hierarchies embedded)
+- All dimensions have surrogate keys (customer_key, product_key, etc.)
+- All dimensions have natural business keys (customer_id, product_id, etc.)
+- All dimensions use SCD Type 2 for history tracking
+
+FACT TABLE CHARACTERISTICS:
+- Narrow table (foreign keys + numeric facts only)
+- Degenerate dimensions: transaction_number, line_number
+- Additive facts: quantity, extended_price, discount_amount, tax_amount, total_amount
+- No NULL foreign keys (use "Unknown" dimension members)

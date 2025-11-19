@@ -1,0 +1,276 @@
+# Data Governance Policies
+# Self-Service Analytics
+
+data_classification:
+  levels:
+    PUBLIC:
+      description: Non-sensitive data safe for broad access
+      examples:
+        - Aggregated metrics
+        - Public-facing data
+        - Marketing content
+      access: All employees
+      controls:
+        - Basic audit logging
+        - No additional restrictions
+    
+    INTERNAL:
+      description: General business data
+      examples:
+        - Operational metrics
+        - Departmental reports
+        - Aggregate revenue data
+      access: Employees (default)
+      controls:
+        - Role-based access
+        - Audit logging
+        - SSO required
+    
+    CONFIDENTIAL:
+      description: Sensitive business information
+      examples:
+        - Detailed financial data
+        - Strategic plans
+        - Customer-level revenue
+      access: Need-to-know basis
+      controls:
+        - Manager approval required
+        - Enhanced auditing
+        - MFA required
+        - No bulk exports
+    
+    RESTRICTED:
+      description: Highly sensitive regulated data
+      examples:
+        - PII (email, SSN, address)
+        - PHI (health information)
+        - Financial credentials
+      access: Strictly limited
+      controls:
+        - Multi-approver workflow
+        - Justification required
+        - Time-limited access (90 days max)
+        - Encryption at rest/transit
+        - Comprehensive audit trail
+
+access_control:
+  roles:
+    data_viewer:
+      description: Can view pre-built dashboards
+      permissions:
+        - read: [PUBLIC, INTERNAL dashboards]
+      data_access: [PUBLIC datasets]
+      restrictions:
+        - No raw table access
+        - No query interface
+        - No exports
+    
+    data_analyst:
+      description: Can query and create dashboards
+      permissions:
+        - read: [PUBLIC, INTERNAL]
+        - query: [approved tables]
+        - create: [dashboards, derived views]
+        - export: [limited, <10k rows]
+      data_access: [PUBLIC, INTERNAL datasets]
+      restrictions:
+        - Query timeout: 5 minutes
+        - No access to RESTRICTED by default
+        - Sandbox only for experiments
+    
+    data_engineer:
+      description: Can build pipelines and models
+      permissions:
+        - read: [all classification levels with RLS]
+        - write: [warehouse tables]
+        - create: [tables, views, pipelines]
+        - admin: [data quality, lineage]
+      data_access: All datasets with row-level security
+      restrictions:
+        - Cannot modify production directly
+        - Peer review required for changes
+        - All actions audited
+    
+    data_steward:
+      description: Domain data owner
+      permissions:
+        - read: [domain data]
+        - approve: [access requests]
+        - certify: [data quality]
+        - document: [metadata]
+      responsibilities:
+        - Define business logic
+        - Approve access requests
+        - Maintain data quality
+        - Document datasets
+
+access_request_workflow:
+  auto_approval:
+    conditions:
+      - classification: PUBLIC
+      - user_role: data_analyst
+      - dataset_type: summary_table
+    sla: Instant
+  
+  steward_approval:
+    conditions:
+      - classification: INTERNAL
+      - first_time_access: true
+    workflow:
+      - Request submitted by user
+      - Routed to data steward
+      - Business justification reviewed
+      - Approved or denied
+    sla: 24 hours
+  
+  multi_approval:
+    conditions:
+      - classification: [CONFIDENTIAL, RESTRICTED]
+    workflow:
+      - Request submitted with justification
+      - Manager approval required
+      - Data steward approval
+      - Security team review (if RESTRICTED)
+      - Access granted with expiration
+    sla: 48 hours
+    
+  access_duration:
+    INTERNAL: Permanent (until role change)
+    CONFIDENTIAL: 90 days (renewable)
+    RESTRICTED: 30 days (requires re-justification)
+
+acceptable_use:
+  permitted:
+    - Business decision support
+    - Data exploration for insights
+    - Dashboard and report creation
+    - Analytical model development
+    - Data quality validation
+  
+  prohibited:
+    - Personal use or benefit
+    - Sharing credentials
+    - Circumventing access controls
+    - Unauthorized data exports
+    - Reverse engineering PII
+    - High-frequency automated queries without approval
+  
+  consequences:
+    first_violation: Warning + mandatory retraining
+    second_violation: 7-day access suspension
+    third_violation: Access revocation
+    severe_violation: Immediate revocation + HR escalation
+
+data_retention:
+  transactional_data:
+    active: 7 years
+    archive: 10 years
+    rationale: Legal and tax requirements
+  
+  analytical_data:
+    aggregate_metrics: Indefinite
+    raw_events: 2 years
+    user_behavior: 13 months (GDPR)
+  
+  pii_data:
+    active_users: Duration of relationship + 30 days
+    inactive_users: 90 days after last activity
+    deleted_users: 30 day soft delete, then hard delete
+  
+  deletion_process:
+    - Automated daily cleanup jobs
+    - 30-day recovery window (soft delete)
+    - Hard delete after retention period
+    - Verification and audit logging
+
+audit_requirements:
+  logging:
+    required_fields:
+      - timestamp
+      - user_email
+      - user_role
+      - action (SELECT, INSERT, UPDATE, DELETE)
+      - resource_name
+      - query_text
+      - rows_affected
+      - data_classification
+      - success/failure
+      - error_message (if failed)
+  
+  retention: 7 years (compliance requirement)
+  
+  monitoring:
+    - Unusual access patterns
+    - Failed access attempts (>5 in 24 hours)
+    - After-hours access to RESTRICTED data
+    - Large data exports
+    - Cross-region access
+  
+  review_frequency:
+    - Real-time: Security alerts
+    - Daily: Access pattern review
+    - Weekly: Anomaly investigation
+    - Monthly: Compliance reporting
+    - Quarterly: Access recertification
+
+compliance:
+  gdpr:
+    requirements:
+      - Data subject consent tracking
+      - Right to access (data export)
+      - Right to be forgotten (deletion)
+      - Data portability
+      - Breach notification (72 hours)
+    implementation:
+      - Consent management system
+      - Automated data export workflow
+      - Deletion request processing
+      - Data inventory and mapping
+      - Incident response plan
+  
+  ccpa:
+    requirements:
+      - Opt-out of data sale
+      - Access to personal data
+      - Deletion rights
+      - Non-discrimination
+    implementation:
+      - Opt-out mechanisms
+      - Data request portal
+      - Deletion workflows
+      - Rights management system
+  
+  sox:
+    requirements:
+      - Financial data accuracy
+      - Internal controls
+      - Audit trails
+      - Change management
+    implementation:
+      - Data validation rules
+      - Segregation of duties
+      - Immutable audit logs
+      - Version control for changes
+
+certification_process:
+  dataset_certification:
+    criteria:
+      - Documentation complete
+      - Quality tests passing (>95%)
+      - Owner assigned
+      - Classification applied
+      - Lineage documented
+      - SLA defined
+    
+    workflow:
+      1. Creator submits for certification
+      2. Data steward reviews business logic
+      3. Data quality team validates tests
+      4. Security team approves classification
+      5. Certification badge applied
+    
+    badges:
+      - VERIFIED: Meets all criteria
+      - DRAFT: Work in progress
+      - DEPRECATED: No longer maintained
+      - EXPERIMENTAL: Use with caution

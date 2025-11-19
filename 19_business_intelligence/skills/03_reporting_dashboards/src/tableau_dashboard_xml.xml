@@ -1,0 +1,35 @@
+<?xml version='1.0' encoding='utf-8'?>
+<!-- Tableau Executive Dashboard XML Example -->
+<!-- Based on Few-Tufte Principles -->
+<dashboard name='Executive Summary'>
+  <zones>
+    <zone name='KPI Hero' position='0' height='20%'>
+      <worksheet name='ARR KPI'>
+        <filters>
+          <filter-date name='Date Range' value='Last 30 Days'/>
+        </filters>
+      </worksheet>
+    </zone>
+    <zone name='Supporting KPIs' position='1' height='15%'>
+      <horizontal>
+        <worksheet name='New Customers'/>
+        <worksheet name='Gross Margin'/>
+        <worksheet name='NPS'/>
+      </horizontal>
+    </zone>
+    <zone name='Main Chart' position='2' height='40%'>
+      <worksheet name='Revenue Trend'/>
+    </zone>
+    <zone name='Breakdowns' position='3' height='25%'>
+      <horizontal>
+        <worksheet name='Revenue by Segment'/>
+        <worksheet name='Pipeline Status'/>
+      </horizontal>
+    </zone>
+  </zones>
+  <formatting>
+    <format name='background' value='#FFFFFF'/>
+    <format name='font-family' value='Tableau Book'/>
+    <format name='show-title' value='false'/>
+  </formatting>
+</dashboard>
