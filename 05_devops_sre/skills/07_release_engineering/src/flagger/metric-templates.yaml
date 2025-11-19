@@ -1,0 +1,514 @@
+# Flagger Metric Templates
+# Custom Prometheus queries for canary analysis
+
+---
+# Request Success Rate
+apiVersion: flagger.app/v1beta1
+kind: MetricTemplate
+metadata:
+  name: request-success-rate
+  namespace: production
+spec:
+  provider:
+    type: prometheus
+    address: http://prometheus.monitoring:9090
+  query: |
+    sum(
+      rate(
+        istio_requests_total{
+          reporter="destination",
+          destination_workload_namespace="{{ namespace }}",
+          destination_workload=~"{{ target }}",
+          response_code!~"5.*"
+        }[{{ interval }}]
+      )
+    )
+    /
+    sum(
+      rate(
+        istio_requests_total{
+          reporter="destination",
+          destination_workload_namespace="{{ namespace }}",
+          destination_workload=~"{{ target }}"
+        }[{{ interval }}]
+      )
+    ) * 100
+
+---
+# Request Duration (P99)
+apiVersion: flagger.app/v1beta1
+kind: MetricTemplate
+metadata:
+  name: request-duration
+  namespace: production
+spec:
+  provider:
+    type: prometheus
+    address: http://prometheus.monitoring:9090
+  query: |
+    histogram_quantile(0.99,
+      sum(
+        rate(
+          istio_request_duration_milliseconds_bucket{
+            reporter="destination",
+            destination_workload_namespace="{{ namespace }}",
+            destination_workload=~"{{ target }}"
+          }[{{ interval }}]
+        )
+      ) by (le)
+    )
+
+---
+# Error Rate
+apiVersion: flagger.app/v1beta1
+kind: MetricTemplate
+metadata:
+  name: error-rate
+  namespace: production
+spec:
+  provider:
+    type: prometheus
+    address: http://prometheus.monitoring:9090
+  query: |
+    sum(
+      rate(
+        istio_requests_total{
+          reporter="destination",
+          destination_workload_namespace="{{ namespace }}",
+          destination_workload=~"{{ target }}",
+          response_code=~"5.*"
+        }[{{ interval }}]
+      )
+    )
+    /
+    sum(
+      rate(
+        istio_requests_total{
+          reporter="destination",
+          destination_workload_namespace="{{ namespace }}",
+          destination_workload=~"{{ target }}"
+        }[{{ interval }}]
+      )
+    ) * 100
+
+---
+# CPU Usage
+apiVersion: flagger.app/v1beta1
+kind: MetricTemplate
+metadata:
+  name: cpu-usage
+  namespace: production
+spec:
+  provider:
+    type: prometheus
+    address: http://prometheus.monitoring:9090
+  query: |
+    sum(
+      rate(
+        container_cpu_usage_seconds_total{
+          namespace="{{ namespace }}",
+          pod=~"{{ target }}-[a-z0-9]+-[a-z0-9]+"
+        }[{{ interval }}]
+      )
+    ) by (pod)
+    /
+    sum(
+      container_spec_cpu_quota{
+        namespace="{{ namespace }}",
+        pod=~"{{ target }}-[a-z0-9]+-[a-z0-9]+"
+      }
+      /
+      container_spec_cpu_period{
+        namespace="{{ namespace }}",
+        pod=~"{{ target }}-[a-z0-9]+-[a-z0-9]+"
+      }
+    ) by (pod) * 100
+
+---
+# Memory Usage
+apiVersion: flagger.app/v1beta1
+kind: MetricTemplate
+metadata:
+  name: memory-usage
+  namespace: production
+spec:
+  provider:
+    type: prometheus
+    address: http://prometheus.monitoring:9090
+  query: |
+    sum(
+      container_memory_working_set_bytes{
+        namespace="{{ namespace }}",
+        pod=~"{{ target }}-[a-z0-9]+-[a-z0-9]+"
+      }
+    ) by (pod)
+    /
+    sum(
+      container_spec_memory_limit_bytes{
+        namespace="{{ namespace }}",
+        pod=~"{{ target }}-[a-z0-9]+-[a-z0-9]+"
+      }
+    ) by (pod) * 100
+
+---
+# Business Metric: Checkout Completion Rate
+apiVersion: flagger.app/v1beta1
+kind: MetricTemplate
+metadata:
+  name: checkout-completion-rate
+  namespace: production
+spec:
+  provider:
+    type: prometheus
+    address: http://prometheus.monitoring:9090
+  query: |
+    sum(
+      rate(
+        checkout_completed_total{
+          service="{{ target }}"
+        }[{{ interval }}]
+      )
+    )
+    /
+    sum(
+      rate(
+        checkout_started_total{
+          service="{{ target }}"
+        }[{{ interval }}]
+      )
+    ) * 100
+
+---
+# Business Metric: Payment Success Rate
+apiVersion: flagger.app/v1beta1
+kind: MetricTemplate
+metadata:
+  name: payment-success-rate
+  namespace: production
+spec:
+  provider:
+    type: prometheus
+    address: http://prometheus.monitoring:9090
+  query: |
+    sum(
+      rate(
+        payment_success_total{
+          service="{{ target }}"
+        }[{{ interval }}]
+      )
+    )
+    /
+    sum(
+      rate(
+        payment_attempts_total{
+          service="{{ target }}"
+        }[{{ interval }}]
+      )
+    ) * 100
+
+---
+# Business Metric: Average Order Value
+apiVersion: flagger.app/v1beta1
+kind: MetricTemplate
+metadata:
+  name: average-order-value
+  namespace: production
+spec:
+  provider:
+    type: prometheus
+    address: http://prometheus.monitoring:9090
+  query: |
+    sum(
+      rate(
+        order_value_total{
+          service="{{ target }}"
+        }[{{ interval }}]
+      )
+    )
+    /
+    sum(
+      rate(
+        order_count_total{
+          service="{{ target }}"
+        }[{{ interval }}]
+      )
+    )
+
+---
+# Database Latency
+apiVersion: flagger.app/v1beta1
+kind: MetricTemplate
+metadata:
+  name: database-latency
+  namespace: production
+spec:
+  provider:
+    type: prometheus
+    address: http://prometheus.monitoring:9090
+  query: |
+    histogram_quantile(0.95,
+      sum(
+        rate(
+          database_query_duration_seconds_bucket{
+            service="{{ target }}"
+          }[{{ interval }}]
+        )
+      ) by (le)
+    ) * 1000
+
+---
+# Cache Hit Rate
+apiVersion: flagger.app/v1beta1
+kind: MetricTemplate
+metadata:
+  name: cache-hit-rate
+  namespace: production
+spec:
+  provider:
+    type: prometheus
+    address: http://prometheus.monitoring:9090
+  query: |
+    sum(
+      rate(
+        cache_hits_total{
+          service="{{ target }}"
+        }[{{ interval }}]
+      )
+    )
+    /
+    sum(
+      rate(
+        cache_requests_total{
+          service="{{ target }}"
+        }[{{ interval }}]
+      )
+    ) * 100
+
+---
+# External API Success Rate
+apiVersion: flagger.app/v1beta1
+kind: MetricTemplate
+metadata:
+  name: external-api-success-rate
+  namespace: production
+spec:
+  provider:
+    type: prometheus
+    address: http://prometheus.monitoring:9090
+  query: |
+    sum(
+      rate(
+        external_api_requests_total{
+          service="{{ target }}",
+          status="success"
+        }[{{ interval }}]
+      )
+    )
+    /
+    sum(
+      rate(
+        external_api_requests_total{
+          service="{{ target }}"
+        }[{{ interval }}]
+      )
+    ) * 100
+
+---
+# Datadog Metric Template Example
+apiVersion: flagger.app/v1beta1
+kind: MetricTemplate
+metadata:
+  name: datadog-success-rate
+  namespace: production
+spec:
+  provider:
+    type: datadog
+    address: https://api.datadoghq.com
+    secretRef:
+      name: datadog
+  query: |
+    sum:requests.success{service:{{ target }}}.as_rate()
+    /
+    sum:requests.total{service:{{ target }}}.as_rate()
+
+---
+# New Relic Metric Template Example
+apiVersion: flagger.app/v1beta1
+kind: MetricTemplate
+metadata:
+  name: newrelic-error-rate
+  namespace: production
+spec:
+  provider:
+    type: newrelic
+    address: https://api.newrelic.com/graphql
+    secretRef:
+      name: newrelic
+  query: |
+    {
+      actor {
+        account(id: 1234567) {
+          nrql(query: "SELECT percentage(count(*), WHERE error IS true) FROM Transaction WHERE appName = '{{ target }}' SINCE {{ interval }} ago") {
+            results
+          }
+        }
+      }
+    }
+
+---
+# CloudWatch Metric Template Example
+apiVersion: flagger.app/v1beta1
+kind: MetricTemplate
+metadata:
+  name: cloudwatch-request-count
+  namespace: production
+spec:
+  provider:
+    type: cloudwatch
+    region: us-west-2
+    secretRef:
+      name: aws-credentials
+  query: |
+    [
+      {
+        "Id": "m1",
+        "MetricStat": {
+          "Metric": {
+            "Namespace": "AWS/ApplicationELB",
+            "MetricName": "RequestCount",
+            "Dimensions": [
+              {
+                "Name": "TargetGroup",
+                "Value": "{{ target }}"
+              }
+            ]
+          },
+          "Period": 60,
+          "Stat": "Sum"
+        }
+      }
+    ]
+
+---
+# Custom Application Metric: User Engagement
+apiVersion: flagger.app/v1beta1
+kind: MetricTemplate
+metadata:
+  name: user-engagement-score
+  namespace: production
+spec:
+  provider:
+    type: prometheus
+    address: http://prometheus.monitoring:9090
+  query: |
+    (
+      sum(rate(page_views_total{service="{{ target }}"}[{{ interval }}])) * 1.0 +
+      sum(rate(button_clicks_total{service="{{ target }}"}[{{ interval }}])) * 2.0 +
+      sum(rate(feature_usage_total{service="{{ target }}"}[{{ interval }}])) * 3.0
+    )
+    /
+    sum(rate(sessions_total{service="{{ target }}"}[{{ interval }}]))
+
+---
+# Custom Application Metric: Conversion Funnel
+apiVersion: flagger.app/v1beta1
+kind: MetricTemplate
+metadata:
+  name: conversion-funnel
+  namespace: production
+spec:
+  provider:
+    type: prometheus
+    address: http://prometheus.monitoring:9090
+  query: |
+    sum(rate(funnel_completed_total{service="{{ target }}",stage="purchase"}[{{ interval }}]))
+    /
+    sum(rate(funnel_started_total{service="{{ target }}",stage="landing"}[{{ interval }}]))
+    * 100
+
+---
+# GraphQL Query Success Rate
+apiVersion: flagger.app/v1beta1
+kind: MetricTemplate
+metadata:
+  name: graphql-success-rate
+  namespace: production
+spec:
+  provider:
+    type: prometheus
+    address: http://prometheus.monitoring:9090
+  query: |
+    sum(
+      rate(
+        graphql_requests_total{
+          service="{{ target }}",
+          error="false"
+        }[{{ interval }}]
+      )
+    )
+    /
+    sum(
+      rate(
+        graphql_requests_total{
+          service="{{ target }}"
+        }[{{ interval }}]
+      )
+    ) * 100
+
+---
+# gRPC Success Rate
+apiVersion: flagger.app/v1beta1
+kind: MetricTemplate
+metadata:
+  name: grpc-success-rate
+  namespace: production
+spec:
+  provider:
+    type: prometheus
+    address: http://prometheus.monitoring:9090
+  query: |
+    sum(
+      rate(
+        grpc_server_handled_total{
+          grpc_service="{{ target }}",
+          grpc_code="OK"
+        }[{{ interval }}]
+      )
+    )
+    /
+    sum(
+      rate(
+        grpc_server_handled_total{
+          grpc_service="{{ target }}"
+        }[{{ interval }}]
+      )
+    ) * 100
+
+---
+# WebSocket Connection Success
+apiVersion: flagger.app/v1beta1
+kind: MetricTemplate
+metadata:
+  name: websocket-connection-success
+  namespace: production
+spec:
+  provider:
+    type: prometheus
+    address: http://prometheus.monitoring:9090
+  query: |
+    sum(
+      rate(
+        websocket_connections_total{
+          service="{{ target }}",
+          status="established"
+        }[{{ interval }}]
+      )
+    )
+    /
+    sum(
+      rate(
+        websocket_connections_total{
+          service="{{ target }}"
+        }[{{ interval }}]
+      )
+    ) * 100

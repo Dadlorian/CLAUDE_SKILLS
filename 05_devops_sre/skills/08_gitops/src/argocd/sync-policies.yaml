@@ -1,0 +1,403 @@
+# ArgoCD Sync Policy Examples
+# These examples demonstrate sync waves, hooks, and advanced sync configurations
+
+---
+# Example 1: Namespace with sync wave annotation
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: myapp
+  annotations:
+    # Sync wave -5: Namespaces should be created first
+    argocd.argoproj.io/sync-wave: "-5"
+  labels:
+    environment: production
+
+---
+# Example 2: CRDs with sync wave
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: myresources.example.com
+  annotations:
+    # Sync wave -4: CRDs should be created before other resources
+    argocd.argoproj.io/sync-wave: "-4"
+spec:
+  group: example.com
+  names:
+    kind: MyResource
+    plural: myresources
+  scope: Namespaced
+  versions:
+  - name: v1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        properties:
+          spec:
+            type: object
+            properties:
+              field:
+                type: string
+
+---
+# Example 3: RBAC resources with sync wave
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: myapp
+  namespace: myapp
+  annotations:
+    # Sync wave -3: RBAC before workloads
+    argocd.argoproj.io/sync-wave: "-3"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: myapp
+  namespace: myapp
+  annotations:
+    argocd.argoproj.io/sync-wave: "-3"
+rules:
+- apiGroups: [""]
+  resources: ["configmaps", "secrets"]
+  verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: myapp
+  namespace: myapp
+  annotations:
+    argocd.argoproj.io/sync-wave: "-3"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: myapp
+subjects:
+- kind: ServiceAccount
+  name: myapp
+  namespace: myapp
+
+---
+# Example 4: ConfigMaps and Secrets with sync wave
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: myapp-config
+  namespace: myapp
+  annotations:
+    # Sync wave -2: Config before deployments
+    argocd.argoproj.io/sync-wave: "-2"
+data:
+  APP_ENV: production
+  LOG_LEVEL: info
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: myapp-secret
+  namespace: myapp
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+type: Opaque
+stringData:
+  api-key: changeme
+
+---
+# Example 5: PVC with sync wave
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: myapp-data
+  namespace: myapp
+  annotations:
+    # Sync wave -1: Storage before deployments
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+
+---
+# Example 6: Deployment with default sync wave (0)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp
+  namespace: myapp
+  # No annotation = sync wave 0 (default)
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: myapp
+  template:
+    metadata:
+      labels:
+        app: myapp
+    spec:
+      serviceAccountName: myapp
+      containers:
+      - name: myapp
+        image: myapp:v1.0.0
+        envFrom:
+        - configMapRef:
+            name: myapp-config
+        - secretRef:
+            name: myapp-secret
+        volumeMounts:
+        - name: data
+          mountPath: /data
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: myapp-data
+
+---
+# Example 7: Service with default sync wave
+apiVersion: v1
+kind: Service
+metadata:
+  name: myapp
+  namespace: myapp
+spec:
+  selector:
+    app: myapp
+  ports:
+  - port: 80
+    targetPort: 8080
+
+---
+# Example 8: Ingress with sync wave
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: myapp
+  namespace: myapp
+  annotations:
+    # Sync wave 1: Ingress after services
+    argocd.argoproj.io/sync-wave: "1"
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - app.example.com
+    secretName: myapp-tls
+  rules:
+  - host: app.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: myapp
+            port:
+              number: 80
+
+---
+# Example 9: Database Migration Job with PreSync Hook
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: myapp-db-migration
+  namespace: myapp
+  annotations:
+    # PreSync hook: Run before the main sync
+    argocd.argoproj.io/hook: PreSync
+    # Delete job after successful completion
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded
+    # Sync wave for the hook
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  template:
+    spec:
+      serviceAccountName: myapp
+      containers:
+      - name: migrate
+        image: myapp:v1.0.0
+        command: ["./migrate.sh"]
+        envFrom:
+        - secretRef:
+            name: myapp-secret
+      restartPolicy: Never
+  backoffLimit: 3
+
+---
+# Example 10: Smoke Test Job with PostSync Hook
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: myapp-smoke-test
+  namespace: myapp
+  annotations:
+    # PostSync hook: Run after successful sync
+    argocd.argoproj.io/hook: PostSync
+    # Delete job after successful completion
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded
+    # Sync wave for the hook
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  template:
+    spec:
+      containers:
+      - name: test
+        image: curlimages/curl:latest
+        command:
+        - sh
+        - -c
+        - |
+          sleep 10
+          curl -f http://myapp.myapp.svc.cluster.local/health || exit 1
+      restartPolicy: Never
+  backoffLimit: 5
+
+---
+# Example 11: Cleanup Job with SyncFail Hook
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: myapp-cleanup
+  namespace: myapp
+  annotations:
+    # SyncFail hook: Run if sync fails
+    argocd.argoproj.io/hook: SyncFail
+    # Delete job before creating new one
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  template:
+    spec:
+      containers:
+      - name: cleanup
+        image: kubectl:latest
+        command:
+        - sh
+        - -c
+        - |
+          echo "Sync failed, performing cleanup..."
+          kubectl delete pods -l app=myapp -n myapp --field-selector status.phase=Failed
+      restartPolicy: Never
+
+---
+# Example 12: Test Resource with Skip Annotation
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-data
+  namespace: myapp
+  annotations:
+    # Skip this resource during sync
+    argocd.argoproj.io/hook: Skip
+data:
+  test: value
+
+---
+# Example 13: Application with Advanced Sync Options
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: myapp-advanced
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/example/myapp.git
+    targetRevision: HEAD
+    path: k8s
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: myapp
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+    # Create namespace if missing
+    - CreateNamespace=true
+    # Validate resources before applying
+    - Validate=true
+    # Use server-side apply
+    - ServerSideApply=true
+    # Prune last (after new resources are healthy)
+    - PruneLast=true
+    # Wait for resources to be ready before proceeding
+    - ApplyOutOfSyncOnly=true
+    # Respect ignore differences
+    - RespectIgnoreDifferences=true
+    # Propagation policy for pruning
+    - PrunePropagationPolicy=foreground
+    # Force resource replacement
+    - Replace=false
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+---
+# Example 14: Resource with Compare Options
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp-hpa-managed
+  namespace: myapp
+  annotations:
+    # Ignore differences in replicas (managed by HPA)
+    argocd.argoproj.io/compare-options: IgnoreExtraneous
+spec:
+  replicas: 1  # This will be overridden by HPA
+  selector:
+    matchLabels:
+      app: myapp
+  template:
+    metadata:
+      labels:
+        app: myapp
+    spec:
+      containers:
+      - name: myapp
+        image: myapp:v1.0.0
+
+---
+# Example 15: Sync Wave Sequence Documentation
+# This ConfigMap documents the recommended sync wave order
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sync-wave-guide
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/hook: Skip
+data:
+  sync-waves.txt: |
+    Recommended Sync Wave Order:
+
+    Wave -5: Namespaces
+    Wave -4: CustomResourceDefinitions (CRDs)
+    Wave -3: ServiceAccounts, Roles, RoleBindings, ClusterRoles, ClusterRoleBindings
+    Wave -2: ConfigMaps, Secrets (non-application)
+    Wave -1: PersistentVolumeClaims, StorageClasses
+    Wave  0: Deployments, StatefulSets, DaemonSets, Services (default)
+    Wave  1: Ingress, NetworkPolicies
+    Wave  2: Jobs (post-deployment tasks)
+    Wave  3: Monitoring resources (ServiceMonitors, PrometheusRules)
+
+    Hook Types:
+    - PreSync: Runs before sync (e.g., database migrations)
+    - Sync: Runs during sync
+    - PostSync: Runs after sync (e.g., smoke tests)
+    - SyncFail: Runs if sync fails (e.g., cleanup)
+    - Skip: Resource is not synced
+
+    Delete Policies:
+    - HookSucceeded: Delete after successful execution
+    - HookFailed: Delete after failed execution
+    - BeforeHookCreation: Delete before creating new hook

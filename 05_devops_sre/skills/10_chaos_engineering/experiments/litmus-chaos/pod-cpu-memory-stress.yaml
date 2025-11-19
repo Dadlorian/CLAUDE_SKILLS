@@ -1,0 +1,279 @@
+# Litmus Chaos: Pod CPU and Memory Stress Experiment
+#
+# This experiment stresses CPU and memory resources to test auto-scaling,
+# resource limits, and application performance under resource contention.
+#
+# Use Case: Validate HPA (Horizontal Pod Autoscaler), test OOM handling
+
+apiVersion: litmuschaos.io/v1alpha1
+kind: ChaosEngine
+metadata:
+  name: resource-stress-chaos
+  namespace: default
+spec:
+  appinfo:
+    appns: default
+    applabel: 'app=worker-service'
+    appkind: deployment
+
+  engineState: active
+  chaosServiceAccount: litmus-admin
+  monitoring: true
+  jobCleanUpPolicy: delete
+
+  experiments:
+    # CPU stress experiment
+    - name: pod-cpu-hog
+      spec:
+        components:
+          env:
+            # Number of CPU cores to stress
+            - name: CPU_CORES
+              value: '2'
+
+            # Duration of chaos
+            - name: TOTAL_CHAOS_DURATION
+              value: '180'  # 3 minutes
+
+            # CPU load percentage (0-100)
+            - name: CPU_LOAD
+              value: '100'
+
+            # Percentage of pods to affect
+            - name: PODS_AFFECTED_PERC
+              value: '100'  # All pods
+
+            # Sequence (serial or parallel)
+            - name: SEQUENCE
+              value: 'parallel'
+
+        probe:
+          # Monitor HPA scaling
+          - name: check-hpa-scaling
+            type: k8sProbe
+            mode: Edge
+            k8sProbe/inputs:
+              group: autoscaling
+              version: v2
+              resource: horizontalpodautoscalers
+              namespace: default
+              fieldSelector: metadata.name=worker-service-hpa
+              operation: present
+            runProperties:
+              probeTimeout: 10
+              interval: 5
+              retry: 3
+
+          # Monitor CPU usage
+          - name: check-cpu-usage
+            type: promProbe
+            mode: Continuous
+            promProbe/inputs:
+              endpoint: http://prometheus-service.monitoring.svc.cluster.local:9090
+              query: "avg(rate(container_cpu_usage_seconds_total{namespace='default',pod=~'worker-service.*'}[1m]))"
+              comparator:
+                type: float
+                criteria: ">"
+                value: "0.5"  # CPU usage should increase
+            runProperties:
+              probeTimeout: 10
+              interval: 5
+              retry: 1
+
+    # Memory stress experiment
+    - name: pod-memory-hog
+      spec:
+        components:
+          env:
+            # Memory to consume in MB
+            - name: MEMORY_CONSUMPTION
+              value: '500'
+
+            # Duration of chaos
+            - name: TOTAL_CHAOS_DURATION
+              value: '180'
+
+            # Percentage of pods to affect
+            - name: PODS_AFFECTED_PERC
+              value: '50'
+
+            # Number of workers
+            - name: NUMBER_OF_WORKERS
+              value: '4'
+
+            # Sequence
+            - name: SEQUENCE
+              value: 'parallel'
+
+        probe:
+          # Check memory usage increases
+          - name: check-memory-usage
+            type: promProbe
+            mode: Continuous
+            promProbe/inputs:
+              endpoint: http://prometheus-service.monitoring.svc.cluster.local:9090
+              query: "avg(container_memory_working_set_bytes{namespace='default',pod=~'worker-service.*'})"
+              comparator:
+                type: float
+                criteria: ">"
+                value: "100000000"  # 100MB
+            runProperties:
+              probeTimeout: 10
+              interval: 5
+              retry: 1
+
+          # Ensure no OOM kills
+          - name: check-no-oom
+            type: promProbe
+            mode: Edge
+            promProbe/inputs:
+              endpoint: http://prometheus-service.monitoring.svc.cluster.local:9090
+              query: "sum(increase(kube_pod_container_status_terminated_reason{namespace='default',pod=~'worker-service.*',reason='OOMKilled'}[3m]))"
+              comparator:
+                type: int
+                criteria: "=="
+                value: "0"
+            runProperties:
+              probeTimeout: 10
+              interval: 5
+              retry: 1
+
+---
+apiVersion: litmuschaos.io/v1alpha1
+kind: ChaosExperiment
+metadata:
+  name: pod-cpu-hog
+  namespace: default
+spec:
+  definition:
+    scope: Namespaced
+    permissions:
+      - apiGroups:
+          - ""
+        resources:
+          - pods
+        verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - deletecollection
+      - apiGroups:
+          - ""
+        resources:
+          - events
+        verbs:
+          - create
+          - get
+          - list
+          - patch
+          - update
+      - apiGroups:
+          - ""
+        resources:
+          - pods/exec
+        verbs:
+          - get
+          - list
+          - create
+
+    image: "litmuschaos/go-runner:latest"
+    imagePullPolicy: Always
+
+    args:
+      - -c
+      - ./experiments -name pod-cpu-hog
+
+    command:
+      - /bin/bash
+
+    env:
+      - name: CPU_CORES
+        value: '1'
+
+      - name: TOTAL_CHAOS_DURATION
+        value: '60'
+
+      - name: CPU_LOAD
+        value: '100'
+
+      - name: PODS_AFFECTED_PERC
+        value: ''
+
+      - name: LIB
+        value: 'litmus'
+
+    labels:
+      name: pod-cpu-hog
+
+---
+apiVersion: litmuschaos.io/v1alpha1
+kind: ChaosExperiment
+metadata:
+  name: pod-memory-hog
+  namespace: default
+spec:
+  definition:
+    scope: Namespaced
+    permissions:
+      - apiGroups:
+          - ""
+        resources:
+          - pods
+        verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - deletecollection
+      - apiGroups:
+          - ""
+        resources:
+          - events
+        verbs:
+          - create
+          - get
+          - list
+          - patch
+          - update
+      - apiGroups:
+          - ""
+        resources:
+          - pods/exec
+        verbs:
+          - get
+          - list
+          - create
+
+    image: "litmuschaos/go-runner:latest"
+    imagePullPolicy: Always
+
+    args:
+      - -c
+      - ./experiments -name pod-memory-hog
+
+    command:
+      - /bin/bash
+
+    env:
+      - name: MEMORY_CONSUMPTION
+        value: '500'
+
+      - name: TOTAL_CHAOS_DURATION
+        value: '60'
+
+      - name: NUMBER_OF_WORKERS
+        value: '1'
+
+      - name: PODS_AFFECTED_PERC
+        value: ''
+
+      - name: LIB
+        value: 'litmus'
+
+    labels:
+      name: pod-memory-hog

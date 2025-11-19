@@ -1,0 +1,516 @@
+# Flux Image Automation Examples
+# These examples demonstrate automated image updates
+
+---
+# Example 1: ImageRepository for Docker Hub
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: nginx
+  namespace: flux-system
+spec:
+  # Container image to scan
+  image: nginx
+  # Scan interval
+  interval: 5m
+  # Timeout for image operations
+  timeout: 60s
+
+---
+# Example 2: ImageRepository with authentication
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: private-app
+  namespace: flux-system
+spec:
+  image: ghcr.io/example/myapp
+  interval: 5m
+  # Reference to secret with registry credentials
+  secretRef:
+    name: registry-credentials
+---
+# Secret for registry authentication
+apiVersion: v1
+kind: Secret
+metadata:
+  name: registry-credentials
+  namespace: flux-system
+type: kubernetes.io/dockerconfigjson
+stringData:
+  .dockerconfigjson: |
+    {
+      "auths": {
+        "ghcr.io": {
+          "auth": "base64-encoded-username:token"
+        }
+      }
+    }
+
+---
+# Example 3: ImagePolicy with semver
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImagePolicy
+metadata:
+  name: myapp
+  namespace: flux-system
+spec:
+  # Reference to ImageRepository
+  imageRepositoryRef:
+    name: myapp
+  # Policy for selecting image tags
+  policy:
+    semver:
+      # Semver range
+      range: ">=1.0.0 <2.0.0"
+  # Filter tags before applying policy
+  filterTags:
+    # Only consider tags matching this pattern
+    pattern: '^v[0-9]+\.[0-9]+\.[0-9]+$'
+    # Extract version from tag
+    extract: '$0'
+
+---
+# ImageRepository for the above policy
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: myapp
+  namespace: flux-system
+spec:
+  image: ghcr.io/example/myapp
+  interval: 5m
+  secretRef:
+    name: registry-credentials
+
+---
+# Example 4: ImagePolicy with numerical ordering
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImagePolicy
+metadata:
+  name: myapp-numerical
+  namespace: flux-system
+spec:
+  imageRepositoryRef:
+    name: myapp
+  policy:
+    # Numerical ordering (latest number wins)
+    numerical:
+      order: asc  # or desc
+  filterTags:
+    pattern: '^build-[0-9]+$'
+    extract: '$0'
+
+---
+# Example 5: ImagePolicy with alphabetical ordering
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImagePolicy
+metadata:
+  name: myapp-alpha
+  namespace: flux-system
+spec:
+  imageRepositoryRef:
+    name: myapp
+  policy:
+    # Alphabetical ordering
+    alphabetical:
+      order: asc  # or desc
+  filterTags:
+    pattern: '^release-.*$'
+
+---
+# Example 6: ImageUpdateAutomation
+apiVersion: image.toolkit.fluxcd.io/v1beta1
+kind: ImageUpdateAutomation
+metadata:
+  name: myapp
+  namespace: flux-system
+spec:
+  # Reconciliation interval
+  interval: 30m
+  # Source repository to update
+  sourceRef:
+    kind: GitRepository
+    name: myapp
+    namespace: flux-system
+  # Git configuration
+  git:
+    # Checkout configuration
+    checkout:
+      ref:
+        branch: main
+    # Commit configuration
+    commit:
+      author:
+        email: fluxbot@example.com
+        name: Flux Bot
+      # Message template
+      messageTemplate: |
+        [ci skip] Update images
+
+        Automation: {{ .AutomationObject }}
+
+        Files updated:
+        {{ range $filename, $_ := .Updated.Files -}}
+        - {{ $filename }}
+        {{ end -}}
+
+        Objects updated:
+        {{ range $resource, $_ := .Updated.Objects -}}
+        - {{ $resource.Kind }} {{ $resource.Name }}
+        {{ end -}}
+
+        Images updated:
+        {{ range .Updated.Images -}}
+        - {{ . }}
+        {{ end -}}
+    # Push configuration
+    push:
+      branch: main
+  # Update configuration
+  update:
+    # Path to update (relative to repository root)
+    path: ./k8s/production
+    # Update strategy
+    strategy: Setters
+
+---
+# Example 7: Kubernetes manifests with image markers
+# This is what gets updated by ImageUpdateAutomation
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp
+  namespace: production
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: myapp
+  template:
+    metadata:
+      labels:
+        app: myapp
+    spec:
+      containers:
+      # Image marker comment tells automation which policy to use
+      - name: myapp
+        image: ghcr.io/example/myapp:v1.0.0 # {"$imagepolicy": "flux-system:myapp"}
+        ports:
+        - containerPort: 8080
+
+---
+# Example 8: Multiple image policies in one deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: multi-container
+  namespace: production
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: multi-container
+  template:
+    metadata:
+      labels:
+        app: multi-container
+    spec:
+      containers:
+      - name: frontend
+        image: ghcr.io/example/frontend:v1.0.0 # {"$imagepolicy": "flux-system:frontend"}
+      - name: backend
+        image: ghcr.io/example/backend:v1.0.0 # {"$imagepolicy": "flux-system:backend"}
+      - name: sidecar
+        image: ghcr.io/example/sidecar:v1.0.0 # {"$imagepolicy": "flux-system:sidecar"}
+
+---
+# Image policies for multi-container deployment
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: frontend
+  namespace: flux-system
+spec:
+  image: ghcr.io/example/frontend
+  interval: 5m
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImagePolicy
+metadata:
+  name: frontend
+  namespace: flux-system
+spec:
+  imageRepositoryRef:
+    name: frontend
+  policy:
+    semver:
+      range: ">=1.0.0 <2.0.0"
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: backend
+  namespace: flux-system
+spec:
+  image: ghcr.io/example/backend
+  interval: 5m
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImagePolicy
+metadata:
+  name: backend
+  namespace: flux-system
+spec:
+  imageRepositoryRef:
+    name: backend
+  policy:
+    semver:
+      range: ">=1.0.0 <2.0.0"
+
+---
+# Example 9: ImageUpdateAutomation with branch strategy
+apiVersion: image.toolkit.fluxcd.io/v1beta1
+kind: ImageUpdateAutomation
+metadata:
+  name: myapp-pr
+  namespace: flux-system
+spec:
+  interval: 30m
+  sourceRef:
+    kind: GitRepository
+    name: myapp
+  git:
+    checkout:
+      ref:
+        branch: main
+    commit:
+      author:
+        email: fluxbot@example.com
+        name: Flux Bot
+      messageTemplate: |
+        Update image to {{ range .Updated.Images }}{{ . }}{{ end }}
+    # Push to a different branch (for PR workflow)
+    push:
+      branch: image-updates-${timestamp}
+  update:
+    path: ./k8s/production
+    strategy: Setters
+
+---
+# Example 10: Complex semver policy
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImagePolicy
+metadata:
+  name: myapp-complex
+  namespace: flux-system
+spec:
+  imageRepositoryRef:
+    name: myapp
+  policy:
+    semver:
+      # Only accept 1.x.x versions
+      range: "1.x"
+  filterTags:
+    # Match version tags and build numbers
+    pattern: '^v(?P<version>[0-9]+\.[0-9]+\.[0-9]+)(\+(?P<build>[0-9]+))?$'
+    # Extract version and build
+    extract: '$version'
+
+---
+# Example 11: ImagePolicy for pre-release versions
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImagePolicy
+metadata:
+  name: myapp-prerelease
+  namespace: flux-system
+spec:
+  imageRepositoryRef:
+    name: myapp
+  policy:
+    semver:
+      # Include pre-release versions
+      range: ">=1.0.0-0"
+  filterTags:
+    pattern: '^v[0-9]+\.[0-9]+\.[0-9]+(-[a-z]+\.[0-9]+)?$'
+
+---
+# Example 12: ImageUpdateAutomation with signing
+apiVersion: image.toolkit.fluxcd.io/v1beta1
+kind: ImageUpdateAutomation
+metadata:
+  name: myapp-signed
+  namespace: flux-system
+spec:
+  interval: 30m
+  sourceRef:
+    kind: GitRepository
+    name: myapp
+  git:
+    checkout:
+      ref:
+        branch: main
+    commit:
+      author:
+        email: fluxbot@example.com
+        name: Flux Bot
+      # GPG signing
+      signingKey:
+        secretRef:
+          name: git-gpg-key
+      messageTemplate: |
+        [automated] Update images
+        {{ range .Updated.Images }}
+        - {{ . }}
+        {{ end }}
+    push:
+      branch: main
+  update:
+    path: ./k8s
+    strategy: Setters
+
+---
+# Example 13: Cross-namespace ImagePolicy reference
+# In application namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: production
+---
+# Deployment in application namespace
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp
+  namespace: production
+spec:
+  replicas: 3
+  template:
+    spec:
+      containers:
+      - name: myapp
+        # Reference policy in flux-system namespace
+        image: ghcr.io/example/myapp:v1.0.0 # {"$imagepolicy": "flux-system:myapp:tag"}
+
+---
+# Example 14: ImagePolicy with metadata
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImagePolicy
+metadata:
+  name: myapp-with-metadata
+  namespace: flux-system
+  labels:
+    app: myapp
+    environment: production
+  annotations:
+    description: "Image policy for production myapp"
+    team: "platform"
+spec:
+  imageRepositoryRef:
+    name: myapp
+  policy:
+    semver:
+      range: ">=1.0.0 <2.0.0"
+
+---
+# Example 15: Monitoring image automation
+# ServiceMonitor for image-reflector-controller
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: image-reflector-controller
+  namespace: flux-system
+spec:
+  selector:
+    matchLabels:
+      app: image-reflector-controller
+  endpoints:
+  - port: http-prom
+    interval: 30s
+
+---
+# ServiceMonitor for image-automation-controller
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: image-automation-controller
+  namespace: flux-system
+spec:
+  selector:
+    matchLabels:
+      app: image-automation-controller
+  endpoints:
+  - port: http-prom
+    interval: 30s
+
+---
+# Example 16: Image scan with ACR (Azure Container Registry)
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: acr-image
+  namespace: flux-system
+spec:
+  image: myregistry.azurecr.io/myapp
+  interval: 5m
+  # Service principal credentials
+  secretRef:
+    name: acr-credentials
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: acr-credentials
+  namespace: flux-system
+type: kubernetes.io/dockerconfigjson
+stringData:
+  .dockerconfigjson: |
+    {
+      "auths": {
+        "myregistry.azurecr.io": {
+          "username": "service-principal-id",
+          "password": "service-principal-password"
+        }
+      }
+    }
+
+---
+# Example 17: Image scan with ECR (Amazon Elastic Container Registry)
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: ecr-image
+  namespace: flux-system
+spec:
+  image: 123456789.dkr.ecr.us-east-1.amazonaws.com/myapp
+  interval: 5m
+  # Use IAM role for service account
+  provider: aws
+
+---
+# Example 18: Suspend image automation
+apiVersion: image.toolkit.fluxcd.io/v1beta1
+kind: ImageUpdateAutomation
+metadata:
+  name: suspended-automation
+  namespace: flux-system
+spec:
+  # Suspend automation
+  suspend: true
+  interval: 30m
+  sourceRef:
+    kind: GitRepository
+    name: myapp
+  git:
+    checkout:
+      ref:
+        branch: main
+    commit:
+      author:
+        email: fluxbot@example.com
+        name: Flux Bot
+    push:
+      branch: main
+  update:
+    path: ./k8s
+    strategy: Setters

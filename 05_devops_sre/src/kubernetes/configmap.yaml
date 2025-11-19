@@ -1,0 +1,484 @@
+# ConfigMap Examples
+#
+# ConfigMaps store non-confidential configuration data as key-value pairs.
+# Pods can consume ConfigMaps as environment variables, command-line arguments,
+# or as configuration files in volumes.
+
+---
+# Simple ConfigMap with Literal Values
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: production
+  labels:
+    app: web-application
+data:
+  # Simple key-value pairs
+  database.host: "postgres.production.svc.cluster.local"
+  database.port: "5432"
+  database.name: "production_db"
+  cache.enabled: "true"
+  cache.ttl: "3600"
+  log.level: "info"
+  feature.new-ui: "true"
+  max.connections: "100"
+
+---
+# ConfigMap with File-Like Keys (Application Config)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config-files
+  namespace: production
+  labels:
+    app: web-application
+data:
+  # YAML configuration file
+  application.yaml: |
+    server:
+      port: 8080
+      host: 0.0.0.0
+      shutdown_timeout: 30s
+
+    database:
+      host: postgres.production.svc.cluster.local
+      port: 5432
+      name: production_db
+      pool:
+        min: 5
+        max: 20
+        timeout: 30s
+
+    redis:
+      host: redis.production.svc.cluster.local
+      port: 6379
+      db: 0
+      pool_size: 10
+
+    logging:
+      level: info
+      format: json
+      output: stdout
+
+    features:
+      new_ui: true
+      beta_features: false
+      analytics: true
+
+  # JSON configuration file
+  config.json: |
+    {
+      "api": {
+        "version": "v2",
+        "timeout": 30,
+        "retries": 3
+      },
+      "security": {
+        "cors_enabled": true,
+        "allowed_origins": ["https://example.com"],
+        "rate_limit": 100
+      }
+    }
+
+  # Properties file (Java applications)
+  application.properties: |
+    spring.application.name=web-application
+    spring.profiles.active=production
+    server.port=8080
+    server.compression.enabled=true
+
+    # Database configuration
+    spring.datasource.url=jdbc:postgresql://postgres:5432/production_db
+    spring.datasource.driver-class-name=org.postgresql.Driver
+    spring.jpa.hibernate.ddl-auto=validate
+    spring.jpa.show-sql=false
+
+    # Redis configuration
+    spring.redis.host=redis
+    spring.redis.port=6379
+
+    # Logging
+    logging.level.root=INFO
+    logging.level.com.example=DEBUG
+
+  # .env file format
+  .env: |
+    NODE_ENV=production
+    PORT=8080
+    LOG_LEVEL=info
+    ENABLE_METRICS=true
+    CACHE_TTL=3600
+
+---
+# NGINX Configuration ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+  namespace: production
+  labels:
+    app: nginx
+data:
+  nginx.conf: |
+    user nginx;
+    worker_processes auto;
+    error_log /var/log/nginx/error.log warn;
+    pid /var/run/nginx.pid;
+
+    events {
+        worker_connections 2048;
+        use epoll;
+        multi_accept on;
+    }
+
+    http {
+        include /etc/nginx/mime.types;
+        default_type application/octet-stream;
+
+        log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+                        '$status $body_bytes_sent "$http_referer" '
+                        '"$http_user_agent" "$http_x_forwarded_for"';
+
+        access_log /var/log/nginx/access.log main;
+
+        sendfile on;
+        tcp_nopush on;
+        tcp_nodelay on;
+        keepalive_timeout 65;
+        types_hash_max_size 2048;
+
+        # Gzip compression
+        gzip on;
+        gzip_vary on;
+        gzip_proxied any;
+        gzip_comp_level 6;
+        gzip_types text/plain text/css text/xml text/javascript
+                   application/json application/javascript application/xml+rss;
+
+        # SSL configuration
+        ssl_protocols TLSv1.2 TLSv1.3;
+        ssl_prefer_server_ciphers on;
+
+        include /etc/nginx/conf.d/*.conf;
+    }
+
+  default.conf: |
+    upstream backend {
+        server backend-service:8080 max_fails=3 fail_timeout=30s;
+        keepalive 32;
+    }
+
+    server {
+        listen 80;
+        server_name example.com;
+
+        location / {
+            proxy_pass http://backend;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection 'upgrade';
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_cache_bypass $http_upgrade;
+            proxy_connect_timeout 60s;
+            proxy_send_timeout 60s;
+            proxy_read_timeout 60s;
+        }
+
+        location /health {
+            access_log off;
+            return 200 "healthy\n";
+            add_header Content-Type text/plain;
+        }
+    }
+
+---
+# Fluent Bit Logging Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fluent-bit-config
+  namespace: production
+  labels:
+    app: fluent-bit
+data:
+  fluent-bit.conf: |
+    [SERVICE]
+        Flush         5
+        Daemon        off
+        Log_Level     info
+        Parsers_File  parsers.conf
+
+    [INPUT]
+        Name              tail
+        Path              /var/log/containers/*.log
+        Parser            docker
+        Tag               kube.*
+        Refresh_Interval  5
+        Mem_Buf_Limit     5MB
+        Skip_Long_Lines   On
+
+    [FILTER]
+        Name                kubernetes
+        Match               kube.*
+        Kube_URL            https://kubernetes.default.svc:443
+        Kube_CA_File        /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        Kube_Token_File     /var/run/secrets/kubernetes.io/serviceaccount/token
+        Merge_Log           On
+        Keep_Log            Off
+        K8S-Logging.Parser  On
+        K8S-Logging.Exclude On
+
+    [OUTPUT]
+        Name   es
+        Match  *
+        Host   elasticsearch
+        Port   9200
+        Index  kubernetes
+        Type   _doc
+
+  parsers.conf: |
+    [PARSER]
+        Name        docker
+        Format      json
+        Time_Key    time
+        Time_Format %Y-%m-%dT%H:%M:%S.%L
+        Time_Keep   On
+
+    [PARSER]
+        Name        json
+        Format      json
+
+---
+# Prometheus Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: monitoring
+  labels:
+    app: prometheus
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+      external_labels:
+        cluster: 'production'
+        environment: 'prod'
+
+    alerting:
+      alertmanagers:
+      - static_configs:
+        - targets:
+          - alertmanager:9093
+
+    rule_files:
+    - '/etc/prometheus/rules/*.yml'
+
+    scrape_configs:
+    # Kubernetes API server
+    - job_name: 'kubernetes-apiservers'
+      kubernetes_sd_configs:
+      - role: endpoints
+      scheme: https
+      tls_config:
+        ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+      bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: default;kubernetes;https
+
+    # Kubernetes nodes
+    - job_name: 'kubernetes-nodes'
+      kubernetes_sd_configs:
+      - role: node
+      scheme: https
+      tls_config:
+        ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+      bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+
+    # Kubernetes pods
+    - job_name: 'kubernetes-pods'
+      kubernetes_sd_configs:
+      - role: pod
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+        action: keep
+        regex: true
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+        action: replace
+        target_label: __metrics_path__
+        regex: (.+)
+      - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+        action: replace
+        regex: ([^:]+)(?::\d+)?;(\d+)
+        replacement: $1:$2
+        target_label: __address__
+
+---
+# Immutable ConfigMap (Best Practice)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config-v1.2.0
+  namespace: production
+  labels:
+    app: web-application
+    version: v1.2.0
+immutable: true  # Prevents modification
+data:
+  version: "1.2.0"
+  config.yaml: |
+    app:
+      version: "1.2.0"
+      features:
+        feature_a: true
+        feature_b: false
+
+---
+# Binary Data in ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: binary-config
+  namespace: production
+binaryData:
+  # Binary files encoded in base64
+  ssl.crt: LS0tLS1CRUdJTi...  # Base64 encoded certificate
+  logo.png: iVBORw0KGgo...    # Base64 encoded image
+
+---
+# Multi-Environment Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: env-config-dev
+  namespace: development
+data:
+  environment: "development"
+  debug: "true"
+  log_level: "debug"
+  api_url: "https://api-dev.example.com"
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: env-config-prod
+  namespace: production
+data:
+  environment: "production"
+  debug: "false"
+  log_level: "warn"
+  api_url: "https://api.example.com"
+
+---
+# Database Migration ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: db-migrations
+  namespace: production
+data:
+  001_initial_schema.sql: |
+    CREATE TABLE users (
+      id SERIAL PRIMARY KEY,
+      username VARCHAR(50) UNIQUE NOT NULL,
+      email VARCHAR(100) UNIQUE NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX idx_users_email ON users(email);
+
+  002_add_profile.sql: |
+    ALTER TABLE users ADD COLUMN profile_data JSONB;
+    CREATE INDEX idx_users_profile ON users USING GIN (profile_data);
+
+---
+# Script ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: init-scripts
+  namespace: production
+data:
+  init.sh: |
+    #!/bin/bash
+    set -e
+
+    echo "Starting initialization..."
+
+    # Wait for database
+    until pg_isready -h $DB_HOST -p $DB_PORT -U $DB_USER; do
+      echo "Waiting for database..."
+      sleep 2
+    done
+
+    echo "Database is ready!"
+
+    # Run migrations
+    npm run migrate
+
+    echo "Initialization complete!"
+
+  healthcheck.sh: |
+    #!/bin/bash
+    curl -f http://localhost:8080/health || exit 1
+
+---
+# Using ConfigMaps in Pods - Reference Examples
+
+# Example 1: Environment variables from ConfigMap
+# spec:
+#   containers:
+#   - name: app
+#     envFrom:
+#     - configMapRef:
+#         name: app-config
+
+# Example 2: Specific keys as environment variables
+# spec:
+#   containers:
+#   - name: app
+#     env:
+#     - name: DATABASE_HOST
+#       valueFrom:
+#         configMapKeyRef:
+#           name: app-config
+#           key: database.host
+
+# Example 3: Mount ConfigMap as volume
+# spec:
+#   containers:
+#   - name: app
+#     volumeMounts:
+#     - name: config
+#       mountPath: /etc/config
+#       readOnly: true
+#   volumes:
+#   - name: config
+#     configMap:
+#       name: app-config-files
+
+# Example 4: Mount specific keys as files
+# spec:
+#   volumes:
+#   - name: config
+#     configMap:
+#       name: app-config-files
+#       items:
+#       - key: application.yaml
+#         path: app.yaml
+#       - key: config.json
+#         path: config.json
+
+# Creating ConfigMaps from Command Line:
+# kubectl create configmap app-config --from-literal=key1=value1 --from-literal=key2=value2
+# kubectl create configmap app-config --from-file=config.yaml
+# kubectl create configmap app-config --from-file=configs/
+# kubectl create configmap app-config --from-env-file=.env

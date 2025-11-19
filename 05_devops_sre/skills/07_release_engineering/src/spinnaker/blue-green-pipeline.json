@@ -1,0 +1,500 @@
+{
+  "name": "Blue-Green Deployment",
+  "application": "myapp",
+  "description": "Blue-green deployment pipeline with automated testing and rollback",
+  "keepWaitingPipelines": false,
+  "limitConcurrent": true,
+  "maxConcurrentExecutions": 1,
+  "notifications": [
+    {
+      "address": "deploys",
+      "level": "pipeline",
+      "type": "slack",
+      "when": ["pipeline.complete", "pipeline.failed"]
+    }
+  ],
+  "parameterConfig": [
+    {
+      "default": "production",
+      "description": "Target namespace",
+      "name": "namespace",
+      "required": true
+    },
+    {
+      "default": "",
+      "description": "New version image tag",
+      "name": "imageTag",
+      "required": true
+    },
+    {
+      "default": "true",
+      "description": "Require manual approval before traffic switch",
+      "name": "manualApproval",
+      "required": true,
+      "hasOptions": true,
+      "options": [
+        {"value": "true"},
+        {"value": "false"}
+      ]
+    }
+  ],
+  "stages": [
+    {
+      "name": "Determine Current Color",
+      "refId": "1",
+      "requisiteStageRefIds": [],
+      "type": "evaluateVariables",
+      "variables": [
+        {
+          "key": "currentColor",
+          "value": "${#stage('Get Current Service')['context']['manifestNamesByNamespace']['${parameters.namespace}'][0].contains('blue') ? 'blue' : 'green'}"
+        },
+        {
+          "key": "newColor",
+          "value": "${currentColor == 'blue' ? 'green' : 'blue'}"
+        }
+      ]
+    },
+    {
+      "name": "Deploy New Color",
+      "refId": "2",
+      "requisiteStageRefIds": ["1"],
+      "type": "deployManifest",
+      "account": "kubernetes",
+      "cloudProvider": "kubernetes",
+      "source": "text",
+      "manifests": [
+        {
+          "apiVersion": "apps/v1",
+          "kind": "Deployment",
+          "metadata": {
+            "name": "myapp-${newColor}",
+            "namespace": "${parameters.namespace}",
+            "labels": {
+              "app": "myapp",
+              "version": "${newColor}"
+            }
+          },
+          "spec": {
+            "replicas": 3,
+            "selector": {
+              "matchLabels": {
+                "app": "myapp",
+                "version": "${newColor}"
+              }
+            },
+            "template": {
+              "metadata": {
+                "labels": {
+                  "app": "myapp",
+                  "version": "${newColor}",
+                  "deployment": "${execution.id}"
+                },
+                "annotations": {
+                  "prometheus.io/scrape": "true",
+                  "prometheus.io/port": "8080",
+                  "prometheus.io/path": "/metrics"
+                }
+              },
+              "spec": {
+                "containers": [
+                  {
+                    "name": "myapp",
+                    "image": "myapp:${parameters.imageTag}",
+                    "ports": [
+                      {"containerPort": 8080, "name": "http"},
+                      {"containerPort": 8081, "name": "metrics"}
+                    ],
+                    "env": [
+                      {
+                        "name": "VERSION",
+                        "value": "${parameters.imageTag}"
+                      },
+                      {
+                        "name": "COLOR",
+                        "value": "${newColor}"
+                      }
+                    ],
+                    "resources": {
+                      "requests": {
+                        "cpu": "200m",
+                        "memory": "256Mi"
+                      },
+                      "limits": {
+                        "cpu": "1000m",
+                        "memory": "1Gi"
+                      }
+                    },
+                    "livenessProbe": {
+                      "httpGet": {
+                        "path": "/health",
+                        "port": 8080
+                      },
+                      "initialDelaySeconds": 30,
+                      "periodSeconds": 10,
+                      "timeoutSeconds": 5,
+                      "failureThreshold": 3
+                    },
+                    "readinessProbe": {
+                      "httpGet": {
+                        "path": "/ready",
+                        "port": 8080
+                      },
+                      "initialDelaySeconds": 10,
+                      "periodSeconds": 5,
+                      "timeoutSeconds": 3,
+                      "failureThreshold": 3
+                    }
+                  }
+                ],
+                "affinity": {
+                  "podAntiAffinity": {
+                    "preferredDuringSchedulingIgnoredDuringExecution": [
+                      {
+                        "weight": 100,
+                        "podAffinityTerm": {
+                          "labelSelector": {
+                            "matchLabels": {
+                              "app": "myapp"
+                            }
+                          },
+                          "topologyKey": "kubernetes.io/hostname"
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      ],
+      "moniker": {
+        "app": "myapp"
+      }
+    },
+    {
+      "name": "Wait for New Deployment",
+      "refId": "3",
+      "requisiteStageRefIds": ["2"],
+      "type": "wait",
+      "waitTime": 120,
+      "comments": "Wait for all pods to be ready"
+    },
+    {
+      "name": "Create Test Service",
+      "refId": "4",
+      "requisiteStageRefIds": ["3"],
+      "type": "deployManifest",
+      "account": "kubernetes",
+      "cloudProvider": "kubernetes",
+      "source": "text",
+      "manifests": [
+        {
+          "apiVersion": "v1",
+          "kind": "Service",
+          "metadata": {
+            "name": "myapp-${newColor}-test",
+            "namespace": "${parameters.namespace}"
+          },
+          "spec": {
+            "selector": {
+              "app": "myapp",
+              "version": "${newColor}"
+            },
+            "ports": [
+              {
+                "port": 80,
+                "targetPort": 8080,
+                "protocol": "TCP"
+              }
+            ],
+            "type": "ClusterIP"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Health Check",
+      "refId": "5",
+      "requisiteStageRefIds": ["4"],
+      "type": "runJob",
+      "account": "kubernetes",
+      "cloudProvider": "kubernetes",
+      "manifest": {
+        "apiVersion": "batch/v1",
+        "kind": "Job",
+        "metadata": {
+          "name": "health-check-${execution.id}",
+          "namespace": "${parameters.namespace}"
+        },
+        "spec": {
+          "backoffLimit": 3,
+          "template": {
+            "spec": {
+              "containers": [
+                {
+                  "name": "health-check",
+                  "image": "curlimages/curl:latest",
+                  "command": [
+                    "/bin/sh",
+                    "-c",
+                    "for i in $(seq 1 10); do curl -f http://myapp-${newColor}-test/health && echo 'Health check $i passed' && sleep 2; done"
+                  ]
+                }
+              ],
+              "restartPolicy": "Never"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Integration Tests",
+      "refId": "6",
+      "requisiteStageRefIds": ["5"],
+      "type": "runJob",
+      "account": "kubernetes",
+      "cloudProvider": "kubernetes",
+      "manifest": {
+        "apiVersion": "batch/v1",
+        "kind": "Job",
+        "metadata": {
+          "name": "integration-tests-${execution.id}",
+          "namespace": "${parameters.namespace}"
+        },
+        "spec": {
+          "backoffLimit": 0,
+          "template": {
+            "spec": {
+              "containers": [
+                {
+                  "name": "integration-tests",
+                  "image": "myapp-tests:latest",
+                  "env": [
+                    {
+                      "name": "TARGET_URL",
+                      "value": "http://myapp-${newColor}-test"
+                    },
+                    {
+                      "name": "TEST_SUITE",
+                      "value": "integration"
+                    }
+                  ],
+                  "command": ["./run-tests.sh"]
+                }
+              ],
+              "restartPolicy": "Never"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Load Testing",
+      "refId": "7",
+      "requisiteStageRefIds": ["6"],
+      "type": "runJob",
+      "account": "kubernetes",
+      "cloudProvider": "kubernetes",
+      "manifest": {
+        "apiVersion": "batch/v1",
+        "kind": "Job",
+        "metadata": {
+          "name": "load-test-${execution.id}",
+          "namespace": "${parameters.namespace}"
+        },
+        "spec": {
+          "backoffLimit": 0,
+          "template": {
+            "spec": {
+              "containers": [
+                {
+                  "name": "load-test",
+                  "image": "williamyeh/hey:latest",
+                  "command": [
+                    "hey",
+                    "-z", "2m",
+                    "-c", "50",
+                    "-q", "100",
+                    "http://myapp-${newColor}-test/api/test"
+                  ]
+                }
+              ],
+              "restartPolicy": "Never"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Performance Analysis",
+      "refId": "8",
+      "requisiteStageRefIds": ["7"],
+      "type": "webhook",
+      "method": "POST",
+      "url": "http://analysis-service/analyze",
+      "payload": {
+        "deployment": "${newColor}",
+        "namespace": "${parameters.namespace}",
+        "executionId": "${execution.id}"
+      },
+      "failFastStatusCodes": [400, 500],
+      "statusUrlResolution": "getMethod",
+      "waitForCompletion": true
+    },
+    {
+      "name": "Manual Approval",
+      "refId": "9",
+      "requisiteStageRefIds": ["8"],
+      "type": "manualJudgment",
+      "failPipeline": true,
+      "instructions": "Review test results and approve traffic switch to ${newColor}",
+      "judgmentInputs": [
+        {"value": "Approve"},
+        {"value": "Reject"}
+      ],
+      "notifications": [
+        {
+          "address": "deploys",
+          "level": "stage",
+          "type": "slack",
+          "when": ["manualJudgment"]
+        }
+      ],
+      "stageEnabled": {
+        "expression": "${parameters.manualApproval == 'true'}",
+        "type": "expression"
+      }
+    },
+    {
+      "name": "Switch Traffic to New Color",
+      "refId": "10",
+      "requisiteStageRefIds": ["9"],
+      "type": "deployManifest",
+      "account": "kubernetes",
+      "cloudProvider": "kubernetes",
+      "source": "text",
+      "manifests": [
+        {
+          "apiVersion": "v1",
+          "kind": "Service",
+          "metadata": {
+            "name": "myapp",
+            "namespace": "${parameters.namespace}",
+            "annotations": {
+              "switched-at": "${execution.startTime}",
+              "switched-from": "${currentColor}",
+              "switched-to": "${newColor}"
+            }
+          },
+          "spec": {
+            "selector": {
+              "app": "myapp",
+              "version": "${newColor}"
+            },
+            "ports": [
+              {
+                "port": 80,
+                "targetPort": 8080,
+                "protocol": "TCP"
+              }
+            ],
+            "type": "LoadBalancer"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Monitor New Production",
+      "refId": "11",
+      "requisiteStageRefIds": ["10"],
+      "type": "wait",
+      "waitTime": 300,
+      "comments": "Monitor new version in production for 5 minutes"
+    },
+    {
+      "name": "Post-Deployment Validation",
+      "refId": "12",
+      "requisiteStageRefIds": ["11"],
+      "type": "runJob",
+      "account": "kubernetes",
+      "cloudProvider": "kubernetes",
+      "manifest": {
+        "apiVersion": "batch/v1",
+        "kind": "Job",
+        "metadata": {
+          "name": "post-deploy-validation-${execution.id}",
+          "namespace": "${parameters.namespace}"
+        },
+        "spec": {
+          "backoffLimit": 0,
+          "template": {
+            "spec": {
+              "containers": [
+                {
+                  "name": "validation",
+                  "image": "myapp-tests:latest",
+                  "env": [
+                    {
+                      "name": "TARGET_URL",
+                      "value": "http://myapp"
+                    }
+                  ],
+                  "command": ["./validate-production.sh"]
+                }
+              ],
+              "restartPolicy": "Never"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Scale Down Old Color",
+      "refId": "13",
+      "requisiteStageRefIds": ["12"],
+      "type": "scaleManifest",
+      "account": "kubernetes",
+      "cloudProvider": "kubernetes",
+      "location": "${parameters.namespace}",
+      "manifestName": "deployment myapp-${currentColor}",
+      "replicas": 0
+    },
+    {
+      "name": "Cleanup Test Service",
+      "refId": "14",
+      "requisiteStageRefIds": ["13"],
+      "type": "deleteManifest",
+      "account": "kubernetes",
+      "cloudProvider": "kubernetes",
+      "location": "${parameters.namespace}",
+      "manifestName": "service myapp-${newColor}-test"
+    },
+    {
+      "name": "Tag Release",
+      "refId": "15",
+      "requisiteStageRefIds": ["14"],
+      "type": "webhook",
+      "method": "POST",
+      "url": "http://release-tracker/tag",
+      "payload": {
+        "application": "${application}",
+        "version": "${parameters.imageTag}",
+        "environment": "${parameters.namespace}",
+        "color": "${newColor}",
+        "timestamp": "${execution.endTime}"
+      }
+    }
+  ],
+  "triggers": [
+    {
+      "enabled": true,
+      "type": "docker",
+      "account": "dockerhub",
+      "organization": "myorg",
+      "registry": "index.docker.io",
+      "repository": "myorg/myapp"
+    }
+  ]
+}

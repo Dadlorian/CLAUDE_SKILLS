@@ -1,0 +1,108 @@
+# Chaos Mesh: Network Partition Experiment
+#
+# This experiment creates a network partition between services to test
+# split-brain scenarios, partition tolerance, and distributed system behavior.
+#
+# Use Case: Test distributed consensus, quorum, and partition detection
+
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: network-partition
+  namespace: chaos-mesh
+spec:
+  # Action: partition (isolate network segments)
+  action: partition
+
+  # Mode: how to select target pods
+  # Options: one, all, fixed, fixed-percent, random-max-percent
+  mode: all
+
+  # Source pod selector
+  selector:
+    namespaces:
+      - production
+    labelSelectors:
+      app: frontend
+      tier: web
+
+  # Direction: to, from, both
+  direction: both
+
+  # Target selector (the other side of the partition)
+  target:
+    mode: all
+    selector:
+      namespaces:
+        - production
+      labelSelectors:
+        app: backend
+        tier: api
+
+  # Duration of the chaos
+  duration: "2m"
+
+  # Scheduler: when to run (optional)
+  scheduler:
+    cron: "@every 12h"  # Run every 12 hours
+
+---
+# Alternative: Network partition with external dependencies
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: external-dependency-partition
+  namespace: chaos-mesh
+spec:
+  action: partition
+  mode: all
+
+  selector:
+    namespaces:
+      - production
+    labelSelectors:
+      app: payment-service
+
+  direction: to
+
+  # External targets (IPs or hostnames)
+  externalTargets:
+    - stripe.com
+    - api.stripe.com
+
+  duration: "1m"
+
+---
+# Network partition for database split-brain testing
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: database-split-brain
+  namespace: chaos-mesh
+spec:
+  action: partition
+  mode: all
+
+  selector:
+    namespaces:
+      - production
+    labelSelectors:
+      app: postgres
+      role: primary
+
+  direction: both
+
+  target:
+    mode: all
+    selector:
+      namespaces:
+        - production
+      labelSelectors:
+        app: postgres
+        role: replica
+
+  duration: "30s"
+
+  # Pause schedule (don't run during specific times)
+  scheduler:
+    cron: "0 10 * * 1-5"  # Monday-Friday at 10am only

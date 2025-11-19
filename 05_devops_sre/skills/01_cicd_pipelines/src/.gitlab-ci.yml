@@ -1,0 +1,692 @@
+# Complete GitLab CI/CD Pipeline Example
+# This pipeline demonstrates best practices for a full-stack application
+# with build, test, security scanning, and deployment stages
+
+# ============================================
+# Global Variables
+# ============================================
+variables:
+  # Application versioning
+  VERSION: "1.0.${CI_PIPELINE_IID}"
+
+  # Docker configuration
+  DOCKER_DRIVER: overlay2
+  DOCKER_TLS_CERTDIR: "/certs"
+  DOCKER_IMAGE: "${CI_REGISTRY_IMAGE}"
+
+  # Performance optimization
+  FF_USE_FASTZIP: "true"
+  ARTIFACT_COMPRESSION_LEVEL: "fast"
+  CACHE_COMPRESSION_LEVEL: "fast"
+  GIT_DEPTH: "5"
+
+  # Node.js configuration
+  NODE_VERSION: "18"
+  NPM_CONFIG_CACHE: "${CI_PROJECT_DIR}/.npm"
+
+  # Maven configuration
+  MAVEN_OPTS: "-Dmaven.repo.local=${CI_PROJECT_DIR}/.m2/repository"
+
+  # Deployment URLs
+  DEV_URL: "https://dev.example.com"
+  STAGING_URL: "https://staging.example.com"
+  PROD_URL: "https://prod.example.com"
+
+# ============================================
+# Workflow Rules - Control when pipeline runs
+# ============================================
+workflow:
+  rules:
+    # Don't run on draft merge requests
+    - if: '$CI_MERGE_REQUEST_TITLE =~ /^Draft:/'
+      when: never
+
+    # Run on merge requests
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+
+    # Run on main branch
+    - if: '$CI_COMMIT_BRANCH == "main"'
+
+    # Run on develop branch
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+
+    # Run on release branches
+    - if: '$CI_COMMIT_BRANCH =~ /^release\/.*$/'
+
+    # Run on tags
+    - if: '$CI_COMMIT_TAG'
+
+    # Don't run otherwise
+    - when: never
+
+# ============================================
+# Default Configuration
+# ============================================
+default:
+  # Retry configuration
+  retry:
+    max: 2
+    when:
+      - runner_system_failure
+      - stuck_or_timeout_failure
+
+  # Default before script
+  before_script:
+    - echo "🚀 Starting job ${CI_JOB_NAME}"
+    - echo "📍 Branch/Tag ${CI_COMMIT_REF_NAME}"
+    - echo "📝 Commit ${CI_COMMIT_SHORT_SHA}"
+
+  # Default after script
+  after_script:
+    - echo "✅ Job ${CI_JOB_NAME} completed"
+
+# ============================================
+# Pipeline Stages
+# ============================================
+stages:
+  - setup
+  - lint
+  - security
+  - test
+  - build
+  - package
+  - deploy:dev
+  - deploy:staging
+  - deploy:production
+  - verify
+
+# ============================================
+# Stage: Setup
+# ============================================
+
+# Install Frontend Dependencies
+install:frontend:
+  stage: setup
+  image: node:${NODE_VERSION}
+  cache:
+    key:
+      files:
+        - frontend/package-lock.json
+    paths:
+      - frontend/node_modules/
+    policy: pull-push
+  script:
+    - cd frontend
+    - npm ci
+  artifacts:
+    paths:
+      - frontend/node_modules/
+    expire_in: 1 hour
+  tags:
+    - docker
+
+# Install Backend Dependencies
+install:backend:
+  stage: setup
+  image: maven:3.9-eclipse-temurin-17
+  cache:
+    key:
+      files:
+        - backend/pom.xml
+    paths:
+      - .m2/repository/
+    policy: pull-push
+  script:
+    - cd backend
+    - mvn dependency:go-offline
+  artifacts:
+    paths:
+      - .m2/repository/
+    expire_in: 1 hour
+  tags:
+    - docker
+
+# ============================================
+# Stage: Lint & Code Quality
+# ============================================
+
+lint:frontend:
+  stage: lint
+  image: node:${NODE_VERSION}
+  needs: ['install:frontend']
+  cache:
+    key:
+      files:
+        - frontend/package-lock.json
+    paths:
+      - frontend/node_modules/
+    policy: pull
+  script:
+    - cd frontend
+    - npm run lint
+    - npm run prettier:check
+    - npm run type-check
+  tags:
+    - docker
+
+lint:backend:
+  stage: lint
+  image: maven:3.9-eclipse-temurin-17
+  needs: ['install:backend']
+  cache:
+    key:
+      files:
+        - backend/pom.xml
+    paths:
+      - .m2/repository/
+    policy: pull
+  script:
+    - cd backend
+    - mvn checkstyle:check
+    - mvn pmd:check
+  tags:
+    - docker
+
+# ============================================
+# Stage: Security Scanning
+# ============================================
+
+security:dependency-scan:frontend:
+  stage: security
+  image: node:${NODE_VERSION}
+  needs: ['install:frontend']
+  cache:
+    key:
+      files:
+        - frontend/package-lock.json
+    paths:
+      - frontend/node_modules/
+    policy: pull
+  script:
+    - cd frontend
+    - npm audit --audit-level=moderate || true
+    - npx snyk test --severity-threshold=high || true
+  allow_failure: true
+  tags:
+    - docker
+
+security:dependency-scan:backend:
+  stage: security
+  image: maven:3.9-eclipse-temurin-17
+  needs: ['install:backend']
+  cache:
+    key:
+      files:
+        - backend/pom.xml
+    paths:
+      - .m2/repository/
+    policy: pull
+  script:
+    - cd backend
+    - mvn org.owasp:dependency-check-maven:check || true
+  artifacts:
+    reports:
+      dependency_scanning: backend/target/dependency-check-report.json
+  allow_failure: true
+  tags:
+    - docker
+
+security:secret-scan:
+  stage: security
+  image: zricethezav/gitleaks:latest
+  script:
+    - gitleaks detect --source . --verbose --redact --report-path gitleaks-report.json
+  artifacts:
+    reports:
+      secret_detection: gitleaks-report.json
+    when: on_failure
+  allow_failure: false
+  tags:
+    - docker
+
+security:sast:
+  stage: security
+  image:
+    name: sonarsource/sonar-scanner-cli:latest
+    entrypoint: [""]
+  variables:
+    SONAR_USER_HOME: "${CI_PROJECT_DIR}/.sonar"
+    GIT_DEPTH: "0"
+  cache:
+    key: "${CI_JOB_NAME}"
+    paths:
+      - .sonar/cache
+  script:
+    - sonar-scanner
+      -Dsonar.projectKey=${CI_PROJECT_NAME}
+      -Dsonar.projectName=${CI_PROJECT_NAME}
+      -Dsonar.projectVersion=${VERSION}
+      -Dsonar.sources=.
+      -Dsonar.exclusions=**/node_modules/**,**/dist/**,**/target/**
+  allow_failure: true
+  only:
+    - main
+    - develop
+    - merge_requests
+  tags:
+    - docker
+
+# ============================================
+# Stage: Test
+# ============================================
+
+test:frontend:unit:
+  stage: test
+  image: node:${NODE_VERSION}
+  needs: ['install:frontend', 'lint:frontend']
+  cache:
+    key:
+      files:
+        - frontend/package-lock.json
+    paths:
+      - frontend/node_modules/
+    policy: pull
+  script:
+    - cd frontend
+    - npm run test:unit -- --coverage
+  coverage: '/Lines\s*:\s*(\d+\.\d+)%/'
+  artifacts:
+    reports:
+      junit: frontend/junit.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: frontend/coverage/cobertura-coverage.xml
+    paths:
+      - frontend/coverage/
+    expire_in: 1 week
+  tags:
+    - docker
+
+test:backend:unit:
+  stage: test
+  image: maven:3.9-eclipse-temurin-17
+  needs: ['install:backend', 'lint:backend']
+  cache:
+    key:
+      files:
+        - backend/pom.xml
+    paths:
+      - .m2/repository/
+    policy: pull
+  script:
+    - cd backend
+    - mvn test
+  artifacts:
+    reports:
+      junit: backend/target/surefire-reports/TEST-*.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: backend/target/site/cobertura/coverage.xml
+    paths:
+      - backend/target/site/jacoco/
+    expire_in: 1 week
+  tags:
+    - docker
+
+test:backend:integration:
+  stage: test
+  image: maven:3.9-eclipse-temurin-17
+  needs: ['install:backend', 'lint:backend']
+  services:
+    - postgres:13
+    - redis:6
+  variables:
+    POSTGRES_DB: testdb
+    POSTGRES_USER: testuser
+    POSTGRES_PASSWORD: testpass
+  cache:
+    key:
+      files:
+        - backend/pom.xml
+    paths:
+      - .m2/repository/
+    policy: pull
+  script:
+    - cd backend
+    - mvn verify -P integration-tests
+  artifacts:
+    reports:
+      junit: backend/target/failsafe-reports/TEST-*.xml
+    expire_in: 1 week
+  tags:
+    - docker
+
+# ============================================
+# Stage: Build
+# ============================================
+
+build:frontend:
+  stage: build
+  image: node:${NODE_VERSION}
+  needs: ['test:frontend:unit']
+  cache:
+    key:
+      files:
+        - frontend/package-lock.json
+    paths:
+      - frontend/node_modules/
+    policy: pull
+  script:
+    - cd frontend
+    - npm run build
+    - echo "VERSION=${VERSION}" > dist/version.txt
+  artifacts:
+    paths:
+      - frontend/dist/
+    expire_in: 1 week
+  tags:
+    - docker
+
+build:backend:
+  stage: build
+  image: maven:3.9-eclipse-temurin-17
+  needs: ['test:backend:unit', 'test:backend:integration']
+  cache:
+    key:
+      files:
+        - backend/pom.xml
+    paths:
+      - .m2/repository/
+    policy: pull
+  script:
+    - cd backend
+    - mvn package -DskipTests
+  artifacts:
+    paths:
+      - backend/target/*.jar
+    expire_in: 1 week
+  tags:
+    - docker
+
+# ============================================
+# Stage: Package (Docker)
+# ============================================
+
+package:frontend:
+  stage: package
+  image: docker:latest
+  services:
+    - docker:dind
+  needs: ['build:frontend']
+  before_script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  script:
+    - cd frontend
+    - |
+      docker build \
+        -t ${DOCKER_IMAGE}/frontend:${VERSION} \
+        -t ${DOCKER_IMAGE}/frontend:${CI_COMMIT_SHORT_SHA} \
+        -t ${DOCKER_IMAGE}/frontend:latest \
+        --build-arg VERSION=${VERSION} \
+        .
+    - docker push ${DOCKER_IMAGE}/frontend:${VERSION}
+    - docker push ${DOCKER_IMAGE}/frontend:${CI_COMMIT_SHORT_SHA}
+    - docker push ${DOCKER_IMAGE}/frontend:latest
+  only:
+    - main
+    - develop
+    - /^release\/.*$/
+  tags:
+    - docker
+
+package:backend:
+  stage: package
+  image: docker:latest
+  services:
+    - docker:dind
+  needs: ['build:backend']
+  before_script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  script:
+    - cd backend
+    - |
+      docker build \
+        -t ${DOCKER_IMAGE}/backend:${VERSION} \
+        -t ${DOCKER_IMAGE}/backend:${CI_COMMIT_SHORT_SHA} \
+        -t ${DOCKER_IMAGE}/backend:latest \
+        --build-arg VERSION=${VERSION} \
+        .
+    - docker push ${DOCKER_IMAGE}/backend:${VERSION}
+    - docker push ${DOCKER_IMAGE}/backend:${CI_COMMIT_SHORT_SHA}
+    - docker push ${DOCKER_IMAGE}/backend:latest
+  only:
+    - main
+    - develop
+    - /^release\/.*$/
+  tags:
+    - docker
+
+# Container security scan
+security:container-scan:frontend:
+  stage: package
+  image: docker:latest
+  services:
+    - docker:dind
+  needs: ['package:frontend']
+  before_script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  script:
+    - docker pull ${DOCKER_IMAGE}/frontend:${VERSION}
+    - |
+      docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+        aquasec/trivy image --exit-code 0 --severity HIGH,CRITICAL \
+        ${DOCKER_IMAGE}/frontend:${VERSION}
+  allow_failure: true
+  only:
+    - main
+    - develop
+    - /^release\/.*$/
+  tags:
+    - docker
+
+security:container-scan:backend:
+  stage: package
+  image: docker:latest
+  services:
+    - docker:dind
+  needs: ['package:backend']
+  before_script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  script:
+    - docker pull ${DOCKER_IMAGE}/backend:${VERSION}
+    - |
+      docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+        aquasec/trivy image --exit-code 0 --severity HIGH,CRITICAL \
+        ${DOCKER_IMAGE}/backend:${VERSION}
+  allow_failure: true
+  only:
+    - main
+    - develop
+    - /^release\/.*$/
+  tags:
+    - docker
+
+# ============================================
+# Stage: Deploy to Development
+# ============================================
+
+deploy:dev:
+  stage: deploy:dev
+  image: bitnami/kubectl:latest
+  needs: ['package:frontend', 'package:backend']
+  environment:
+    name: development
+    url: ${DEV_URL}
+    on_stop: stop:dev
+  script:
+    - kubectl config use-context ${KUBE_CONTEXT_DEV}
+    - |
+      kubectl set image deployment/myapp-frontend \
+        frontend=${DOCKER_IMAGE}/frontend:${VERSION} \
+        --namespace=dev
+    - |
+      kubectl set image deployment/myapp-backend \
+        backend=${DOCKER_IMAGE}/backend:${VERSION} \
+        --namespace=dev
+    - kubectl rollout status deployment/myapp-frontend --namespace=dev --timeout=5m
+    - kubectl rollout status deployment/myapp-backend --namespace=dev --timeout=5m
+  only:
+    - develop
+  tags:
+    - kubernetes
+
+stop:dev:
+  stage: deploy:dev
+  image: bitnami/kubectl:latest
+  environment:
+    name: development
+    action: stop
+  script:
+    - kubectl config use-context ${KUBE_CONTEXT_DEV}
+    - kubectl scale deployment/myapp-frontend --replicas=0 --namespace=dev
+    - kubectl scale deployment/myapp-backend --replicas=0 --namespace=dev
+  when: manual
+  only:
+    - develop
+  tags:
+    - kubernetes
+
+# ============================================
+# Stage: Deploy to Staging
+# ============================================
+
+deploy:staging:
+  stage: deploy:staging
+  image: bitnami/kubectl:latest
+  needs: ['package:frontend', 'package:backend']
+  environment:
+    name: staging
+    url: ${STAGING_URL}
+  script:
+    - kubectl config use-context ${KUBE_CONTEXT_STAGING}
+    - |
+      kubectl set image deployment/myapp-frontend \
+        frontend=${DOCKER_IMAGE}/frontend:${VERSION} \
+        --namespace=staging
+    - |
+      kubectl set image deployment/myapp-backend \
+        backend=${DOCKER_IMAGE}/backend:${VERSION} \
+        --namespace=staging
+    - kubectl rollout status deployment/myapp-frontend --namespace=staging --timeout=5m
+    - kubectl rollout status deployment/myapp-backend --namespace=staging --timeout=5m
+  only:
+    - /^release\/.*$/
+  tags:
+    - kubernetes
+
+# ============================================
+# Stage: Deploy to Production
+# ============================================
+
+deploy:production:
+  stage: deploy:production
+  image: bitnami/kubectl:latest
+  needs: ['package:frontend', 'package:backend']
+  environment:
+    name: production
+    url: ${PROD_URL}
+  script:
+    - kubectl config use-context ${KUBE_CONTEXT_PROD}
+    # Blue-Green deployment
+    - |
+      kubectl set image deployment/myapp-frontend-green \
+        frontend=${DOCKER_IMAGE}/frontend:${VERSION} \
+        --namespace=production
+    - |
+      kubectl set image deployment/myapp-backend-green \
+        backend=${DOCKER_IMAGE}/backend:${VERSION} \
+        --namespace=production
+    - kubectl rollout status deployment/myapp-frontend-green --namespace=production --timeout=10m
+    - kubectl rollout status deployment/myapp-backend-green --namespace=production --timeout=10m
+    # Health check
+    - sleep 30
+    - curl -f https://green.${PROD_URL}/health || exit 1
+    # Switch traffic
+    - |
+      kubectl patch service myapp-frontend --namespace=production \
+        -p '{"spec":{"selector":{"version":"green"}}}'
+    - |
+      kubectl patch service myapp-backend --namespace=production \
+        -p '{"spec":{"selector":{"version":"blue"}}}'
+  when: manual
+  only:
+    - main
+  tags:
+    - kubernetes
+
+# Rollback production
+rollback:production:
+  stage: deploy:production
+  image: bitnami/kubectl:latest
+  environment:
+    name: production
+    action: rollback
+  script:
+    - kubectl config use-context ${KUBE_CONTEXT_PROD}
+    - |
+      kubectl patch service myapp-frontend --namespace=production \
+        -p '{"spec":{"selector":{"version":"blue"}}}'
+    - |
+      kubectl patch service myapp-backend --namespace=production \
+        -p '{"spec":{"selector":{"version":"blue"}}}'
+    - echo "✅ Rolled back to previous version"
+  when: manual
+  only:
+    - main
+  tags:
+    - kubernetes
+
+# ============================================
+# Stage: Verification
+# ============================================
+
+verify:smoke-tests:dev:
+  stage: verify
+  image: curlimages/curl:latest
+  needs: ['deploy:dev']
+  script:
+    - echo "🧪 Running smoke tests against ${DEV_URL}"
+    - curl -f ${DEV_URL}/health || exit 1
+    - curl -f ${DEV_URL}/api/status || exit 1
+  only:
+    - develop
+  tags:
+    - docker
+
+verify:smoke-tests:staging:
+  stage: verify
+  image: curlimages/curl:latest
+  needs: ['deploy:staging']
+  script:
+    - echo "🧪 Running smoke tests against ${STAGING_URL}"
+    - curl -f ${STAGING_URL}/health || exit 1
+    - curl -f ${STAGING_URL}/api/status || exit 1
+  only:
+    - /^release\/.*$/
+  tags:
+    - docker
+
+verify:smoke-tests:production:
+  stage: verify
+  image: curlimages/curl:latest
+  needs: ['deploy:production']
+  script:
+    - echo "🧪 Running smoke tests against ${PROD_URL}"
+    - curl -f ${PROD_URL}/health || exit 1
+    - curl -f ${PROD_URL}/api/status || exit 1
+  only:
+    - main
+  tags:
+    - docker
+
+# ============================================
+# Include Templates (Optional)
+# ============================================
+
+# Uncomment to use GitLab's built-in security templates
+# include:
+#   - template: Security/SAST.gitlab-ci.yml
+#   - template: Security/Dependency-Scanning.gitlab-ci.yml
+#   - template: Security/Secret-Detection.gitlab-ci.yml
+#   - template: Security/Container-Scanning.gitlab-ci.yml
+#   - template: Security/DAST.gitlab-ci.yml

@@ -1,0 +1,310 @@
+# Liquibase Changelog 001: Initial Schema
+# Description: Create initial products and categories tables
+# Author: DevOps Team
+# Date: 2024-01-15
+
+databaseChangeLog:
+  - changeSet:
+      id: 001-create-categories-table
+      author: devops-team
+      comment: Create categories table for product categorization
+      changes:
+        - createTable:
+            tableName: categories
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  defaultValueComputed: uuid_generate_v4()
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: name
+                  type: varchar(100)
+                  constraints:
+                    nullable: false
+                    unique: true
+              - column:
+                  name: slug
+                  type: varchar(100)
+                  constraints:
+                    nullable: false
+                    unique: true
+              - column:
+                  name: description
+                  type: text
+              - column:
+                  name: parent_category_id
+                  type: uuid
+                  constraints:
+                    foreignKeyName: fk_categories_parent
+                    references: categories(id)
+              - column:
+                  name: is_active
+                  type: boolean
+                  defaultValueBoolean: true
+              - column:
+                  name: display_order
+                  type: integer
+                  defaultValueNumeric: 0
+              - column:
+                  name: created_at
+                  type: timestamp with time zone
+                  defaultValueComputed: NOW()
+              - column:
+                  name: updated_at
+                  type: timestamp with time zone
+                  defaultValueComputed: NOW()
+
+        - createIndex:
+            indexName: idx_categories_slug
+            tableName: categories
+            columns:
+              - column:
+                  name: slug
+
+        - createIndex:
+            indexName: idx_categories_parent
+            tableName: categories
+            columns:
+              - column:
+                  name: parent_category_id
+
+        - createIndex:
+            indexName: idx_categories_is_active
+            tableName: categories
+            columns:
+              - column:
+                  name: is_active
+
+      rollback:
+        - dropTable:
+            tableName: categories
+
+  - changeSet:
+      id: 001-create-products-table
+      author: devops-team
+      comment: Create products table
+      changes:
+        - createTable:
+            tableName: products
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  defaultValueComputed: uuid_generate_v4()
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: sku
+                  type: varchar(50)
+                  constraints:
+                    nullable: false
+                    unique: true
+              - column:
+                  name: name
+                  type: varchar(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: description
+                  type: text
+              - column:
+                  name: category_id
+                  type: uuid
+                  constraints:
+                    foreignKeyName: fk_products_category
+                    references: categories(id)
+              - column:
+                  name: price
+                  type: decimal(10,2)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: cost
+                  type: decimal(10,2)
+              - column:
+                  name: stock_quantity
+                  type: integer
+                  defaultValueNumeric: 0
+              - column:
+                  name: is_active
+                  type: boolean
+                  defaultValueBoolean: true
+              - column:
+                  name: is_featured
+                  type: boolean
+                  defaultValueBoolean: false
+              - column:
+                  name: metadata
+                  type: jsonb
+                  defaultValue: '{}'
+              - column:
+                  name: created_at
+                  type: timestamp with time zone
+                  defaultValueComputed: NOW()
+              - column:
+                  name: updated_at
+                  type: timestamp with time zone
+                  defaultValueComputed: NOW()
+
+        - createIndex:
+            indexName: idx_products_sku
+            tableName: products
+            columns:
+              - column:
+                  name: sku
+
+        - createIndex:
+            indexName: idx_products_category_id
+            tableName: products
+            columns:
+              - column:
+                  name: category_id
+
+        - createIndex:
+            indexName: idx_products_is_active
+            tableName: products
+            columns:
+              - column:
+                  name: is_active
+
+        - createIndex:
+            indexName: idx_products_created_at
+            tableName: products
+            columns:
+              - column:
+                  name: created_at
+                  descending: true
+
+        - createIndex:
+            indexName: idx_products_metadata
+            tableName: products
+            columns:
+              - column:
+                  name: metadata
+            using: gin
+
+      rollback:
+        - dropTable:
+            tableName: products
+
+  - changeSet:
+      id: 001-insert-default-categories
+      author: devops-team
+      comment: Insert default product categories
+      changes:
+        - insert:
+            tableName: categories
+            columns:
+              - column:
+                  name: id
+                  valueComputed: uuid_generate_v4()
+              - column:
+                  name: name
+                  value: Electronics
+              - column:
+                  name: slug
+                  value: electronics
+              - column:
+                  name: description
+                  value: Electronic devices and accessories
+              - column:
+                  name: display_order
+                  valueNumeric: 1
+
+        - insert:
+            tableName: categories
+            columns:
+              - column:
+                  name: id
+                  valueComputed: uuid_generate_v4()
+              - column:
+                  name: name
+                  value: Clothing
+              - column:
+                  name: slug
+                  value: clothing
+              - column:
+                  name: description
+                  value: Apparel and fashion items
+              - column:
+                  name: display_order
+                  valueNumeric: 2
+
+        - insert:
+            tableName: categories
+            columns:
+              - column:
+                  name: id
+                  valueComputed: uuid_generate_v4()
+              - column:
+                  name: name
+                  value: Books
+              - column:
+                  name: slug
+                  value: books
+              - column:
+                  name: description
+                  value: Books and publications
+              - column:
+                  name: display_order
+                  valueNumeric: 3
+
+      rollback:
+        - delete:
+            tableName: categories
+            where: slug IN ('electronics', 'clothing', 'books')
+
+  - changeSet:
+      id: 001-create-updated-at-trigger-function
+      author: devops-team
+      comment: Create function to automatically update updated_at timestamp
+      changes:
+        - sql:
+            sql: |
+              CREATE OR REPLACE FUNCTION update_updated_at_column()
+              RETURNS TRIGGER AS $$
+              BEGIN
+                  NEW.updated_at = NOW();
+                  RETURN NEW;
+              END;
+              $$ LANGUAGE plpgsql;
+
+      rollback:
+        - sql:
+            sql: DROP FUNCTION IF EXISTS update_updated_at_column();
+
+  - changeSet:
+      id: 001-create-categories-updated-at-trigger
+      author: devops-team
+      comment: Add trigger to update categories.updated_at
+      changes:
+        - sql:
+            sql: |
+              CREATE TRIGGER update_categories_updated_at
+              BEFORE UPDATE ON categories
+              FOR EACH ROW
+              EXECUTE FUNCTION update_updated_at_column();
+
+      rollback:
+        - sql:
+            sql: DROP TRIGGER IF EXISTS update_categories_updated_at ON categories;
+
+  - changeSet:
+      id: 001-create-products-updated-at-trigger
+      author: devops-team
+      comment: Add trigger to update products.updated_at
+      changes:
+        - sql:
+            sql: |
+              CREATE TRIGGER update_products_updated_at
+              BEFORE UPDATE ON products
+              FOR EACH ROW
+              EXECUTE FUNCTION update_updated_at_column();
+
+      rollback:
+        - sql:
+            sql: DROP TRIGGER IF EXISTS update_products_updated_at ON products;

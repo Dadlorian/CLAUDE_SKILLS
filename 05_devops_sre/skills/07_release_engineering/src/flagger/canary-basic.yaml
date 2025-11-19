@@ -1,0 +1,103 @@
+# Basic Canary Deployment with Flagger
+# This is a simple canary configuration for getting started
+
+apiVersion: flagger.app/v1beta1
+kind: Canary
+metadata:
+  name: podinfo
+  namespace: production
+spec:
+  # Reference to the deployment to be managed
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: podinfo
+
+  # HPA reference (optional)
+  autoscalerRef:
+    apiVersion: autoscaling/v2
+    kind: HorizontalPodAutoscaler
+    name: podinfo
+
+  # Service mesh provider
+  provider: istio
+
+  # Service configuration
+  service:
+    # Service port and protocol
+    port: 9898
+    targetPort: 9898
+    # Istio gateway
+    gateways:
+    - public-gateway.istio-system.svc.cluster.local
+    # Hosts
+    hosts:
+    - podinfo.example.com
+    # Traffic policy
+    trafficPolicy:
+      tls:
+        mode: DISABLE
+
+  # Canary analysis configuration
+  analysis:
+    # Schedule interval (default 60s)
+    interval: 30s
+
+    # Max number of failed metric checks before rollback
+    threshold: 5
+
+    # Max traffic percentage routed to canary
+    # Canary will never receive more than this percentage
+    maxWeight: 50
+
+    # Canary increment step percentage (default 5)
+    # Traffic will increase by this amount each interval
+    stepWeight: 10
+
+    # Number of checks to run for canary before promoting
+    # Total canary duration = iterations * interval
+    iterations: 10
+
+    # Metrics for canary analysis
+    metrics:
+    # Request success rate must be above 99%
+    - name: request-success-rate
+      thresholdRange:
+        min: 99
+      interval: 1m
+
+    # Request duration P99 should be below 500ms
+    - name: request-duration
+      thresholdRange:
+        max: 500
+      interval: 1m
+
+    # Webhooks for testing
+    webhooks:
+    # Load testing during canary
+    - name: load-test
+      type: rollout
+      url: http://flagger-loadtester.test/
+      timeout: 5s
+      metadata:
+        type: cmd
+        cmd: "hey -z 1m -q 10 -c 2 http://podinfo-canary.test:9898/"
+
+    # Smoke tests before rollout
+    - name: smoke-test
+      type: pre-rollout
+      url: http://flagger-loadtester.test/
+      timeout: 15s
+      metadata:
+        type: bash
+        cmd: |
+          #!/bin/bash
+          set -e
+
+          # Health check
+          curl -sf http://podinfo-canary.test:9898/healthz | grep -q OK
+
+          # API test
+          curl -sf http://podinfo-canary.test:9898/api/info | jq -e '.version'
+
+          echo "Smoke tests passed"

@@ -1,0 +1,26 @@
+# VPA in auto mode (automatically applies recommendations)
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: batch-job-vpa
+  namespace: production
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: batch-job
+  updatePolicy:
+    updateMode: "Auto"  # Automatically apply recommendations (will restart pods)
+  resourcePolicy:
+    containerPolicies:
+    - containerName: "batch-container"
+      minAllowed:
+        cpu: 500m
+        memory: 512Mi
+      maxAllowed:
+        cpu: 8
+        memory: 16Gi
+      controlledResources:
+      - cpu
+      - memory
+      mode: Auto

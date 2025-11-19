@@ -1,0 +1,608 @@
+# Network Policy Examples
+#
+# NetworkPolicies provide security through network segmentation,
+# controlling traffic flow between pods and external endpoints.
+#
+# Requirements:
+# - Network plugin that supports NetworkPolicy (Calico, Cilium, Weave)
+# - Default behavior: if no NetworkPolicy exists, all traffic is allowed
+
+---
+# Default Deny All Ingress Traffic
+# Best practice: Start with deny-all, then allow specific traffic
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all-ingress
+  namespace: production
+spec:
+  podSelector: {}  # Applies to all pods in namespace
+  policyTypes:
+  - Ingress
+
+---
+# Default Deny All Egress Traffic
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all-egress
+  namespace: production
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+
+---
+# Default Deny All (Both Ingress and Egress)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: production
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+
+---
+# Allow DNS for All Pods (Essential)
+# Should be applied when using default deny egress
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns-access
+  namespace: production
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+  egress:
+  # Allow DNS queries to kube-dns/CoreDNS
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+
+---
+# Three-Tier Application: Frontend → Backend → Database
+# Frontend NetworkPolicy
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: frontend-netpol
+  namespace: production
+spec:
+  podSelector:
+    matchLabels:
+      tier: frontend
+  policyTypes:
+  - Ingress
+  - Egress
+
+  ingress:
+  # Allow traffic from ingress controller
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: 8080
+
+  egress:
+  # Allow DNS
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+    ports:
+    - protocol: UDP
+      port: 53
+
+  # Allow traffic to backend
+  - to:
+    - podSelector:
+        matchLabels:
+          tier: backend
+    ports:
+    - protocol: TCP
+      port: 8080
+
+  # Allow traffic to external APIs
+  - to:
+    - namespaceSelector: {}
+    ports:
+    - protocol: TCP
+      port: 443
+
+---
+# Backend NetworkPolicy
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: backend-netpol
+  namespace: production
+spec:
+  podSelector:
+    matchLabels:
+      tier: backend
+  policyTypes:
+  - Ingress
+  - Egress
+
+  ingress:
+  # Allow traffic from frontend
+  - from:
+    - podSelector:
+        matchLabels:
+          tier: frontend
+    ports:
+    - protocol: TCP
+      port: 8080
+
+  # Allow traffic from other backend pods (for service mesh)
+  - from:
+    - podSelector:
+        matchLabels:
+          tier: backend
+    ports:
+    - protocol: TCP
+      port: 8080
+
+  egress:
+  # Allow DNS
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+    ports:
+    - protocol: UDP
+      port: 53
+
+  # Allow traffic to database
+  - to:
+    - podSelector:
+        matchLabels:
+          tier: database
+    ports:
+    - protocol: TCP
+      port: 5432
+
+  # Allow traffic to Redis cache
+  - to:
+    - podSelector:
+        matchLabels:
+          app: redis
+    ports:
+    - protocol: TCP
+      port: 6379
+
+  # Allow external API calls (HTTPS)
+  - to:
+    - namespaceSelector: {}
+    ports:
+    - protocol: TCP
+      port: 443
+
+---
+# Database NetworkPolicy
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: database-netpol
+  namespace: production
+spec:
+  podSelector:
+    matchLabels:
+      tier: database
+  policyTypes:
+  - Ingress
+  - Egress
+
+  ingress:
+  # Only allow traffic from backend
+  - from:
+    - podSelector:
+        matchLabels:
+          tier: backend
+    ports:
+    - protocol: TCP
+      port: 5432
+
+  # Allow traffic from database replicas (for replication)
+  - from:
+    - podSelector:
+        matchLabels:
+          tier: database
+    ports:
+    - protocol: TCP
+      port: 5432
+
+  egress:
+  # Allow DNS
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+    ports:
+    - protocol: UDP
+      port: 53
+
+  # Allow replication traffic between database pods
+  - to:
+    - podSelector:
+        matchLabels:
+          tier: database
+    ports:
+    - protocol: TCP
+      port: 5432
+
+---
+# Cross-Namespace Communication
+# Allow specific namespace to access services
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-from-monitoring
+  namespace: production
+spec:
+  podSelector:
+    matchLabels:
+      monitoring: "true"
+  policyTypes:
+  - Ingress
+
+  ingress:
+  # Allow Prometheus in monitoring namespace
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    - podSelector:
+        matchLabels:
+          app: prometheus
+    ports:
+    - protocol: TCP
+      port: 9090  # Metrics port
+
+---
+# Allow Traffic from Specific IP Blocks (External IPs)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-external-ips
+  namespace: production
+spec:
+  podSelector:
+    matchLabels:
+      app: public-api
+  policyTypes:
+  - Ingress
+
+  ingress:
+  # Allow traffic from specific IP ranges
+  - from:
+    - ipBlock:
+        cidr: 203.0.113.0/24  # Public IP range
+        except:
+        - 203.0.113.100/32    # Blocked IP
+    ports:
+    - protocol: TCP
+      port: 443
+
+  # Allow traffic from corporate VPN
+  - from:
+    - ipBlock:
+        cidr: 10.0.0.0/8  # Internal network
+    ports:
+    - protocol: TCP
+      port: 443
+
+---
+# Egress to Specific External Services
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-external-apis
+  namespace: production
+spec:
+  podSelector:
+    matchLabels:
+      app: backend
+  policyTypes:
+  - Egress
+
+  egress:
+  # Allow DNS
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+    ports:
+    - protocol: UDP
+      port: 53
+
+  # Allow HTTPS to specific external IPs
+  - to:
+    - ipBlock:
+        cidr: 52.0.0.0/8  # AWS IP range for external service
+    ports:
+    - protocol: TCP
+      port: 443
+
+  # Allow specific domain (requires DNS-aware network plugin)
+  - to:
+    - podSelector: {}
+    ports:
+    - protocol: TCP
+      port: 443
+
+---
+# Service Mesh Integration (Istio/Linkerd)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-service-mesh
+  namespace: production
+spec:
+  podSelector:
+    matchLabels:
+      app: web-application
+  policyTypes:
+  - Ingress
+  - Egress
+
+  ingress:
+  # Allow traffic from Istio ingress gateway
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: istio-system
+    - podSelector:
+        matchLabels:
+          app: istio-ingressgateway
+    ports:
+    - protocol: TCP
+      port: 8080
+
+  # Allow mTLS traffic between sidecars
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: production
+    ports:
+    - protocol: TCP
+      port: 15001  # Envoy outbound
+    - protocol: TCP
+      port: 15006  # Envoy inbound
+
+  egress:
+  # Allow traffic to Istio control plane
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: istio-system
+    ports:
+    - protocol: TCP
+      port: 15012  # Istiod
+
+---
+# Allow Monitoring and Logging
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-observability
+  namespace: production
+spec:
+  podSelector: {}  # All pods
+  policyTypes:
+  - Ingress
+
+  ingress:
+  # Allow Prometheus scraping
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    - podSelector:
+        matchLabels:
+          app: prometheus
+    ports:
+    - protocol: TCP
+      port: 9090
+    - protocol: TCP
+      port: 9091
+
+  # Allow Grafana access
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    - podSelector:
+        matchLabels:
+          app: grafana
+
+---
+# Multiple Ingress Rules with OR Logic
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: multi-source-ingress
+  namespace: production
+spec:
+  podSelector:
+    matchLabels:
+      app: api-gateway
+  policyTypes:
+  - Ingress
+
+  ingress:
+  # Rule 1: Allow from frontend pods
+  - from:
+    - podSelector:
+        matchLabels:
+          tier: frontend
+    ports:
+    - protocol: TCP
+      port: 8080
+
+  # Rule 2: Allow from mobile-backend namespace
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: mobile-backend
+    ports:
+    - protocol: TCP
+      port: 8080
+
+  # Rule 3: Allow from specific IP range
+  - from:
+    - ipBlock:
+        cidr: 10.100.0.0/16
+    ports:
+    - protocol: TCP
+      port: 8080
+
+---
+# Multiple Egress Rules
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: multi-destination-egress
+  namespace: production
+spec:
+  podSelector:
+    matchLabels:
+      app: data-processor
+  policyTypes:
+  - Egress
+
+  egress:
+  # DNS
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+    ports:
+    - protocol: UDP
+      port: 53
+
+  # Internal database
+  - to:
+    - podSelector:
+        matchLabels:
+          app: database
+    ports:
+    - protocol: TCP
+      port: 5432
+
+  # External S3 (AWS IP range)
+  - to:
+    - ipBlock:
+        cidr: 52.0.0.0/8
+    ports:
+    - protocol: TCP
+      port: 443
+
+  # Message queue
+  - to:
+    - podSelector:
+        matchLabels:
+          app: rabbitmq
+    ports:
+    - protocol: TCP
+      port: 5672
+
+---
+# Strict Isolation: Only Allow Specific Pod-to-Pod Communication
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: strict-pod-isolation
+  namespace: production
+spec:
+  podSelector:
+    matchLabels:
+      app: sensitive-service
+  policyTypes:
+  - Ingress
+  - Egress
+
+  ingress:
+  # Only allow from authorized client
+  - from:
+    - podSelector:
+        matchLabels:
+          app: authorized-client
+          version: v2
+    ports:
+    - protocol: TCP
+      port: 8443
+
+  egress:
+  # Only allow DNS and specific audit service
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+    ports:
+    - protocol: UDP
+      port: 53
+
+  - to:
+    - podSelector:
+        matchLabels:
+          app: audit-service
+    ports:
+    - protocol: TCP
+      port: 9000
+
+---
+# Development/Staging Namespace: Allow All (for testing)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-all-dev
+  namespace: development
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - {}  # Allow all ingress
+  egress:
+  - {}  # Allow all egress
+
+---
+# Notes and Best Practices:
+#
+# 1. Testing NetworkPolicies:
+#    kubectl run test-pod --rm -it --image=nicolaka/netshoot -- /bin/bash
+#    # Then test connectivity with curl, nc, etc.
+#
+# 2. Debugging:
+#    kubectl describe networkpolicy <name> -n <namespace>
+#    # Check network plugin logs (Calico/Cilium)
+#
+# 3. Common Patterns:
+#    - Start with deny-all
+#    - Always allow DNS
+#    - Use labels consistently
+#    - Test thoroughly before production
+#    - Document all policies
+#
+# 4. Network Plugin Requirements:
+#    - Calico: Full NetworkPolicy support + additional CRDs
+#    - Cilium: NetworkPolicy + Layer 7 policies
+#    - Weave Net: Basic NetworkPolicy support
+#    - AWS VPC CNI: Requires security groups for pods

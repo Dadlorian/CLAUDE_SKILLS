@@ -1,0 +1,387 @@
+# Example Backstage Catalog Entities
+# This file demonstrates various entity types and relationships
+
+---
+# Domain: Top-level organizational area
+apiVersion: backstage.io/v1alpha1
+kind: Domain
+metadata:
+  name: ecommerce
+  description: E-commerce product and services
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+spec:
+  owner: product-leadership
+
+---
+# System: Collection of related components
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: payment-platform
+  description: Payment processing platform
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+    pagerduty.com/service-id: PXYZ123
+    grafana/dashboard-selector: system=payment-platform
+spec:
+  owner: payments-team
+  domain: ecommerce
+
+---
+# Component: Service/Library/Website
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: payment-api
+  description: Payment processing REST API
+  annotations:
+    github.com/project-slug: company/payment-api
+    backstage.io/techdocs-ref: dir:.
+    pagerduty.com/integration-key: abc123def456
+    sentry.io/project-slug: payment-api
+    grafana/dashboard-selector: service=payment-api
+  tags:
+    - java
+    - spring-boot
+    - rest-api
+    - critical
+  links:
+    - url: https://payment-api.company.com
+      title: Production
+      icon: web
+    - url: https://payment-api.staging.company.com
+      title: Staging
+      icon: web
+    - url: https://runbooks.company.com/payment-api
+      title: Runbook
+      icon: docs
+spec:
+  type: service
+  lifecycle: production
+  owner: payments-team
+  system: payment-platform
+  providesApis:
+    - payment-api
+  consumesApis:
+    - fraud-detection-api
+    - user-api
+  dependsOn:
+    - resource:payment-db
+    - resource:payment-cache
+
+---
+# API: Interface definition
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: payment-api
+  description: Payment processing REST API
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  links:
+    - url: https://api-docs.company.com/payment-api
+      title: API Documentation
+      icon: docs
+spec:
+  type: openapi
+  lifecycle: production
+  owner: payments-team
+  system: payment-platform
+  definition:
+    $text: |
+      openapi: 3.0.0
+      info:
+        title: Payment API
+        version: 1.0.0
+        description: Process payments and manage transactions
+      servers:
+        - url: https://payment-api.company.com/v1
+          description: Production
+      paths:
+        /payments:
+          post:
+            summary: Create a payment
+            operationId: createPayment
+            requestBody:
+              required: true
+              content:
+                application/json:
+                  schema:
+                    type: object
+                    required:
+                      - amount
+                      - currency
+                      - payment_method
+                    properties:
+                      amount:
+                        type: integer
+                        description: Amount in cents
+                      currency:
+                        type: string
+                        example: USD
+                      payment_method:
+                        type: string
+                        enum: [card, bank_account, wallet]
+            responses:
+              '201':
+                description: Payment created
+                content:
+                  application/json:
+                    schema:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        status:
+                          type: string
+                          enum: [pending, processing, completed, failed]
+                        amount:
+                          type: integer
+                        currency:
+                          type: string
+              '400':
+                description: Invalid request
+              '500':
+                description: Internal server error
+        /payments/{id}:
+          get:
+            summary: Get payment details
+            operationId: getPayment
+            parameters:
+              - name: id
+                in: path
+                required: true
+                schema:
+                  type: string
+            responses:
+              '200':
+                description: Payment details
+              '404':
+                description: Payment not found
+
+---
+# Resource: Infrastructure dependency
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: payment-db
+  description: Payment database (PostgreSQL)
+  annotations:
+    aws.amazon.com/rds-instance-id: payment-db-prod
+spec:
+  type: database
+  owner: payments-team
+  system: payment-platform
+
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: payment-cache
+  description: Payment cache (Redis)
+  annotations:
+    aws.amazon.com/elasticache-cluster-id: payment-cache-prod
+spec:
+  type: cache
+  owner: payments-team
+  system: payment-platform
+
+---
+# Group: Team definition
+apiVersion: backstage.io/v1alpha1
+kind: Group
+metadata:
+  name: payments-team
+  description: Payments platform team
+spec:
+  type: team
+  profile:
+    displayName: Payments Team
+    email: payments-team@company.com
+    picture: https://avatars.company.com/teams/payments
+  parent: engineering
+  children: []
+  members:
+    - user:john.doe
+    - user:jane.smith
+    - user:bob.wilson
+
+---
+apiVersion: backstage.io/v1alpha1
+kind: Group
+metadata:
+  name: engineering
+  description: Engineering organization
+spec:
+  type: organization
+  profile:
+    displayName: Engineering
+    email: engineering@company.com
+  children:
+    - payments-team
+    - platform-team
+    - identity-team
+
+---
+# User: Individual developer
+apiVersion: backstage.io/v1alpha1
+kind: User
+metadata:
+  name: john.doe
+  description: Senior Backend Engineer
+spec:
+  profile:
+    displayName: John Doe
+    email: john.doe@company.com
+    picture: https://avatars.company.com/john.doe
+  memberOf:
+    - payments-team
+
+---
+apiVersion: backstage.io/v1alpha1
+kind: User
+metadata:
+  name: jane.smith
+  description: Staff Engineer
+spec:
+  profile:
+    displayName: Jane Smith
+    email: jane.smith@company.com
+    picture: https://avatars.company.com/jane.smith
+  memberOf:
+    - payments-team
+
+---
+# Location: Catalog location for discovery
+apiVersion: backstage.io/v1alpha1
+kind: Location
+metadata:
+  name: payment-services
+  description: All payment-related services
+spec:
+  type: url
+  targets:
+    - https://github.com/company/payment-api/blob/main/catalog-info.yaml
+    - https://github.com/company/payment-processor/blob/main/catalog-info.yaml
+    - https://github.com/company/payment-gateway/blob/main/catalog-info.yaml
+
+---
+# Example: Frontend Component
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: payment-portal
+  description: Payment management web portal
+  annotations:
+    github.com/project-slug: company/payment-portal
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - react
+    - typescript
+    - frontend
+spec:
+  type: website
+  lifecycle: production
+  owner: payments-team
+  system: payment-platform
+  consumesApis:
+    - payment-api
+
+---
+# Example: Background Worker
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: payment-processor
+  description: Async payment processing worker
+  annotations:
+    github.com/project-slug: company/payment-processor
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - python
+    - celery
+    - worker
+spec:
+  type: service
+  lifecycle: production
+  owner: payments-team
+  system: payment-platform
+  consumesApis:
+    - payment-api
+  dependsOn:
+    - resource:payment-queue
+
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: payment-queue
+  description: Payment processing queue (RabbitMQ)
+  annotations:
+    aws.amazon.com/mq-broker-id: payment-queue-prod
+spec:
+  type: queue
+  owner: payments-team
+  system: payment-platform
+
+---
+# Example: Library Component
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: payment-sdk
+  description: Payment API client library
+  annotations:
+    github.com/project-slug: company/payment-sdk
+    backstage.io/techdocs-ref: dir:.
+    npm.com/package-name: "@company/payment-sdk"
+  tags:
+    - typescript
+    - library
+    - sdk
+spec:
+  type: library
+  lifecycle: production
+  owner: payments-team
+  system: payment-platform
+  providesApis:
+    - payment-api
+
+---
+# Example: Data Pipeline
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: payment-analytics-pipeline
+  description: Payment data analytics pipeline
+  annotations:
+    github.com/project-slug: company/payment-analytics
+    backstage.io/techdocs-ref: dir:.
+    airflow.apache.org/dag-id: payment_analytics
+  tags:
+    - python
+    - airflow
+    - data-pipeline
+spec:
+  type: service
+  lifecycle: production
+  owner: data-team
+  system: payment-platform
+  consumesApis:
+    - payment-api
+  dependsOn:
+    - resource:analytics-warehouse
+
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: analytics-warehouse
+  description: Data warehouse (Snowflake)
+  annotations:
+    snowflake.com/account: company
+    snowflake.com/database: analytics
+spec:
+  type: database
+  owner: data-team

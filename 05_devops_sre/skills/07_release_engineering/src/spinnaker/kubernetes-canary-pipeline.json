@@ -1,0 +1,546 @@
+{
+  "name": "Kubernetes Canary Deployment",
+  "application": "myapp",
+  "description": "Automated canary deployment pipeline for Kubernetes applications with Netflix best practices",
+  "keepWaitingPipelines": false,
+  "limitConcurrent": true,
+  "maxConcurrentExecutions": 1,
+  "notifications": [
+    {
+      "address": "deploys",
+      "level": "pipeline",
+      "type": "slack",
+      "when": [
+        "pipeline.starting",
+        "pipeline.complete",
+        "pipeline.failed"
+      ]
+    },
+    {
+      "address": "oncall@example.com",
+      "level": "pipeline",
+      "type": "email",
+      "when": [
+        "pipeline.failed"
+      ]
+    }
+  ],
+  "parameterConfig": [
+    {
+      "default": "production",
+      "description": "Target namespace for deployment",
+      "hasOptions": true,
+      "label": "Namespace",
+      "name": "namespace",
+      "options": [
+        {
+          "value": "staging"
+        },
+        {
+          "value": "production"
+        }
+      ],
+      "required": true
+    },
+    {
+      "default": "",
+      "description": "Docker image tag to deploy",
+      "label": "Image Tag",
+      "name": "imageTag",
+      "required": true
+    },
+    {
+      "default": "10",
+      "description": "Initial canary traffic percentage",
+      "label": "Initial Canary %",
+      "name": "canaryPercent",
+      "required": true
+    },
+    {
+      "default": "30",
+      "description": "Canary analysis duration in minutes",
+      "label": "Analysis Duration (min)",
+      "name": "analysisDuration",
+      "required": true
+    }
+  ],
+  "stages": [
+    {
+      "name": "Configuration",
+      "refId": "1",
+      "requisiteStageRefIds": [],
+      "type": "checkPreconditions",
+      "preconditions": [
+        {
+          "context": {
+            "expression": "${ parameters.imageTag != '' }",
+            "failureMessage": "Image tag is required"
+          },
+          "failPipeline": true,
+          "type": "expression"
+        },
+        {
+          "context": {
+            "expression": "${ parameters.namespace in ['staging', 'production'] }",
+            "failureMessage": "Invalid namespace"
+          },
+          "failPipeline": true,
+          "type": "expression"
+        }
+      ]
+    },
+    {
+      "name": "Find Baseline Version",
+      "refId": "2",
+      "requisiteStageRefIds": ["1"],
+      "type": "findArtifactsFromResource",
+      "account": "kubernetes",
+      "cloudProvider": "kubernetes",
+      "location": "${parameters.namespace}",
+      "mode": "static",
+      "manifestName": "deployment myapp"
+    },
+    {
+      "name": "Deploy Canary",
+      "refId": "3",
+      "requisiteStageRefIds": ["2"],
+      "type": "deployManifest",
+      "account": "kubernetes",
+      "cloudProvider": "kubernetes",
+      "moniker": {
+        "app": "myapp"
+      },
+      "namespaceOverride": "${parameters.namespace}",
+      "source": "text",
+      "manifests": [
+        {
+          "apiVersion": "apps/v1",
+          "kind": "Deployment",
+          "metadata": {
+            "name": "myapp-canary",
+            "namespace": "${parameters.namespace}",
+            "labels": {
+              "app": "myapp",
+              "version": "canary"
+            }
+          },
+          "spec": {
+            "replicas": 1,
+            "selector": {
+              "matchLabels": {
+                "app": "myapp",
+                "version": "canary"
+              }
+            },
+            "template": {
+              "metadata": {
+                "labels": {
+                  "app": "myapp",
+                  "version": "canary"
+                }
+              },
+              "spec": {
+                "containers": [
+                  {
+                    "name": "myapp",
+                    "image": "myapp:${parameters.imageTag}",
+                    "ports": [
+                      {
+                        "containerPort": 8080
+                      }
+                    ],
+                    "resources": {
+                      "requests": {
+                        "cpu": "100m",
+                        "memory": "128Mi"
+                      },
+                      "limits": {
+                        "cpu": "500m",
+                        "memory": "512Mi"
+                      }
+                    },
+                    "livenessProbe": {
+                      "httpGet": {
+                        "path": "/health",
+                        "port": 8080
+                      },
+                      "initialDelaySeconds": 30,
+                      "periodSeconds": 10
+                    },
+                    "readinessProbe": {
+                      "httpGet": {
+                        "path": "/ready",
+                        "port": 8080
+                      },
+                      "initialDelaySeconds": 5,
+                      "periodSeconds": 5
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      ],
+      "skipExpressionEvaluation": false,
+      "trafficManagement": {
+        "enabled": false
+      }
+    },
+    {
+      "name": "Wait for Canary Pods Ready",
+      "refId": "4",
+      "requisiteStageRefIds": ["3"],
+      "type": "wait",
+      "waitTime": 60
+    },
+    {
+      "name": "Smoke Tests",
+      "refId": "5",
+      "requisiteStageRefIds": ["4"],
+      "type": "runJob",
+      "account": "kubernetes",
+      "application": "myapp",
+      "cloudProvider": "kubernetes",
+      "manifest": {
+        "apiVersion": "batch/v1",
+        "kind": "Job",
+        "metadata": {
+          "name": "myapp-smoke-test-${execution.id}",
+          "namespace": "${parameters.namespace}"
+        },
+        "spec": {
+          "backoffLimit": 0,
+          "template": {
+            "spec": {
+              "containers": [
+                {
+                  "name": "smoke-test",
+                  "image": "curlimages/curl:latest",
+                  "command": [
+                    "/bin/sh",
+                    "-c",
+                    "curl -f http://myapp-canary:8080/health && curl -f http://myapp-canary:8080/api/status"
+                  ]
+                }
+              ],
+              "restartPolicy": "Never"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Shift 10% Traffic to Canary",
+      "refId": "6",
+      "requisiteStageRefIds": ["5"],
+      "type": "deployManifest",
+      "account": "kubernetes",
+      "cloudProvider": "kubernetes",
+      "source": "text",
+      "manifests": [
+        {
+          "apiVersion": "networking.istio.io/v1beta1",
+          "kind": "VirtualService",
+          "metadata": {
+            "name": "myapp",
+            "namespace": "${parameters.namespace}"
+          },
+          "spec": {
+            "hosts": [
+              "myapp.example.com"
+            ],
+            "http": [
+              {
+                "route": [
+                  {
+                    "destination": {
+                      "host": "myapp",
+                      "subset": "baseline"
+                    },
+                    "weight": 90
+                  },
+                  {
+                    "destination": {
+                      "host": "myapp",
+                      "subset": "canary"
+                    },
+                    "weight": 10
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Canary Analysis - 10%",
+      "refId": "7",
+      "requisiteStageRefIds": ["6"],
+      "type": "kayentaCanary",
+      "canaryConfig": {
+        "canaryAnalysisIntervalMins": 5,
+        "canaryConfigId": "myapp-canary-config",
+        "lifetimeDuration": "PT${parameters.analysisDuration}M",
+        "metricsAccountName": "prometheus",
+        "scopes": [
+          {
+            "controlScope": "myapp-baseline",
+            "experimentScope": "myapp-canary",
+            "extendedScopeParams": {
+              "namespace": "${parameters.namespace}"
+            },
+            "scopeName": "default"
+          }
+        ],
+        "scoreThresholds": {
+          "marginal": 75,
+          "pass": 90
+        },
+        "storageAccountName": "s3"
+      }
+    },
+    {
+      "name": "Manual Judgment - Continue?",
+      "refId": "8",
+      "requisiteStageRefIds": ["7"],
+      "type": "manualJudgment",
+      "failPipeline": true,
+      "instructions": "Canary at 10% traffic. Review metrics and decide whether to continue.",
+      "judgmentInputs": [
+        {
+          "value": "Continue"
+        },
+        {
+          "value": "Rollback"
+        }
+      ],
+      "notifications": [
+        {
+          "address": "deploys",
+          "level": "stage",
+          "type": "slack",
+          "when": [
+            "manualJudgment"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Shift 50% Traffic to Canary",
+      "refId": "9",
+      "requisiteStageRefIds": ["8"],
+      "type": "deployManifest",
+      "account": "kubernetes",
+      "cloudProvider": "kubernetes",
+      "source": "text",
+      "manifests": [
+        {
+          "apiVersion": "networking.istio.io/v1beta1",
+          "kind": "VirtualService",
+          "metadata": {
+            "name": "myapp",
+            "namespace": "${parameters.namespace}"
+          },
+          "spec": {
+            "hosts": [
+              "myapp.example.com"
+            ],
+            "http": [
+              {
+                "route": [
+                  {
+                    "destination": {
+                      "host": "myapp",
+                      "subset": "baseline"
+                    },
+                    "weight": 50
+                  },
+                  {
+                    "destination": {
+                      "host": "myapp",
+                      "subset": "canary"
+                    },
+                    "weight": 50
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "stageEnabled": {
+        "expression": "${ #judgment('Manual Judgment - Continue?') == 'Continue' }",
+        "type": "expression"
+      }
+    },
+    {
+      "name": "Canary Analysis - 50%",
+      "refId": "10",
+      "requisiteStageRefIds": ["9"],
+      "type": "kayentaCanary",
+      "canaryConfig": {
+        "canaryAnalysisIntervalMins": 5,
+        "canaryConfigId": "myapp-canary-config",
+        "lifetimeDuration": "PT${parameters.analysisDuration}M",
+        "metricsAccountName": "prometheus",
+        "scopes": [
+          {
+            "controlScope": "myapp-baseline",
+            "experimentScope": "myapp-canary",
+            "extendedScopeParams": {
+              "namespace": "${parameters.namespace}"
+            },
+            "scopeName": "default"
+          }
+        ],
+        "scoreThresholds": {
+          "marginal": 75,
+          "pass": 90
+        },
+        "storageAccountName": "s3"
+      }
+    },
+    {
+      "name": "Shift 100% Traffic to Canary",
+      "refId": "11",
+      "requisiteStageRefIds": ["10"],
+      "type": "deployManifest",
+      "account": "kubernetes",
+      "cloudProvider": "kubernetes",
+      "source": "text",
+      "manifests": [
+        {
+          "apiVersion": "networking.istio.io/v1beta1",
+          "kind": "VirtualService",
+          "metadata": {
+            "name": "myapp",
+            "namespace": "${parameters.namespace}"
+          },
+          "spec": {
+            "hosts": [
+              "myapp.example.com"
+            ],
+            "http": [
+              {
+                "route": [
+                  {
+                    "destination": {
+                      "host": "myapp",
+                      "subset": "canary"
+                    },
+                    "weight": 100
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Promote Canary to Baseline",
+      "refId": "12",
+      "requisiteStageRefIds": ["11"],
+      "type": "deployManifest",
+      "account": "kubernetes",
+      "cloudProvider": "kubernetes",
+      "source": "text",
+      "manifests": [
+        {
+          "apiVersion": "apps/v1",
+          "kind": "Deployment",
+          "metadata": {
+            "name": "myapp",
+            "namespace": "${parameters.namespace}",
+            "labels": {
+              "app": "myapp",
+              "version": "baseline"
+            }
+          },
+          "spec": {
+            "replicas": 3,
+            "selector": {
+              "matchLabels": {
+                "app": "myapp",
+                "version": "baseline"
+              }
+            },
+            "template": {
+              "metadata": {
+                "labels": {
+                  "app": "myapp",
+                  "version": "baseline"
+                }
+              },
+              "spec": {
+                "containers": [
+                  {
+                    "name": "myapp",
+                    "image": "myapp:${parameters.imageTag}",
+                    "ports": [
+                      {
+                        "containerPort": 8080
+                      }
+                    ],
+                    "resources": {
+                      "requests": {
+                        "cpu": "100m",
+                        "memory": "128Mi"
+                      },
+                      "limits": {
+                        "cpu": "500m",
+                        "memory": "512Mi"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Delete Canary Deployment",
+      "refId": "13",
+      "requisiteStageRefIds": ["12"],
+      "type": "deleteManifest",
+      "account": "kubernetes",
+      "cloudProvider": "kubernetes",
+      "location": "${parameters.namespace}",
+      "manifestName": "deployment myapp-canary",
+      "options": {
+        "gracePeriodSeconds": 30
+      }
+    },
+    {
+      "name": "Send Success Notification",
+      "refId": "14",
+      "requisiteStageRefIds": ["13"],
+      "type": "webhook",
+      "url": "https://hooks.slack.com/services/YOUR/WEBHOOK/URL",
+      "method": "POST",
+      "payload": {
+        "text": "Canary deployment successful for ${application} version ${parameters.imageTag} to ${parameters.namespace}"
+      }
+    }
+  ],
+  "triggers": [
+    {
+      "enabled": true,
+      "type": "docker",
+      "account": "dockerhub",
+      "organization": "myorg",
+      "registry": "index.docker.io",
+      "repository": "myorg/myapp",
+      "runAsUser": "spinnaker@example.com"
+    },
+    {
+      "enabled": true,
+      "type": "webhook",
+      "source": "github-webhook"
+    }
+  ]
+}

@@ -1,0 +1,321 @@
+# Chaos Mesh: HTTP and Time Chaos Experiments
+#
+# This file contains experiments for HTTP chaos (abort, delay, modify)
+# and time chaos (clock skew) to test application-level resilience.
+
+---
+# HTTP Chaos: Abort requests
+apiVersion: chaos-mesh.org/v1alpha1
+kind: HTTPChaos
+metadata:
+  name: http-abort-requests
+  namespace: chaos-mesh
+spec:
+  # Mode: how to select target pods
+  mode: all
+
+  # Target pod selector
+  selector:
+    namespaces:
+      - production
+    labelSelectors:
+      app: api-gateway
+
+  # Target: Request or Response
+  target: Request
+
+  # Port to intercept
+  port: 8080
+
+  # Path pattern to match
+  path: "/api/v1/*"
+
+  # HTTP method to match
+  method: POST
+
+  # Abort the request (return error)
+  abort: true
+
+  # Duration
+  duration: "2m"
+
+---
+# HTTP Chaos: Delay responses
+apiVersion: chaos-mesh.org/v1alpha1
+kind: HTTPChaos
+metadata:
+  name: http-slow-responses
+  namespace: chaos-mesh
+spec:
+  mode: fixed-percent
+  value: "50"  # Affect 50% of requests
+
+  selector:
+    namespaces:
+      - production
+    labelSelectors:
+      app: backend-api
+
+  target: Response
+  port: 8080
+  path: "/api/*"
+
+  # Add delay to responses
+  delay: "3s"
+
+  duration: "5m"
+
+  # Schedule to run periodically
+  scheduler:
+    cron: "@every 6h"
+
+---
+# HTTP Chaos: Modify responses
+apiVersion: chaos-mesh.org/v1alpha1
+kind: HTTPChaos
+metadata:
+  name: http-corrupt-responses
+  namespace: chaos-mesh
+spec:
+  mode: fixed
+  value: "1"  # Affect 1 pod
+
+  selector:
+    namespaces:
+      - production
+    labelSelectors:
+      app: user-service
+
+  target: Response
+  port: 8080
+  path: "/users/*"
+  method: GET
+
+  # Modify response
+  patch:
+    # Modify response body
+    body:
+      type: JSON
+      value: '{"error": "Service temporarily unavailable", "code": 503}'
+
+    # Modify response headers
+    headers:
+      - ["X-Chaos-Injected", "true"]
+      - ["X-Error-Type", "simulated"]
+
+  # Replace status code
+  replace:
+    code: 503
+
+  duration: "1m"
+
+---
+# HTTP Chaos: Request header matching
+apiVersion: chaos-mesh.org/v1alpha1
+kind: HTTPChaos
+metadata:
+  name: http-chaos-specific-users
+  namespace: chaos-mesh
+spec:
+  mode: all
+
+  selector:
+    namespaces:
+      - production
+    labelSelectors:
+      app: api
+
+  target: Request
+  port: 8080
+  path: "/*"
+
+  # Only affect requests with specific headers
+  request_headers:
+    User-Agent: ".*mobile.*"  # Only mobile clients
+    X-Beta-User: "true"       # Only beta users
+
+  # Add delay
+  delay: "1s"
+
+  duration: "10m"
+
+---
+# Time Chaos: Clock skew forward
+apiVersion: chaos-mesh.org/v1alpha1
+kind: TimeChaos
+metadata:
+  name: time-travel-future
+  namespace: chaos-mesh
+spec:
+  # Mode of selection
+  mode: all
+
+  # Target pods
+  selector:
+    namespaces:
+      - production
+    labelSelectors:
+      app: auth-service
+
+  # Time offset (positive = future, negative = past)
+  timeOffset: "24h"  # Move clock 24 hours into the future
+
+  # Clock IDs to modify
+  clockIds:
+    - CLOCK_REALTIME  # System clock
+
+  # Duration
+  duration: "5m"
+
+---
+# Time Chaos: Clock skew backward
+apiVersion: chaos-mesh.org/v1alpha1
+kind: TimeChaos
+metadata:
+  name: time-travel-past
+  namespace: chaos-mesh
+spec:
+  mode: one
+
+  selector:
+    namespaces:
+      - production
+    labelSelectors:
+      app: scheduling-service
+
+  # Move clock backward
+  timeOffset: "-1h"
+
+  clockIds:
+    - CLOCK_REALTIME
+
+  duration: "2m"
+
+---
+# Time Chaos: Certificate expiration test
+apiVersion: chaos-mesh.org/v1alpha1
+kind: TimeChaos
+metadata:
+  name: cert-expiration-test
+  namespace: chaos-mesh
+spec:
+  mode: fixed
+  value: "1"
+
+  selector:
+    namespaces:
+      - production
+    labelSelectors:
+      app: ingress-controller
+
+  # Move clock forward past certificate expiration
+  # Adjust based on your cert expiration date
+  timeOffset: "400d"  # ~13 months
+
+  clockIds:
+    - CLOCK_REALTIME
+
+  duration: "1m"
+
+---
+# HTTP Chaos: Complete response replacement
+apiVersion: chaos-mesh.org/v1alpha1
+kind: HTTPChaos
+metadata:
+  name: http-replace-response
+  namespace: chaos-mesh
+spec:
+  mode: fixed-percent
+  value: "10"
+
+  selector:
+    namespaces:
+      - production
+    labelSelectors:
+      app: product-catalog
+
+  target: Response
+  port: 8080
+  path: "/products/*"
+
+  # Replace entire response
+  replace:
+    code: 200
+    body: '{"products": [], "message": "No products available due to maintenance"}'
+    headers:
+      Content-Type: "application/json"
+      X-Maintenance: "true"
+
+  duration: "30s"
+
+---
+# HTTP Chaos: Abort with custom status codes
+apiVersion: chaos-mesh.org/v1alpha1
+kind: HTTPChaos
+metadata:
+  name: http-various-errors
+  namespace: chaos-mesh
+spec:
+  mode: all
+
+  selector:
+    namespaces:
+      - production
+    labelSelectors:
+      app: payment-api
+
+  target: Request
+  port: 8080
+  path: "/payment/*"
+  method: POST
+
+  abort: true
+
+  # Custom abort status code
+  patch:
+    body:
+      type: JSON
+      value: '{"error": "Payment service unavailable", "retry_after": 60}'
+
+  replace:
+    code: 503  # Service Unavailable
+
+  duration: "1m"
+
+---
+# Schedule-based HTTP chaos for testing during specific times
+apiVersion: chaos-mesh.org/v1alpha1
+kind: Schedule
+metadata:
+  name: scheduled-http-chaos
+  namespace: chaos-mesh
+spec:
+  # Cron schedule: every Tuesday at 10am
+  schedule: "0 10 * * 2"
+
+  # Type of chaos to schedule
+  type: HTTPChaos
+
+  # Concurrency policy: Allow, Forbid, Replace
+  concurrencyPolicy: Forbid
+
+  # Starting deadline in seconds
+  startingDeadlineSeconds: 60
+
+  # HTTP chaos configuration
+  httpChaos:
+    mode: fixed-percent
+    value: "20"
+
+    selector:
+      namespaces:
+        - production
+      labelSelectors:
+        chaos-enabled: "true"
+
+    target: Request
+    port: 8080
+    path: "/*"
+
+    delay: "500ms"
+    duration: "10m"

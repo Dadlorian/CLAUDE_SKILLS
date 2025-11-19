@@ -1,0 +1,118 @@
+# Backstage Template for Python FastAPI Service
+# Production-ready Python microservice with FastAPI
+
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: python-fastapi-service
+  title: Python FastAPI Service
+  description: Create a production-ready Python microservice using FastAPI with async support
+  tags:
+    - python
+    - fastapi
+    - microservice
+    - rest-api
+    - async
+spec:
+  owner: platform-team
+  type: service
+
+  parameters:
+    - title: Service Information
+      required:
+        - name
+        - description
+        - owner
+      properties:
+        name:
+          title: Service Name
+          type: string
+          description: Unique name for your service
+          pattern: '^[a-z0-9-]+$'
+          ui:autofocus: true
+
+        description:
+          title: Description
+          type: string
+          ui:widget: textarea
+
+        owner:
+          title: Owner
+          type: string
+          ui:field: OwnerPicker
+          ui:options:
+            allowedKinds:
+              - Group
+
+    - title: Configuration
+      properties:
+        pythonVersion:
+          title: Python Version
+          type: string
+          enum:
+            - '3.11'
+            - '3.12'
+          default: '3.11'
+
+        database:
+          title: Database
+          type: string
+          enum:
+            - none
+            - postgres
+            - mysql
+          default: postgres
+
+        useAsync:
+          title: Enable Async I/O
+          type: boolean
+          description: Use async database drivers and async endpoints
+          default: true
+
+        includeCelery:
+          title: Include Celery
+          type: boolean
+          description: Add Celery for background tasks
+          default: false
+
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+
+  steps:
+    - id: fetch-base
+      name: Fetch Base
+      action: fetch:template
+      input:
+        url: ./python-skeleton
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          pythonVersion: ${{ parameters.pythonVersion }}
+          database: ${{ parameters.database }}
+          useAsync: ${{ parameters.useAsync }}
+          includeCelery: ${{ parameters.includeCelery }}
+
+    - id: publish
+      name: Publish
+      action: publish:github
+      input:
+        repoUrl: ${{ parameters.repoUrl }}
+        description: ${{ parameters.description }}
+
+    - id: register
+      name: Register
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps.publish.output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps.publish.output.remoteUrl }}
+      - title: Open in Catalog
+        icon: catalog
+        entityRef: ${{ steps.register.output.entityRef }}

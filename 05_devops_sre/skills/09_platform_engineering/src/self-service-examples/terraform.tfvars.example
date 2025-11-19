@@ -1,0 +1,124 @@
+# Example Terraform Variables File
+# Copy this file to terraform.tfvars and customize for your service
+
+# Basic Configuration
+service_name = "my-service"
+team         = "my-team"
+environment  = "production"  # development, staging, or production
+runtime      = "node20"       # node18, node20, python311, python312, go121, java17
+
+# Compute Resources
+replicas = 3        # Number of initial replicas
+cpu      = 500      # CPU in millicores (m)
+memory   = 512      # Memory in Mi
+
+# Auto-scaling Configuration
+enable_autoscaling = true
+min_replicas       = 2   # Minimum replicas for autoscaling
+max_replicas       = 10  # Maximum replicas for autoscaling
+
+# Database Configuration
+enable_database = true
+database_type   = "postgres"  # postgres, mysql, or mongodb
+
+# Cache Configuration
+enable_cache = true  # Enable Redis cache
+
+# Monitoring Configuration
+enable_monitoring = true
+
+# Additional Tags
+tags = {
+  Project    = "my-project"
+  CostCenter = "engineering"
+  Owner      = "team-lead@company.com"
+}
+
+# ============================================
+# Advanced Examples
+# ============================================
+
+# Example 1: High-Traffic Service
+# service_name = "payment-api"
+# team         = "payments-team"
+# environment  = "production"
+# runtime      = "go121"
+#
+# replicas = 10
+# cpu      = 2000  # 2 CPU cores
+# memory   = 4096  # 4 GB
+#
+# enable_autoscaling = true
+# min_replicas       = 5
+# max_replicas       = 50
+#
+# enable_database = true
+# database_type   = "postgres"
+# enable_cache    = true
+
+# Example 2: Development Service
+# service_name = "test-api"
+# team         = "platform-team"
+# environment  = "development"
+# runtime      = "node20"
+#
+# replicas = 1
+# cpu      = 250   # 0.25 CPU
+# memory   = 256   # 256 MB
+#
+# enable_autoscaling = false
+# enable_database    = true
+# database_type      = "postgres"
+# enable_cache       = false
+
+# Example 3: Microservice with Cache Only
+# service_name = "session-service"
+# team         = "identity-team"
+# environment  = "production"
+# runtime      = "python311"
+#
+# replicas = 3
+# cpu      = 500
+# memory   = 512
+#
+# enable_autoscaling = true
+# min_replicas       = 2
+# max_replicas       = 10
+#
+# enable_database = false
+# enable_cache    = true  # Only Redis, no database
+
+# Example 4: Stateless Service
+# service_name = "api-gateway"
+# team         = "platform-team"
+# environment  = "production"
+# runtime      = "go121"
+#
+# replicas = 5
+# cpu      = 1000
+# memory   = 1024
+#
+# enable_autoscaling = true
+# min_replicas       = 3
+# max_replicas       = 20
+#
+# enable_database = false
+# enable_cache    = false
+
+# Example 5: Background Worker
+# service_name = "email-processor"
+# team         = "notifications-team"
+# environment  = "production"
+# runtime      = "python311"
+#
+# replicas = 2
+# cpu      = 500
+# memory   = 1024
+#
+# enable_autoscaling = true
+# min_replicas       = 1
+# max_replicas       = 10
+#
+# enable_database = true
+# database_type   = "postgres"
+# enable_cache    = true

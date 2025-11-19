@@ -1,0 +1,208 @@
+# Liquibase Changelog 005: Safe Column Type Migration
+# Description: Migrate price column from DECIMAL(10,2) to DECIMAL(12,4) for higher precision
+# Uses expand-contract pattern for zero-downtime migration
+# Author: DevOps Team
+# Date: 2024-05-15
+
+databaseChangeLog:
+  # PHASE 1: EXPAND - Add new column with new type
+  - changeSet:
+      id: 005-add-price-v2-column
+      author: devops-team
+      comment: Add new price_v2 column with higher precision (expand phase)
+      changes:
+        - addColumn:
+            tableName: products
+            columns:
+              - column:
+                  name: price_v2
+                  type: decimal(12,4)
+                  remarks: New price column with higher precision (4 decimal places)
+
+        - addColumn:
+            tableName: products
+            columns:
+              - column:
+                  name: cost_v2
+                  type: decimal(12,4)
+                  remarks: New cost column with higher precision (4 decimal places)
+
+      rollback:
+        - dropColumn:
+            tableName: products
+            columnName: price_v2
+        - dropColumn:
+            tableName: products
+            columnName: cost_v2
+
+  # PHASE 2: MIGRATE - Copy data to new columns
+  - changeSet:
+      id: 005-backfill-price-v2-data
+      author: devops-team
+      comment: Backfill data from old price columns to new columns
+      changes:
+        - sql:
+            sql: |
+              -- Backfill in batches to avoid long locks
+              DO $$
+              DECLARE
+                  batch_size INTEGER := 10000;
+                  total_updated INTEGER := 0;
+                  rows_updated INTEGER;
+              BEGIN
+                  LOOP
+                      -- Update batch
+                      WITH batch AS (
+                          SELECT id
+                          FROM products
+                          WHERE price_v2 IS NULL
+                            AND price IS NOT NULL
+                          LIMIT batch_size
+                      )
+                      UPDATE products p
+                      SET
+                          price_v2 = p.price::decimal(12,4),
+                          cost_v2 = p.cost::decimal(12,4)
+                      FROM batch b
+                      WHERE p.id = b.id;
+
+                      GET DIAGNOSTICS rows_updated = ROW_COUNT;
+                      total_updated := total_updated + rows_updated;
+
+                      -- Exit if no more rows
+                      EXIT WHEN rows_updated = 0;
+
+                      -- Log progress
+                      RAISE NOTICE 'Backfilled % rows (total: %)', rows_updated, total_updated;
+
+                      -- Small delay to avoid overload
+                      PERFORM pg_sleep(0.05);
+                  END LOOP;
+
+                  RAISE NOTICE 'Backfill complete: % total rows', total_updated;
+              END $$;
+
+      rollback:
+        - sql:
+            sql: UPDATE products SET price_v2 = NULL, cost_v2 = NULL;
+
+  # PHASE 3: Create sync trigger for dual-write period
+  - changeSet:
+      id: 005-create-price-sync-trigger
+      author: devops-team
+      comment: Create trigger to keep old and new price columns in sync during migration
+      changes:
+        - sql:
+            sql: |
+              CREATE OR REPLACE FUNCTION sync_price_columns()
+              RETURNS TRIGGER AS $$
+              BEGIN
+                  -- Sync old -> new
+                  IF NEW.price IS DISTINCT FROM OLD.price THEN
+                      NEW.price_v2 := NEW.price::decimal(12,4);
+                  END IF;
+
+                  IF NEW.cost IS DISTINCT FROM OLD.cost THEN
+                      NEW.cost_v2 := NEW.cost::decimal(12,4);
+                  END IF;
+
+                  -- Sync new -> old (for backward compatibility)
+                  IF NEW.price_v2 IS DISTINCT FROM OLD.price_v2 AND NEW.price_v2 IS NOT NULL THEN
+                      NEW.price := NEW.price_v2::decimal(10,2);
+                  END IF;
+
+                  IF NEW.cost_v2 IS DISTINCT FROM OLD.cost_v2 AND NEW.cost_v2 IS NOT NULL THEN
+                      NEW.cost := NEW.cost_v2::decimal(10,2);
+                  END IF;
+
+                  RETURN NEW;
+              END;
+              $$ LANGUAGE plpgsql;
+
+              CREATE TRIGGER sync_price_columns_trigger
+              BEFORE UPDATE ON products
+              FOR EACH ROW
+              EXECUTE FUNCTION sync_price_columns();
+
+      rollback:
+        - sql:
+            sql: |
+              DROP TRIGGER IF EXISTS sync_price_columns_trigger ON products;
+              DROP FUNCTION IF EXISTS sync_price_columns();
+
+  # Data validation
+  - changeSet:
+      id: 005-validate-price-migration
+      author: devops-team
+      comment: Validate that all prices have been migrated
+      preconditions:
+        - onFail: WARN
+      changes:
+        - sql:
+            sql: |
+              DO $$
+              DECLARE
+                  missing_count INTEGER;
+                  mismatch_count INTEGER;
+              BEGIN
+                  -- Check for missing values
+                  SELECT COUNT(*)
+                  INTO missing_count
+                  FROM products
+                  WHERE price IS NOT NULL AND price_v2 IS NULL;
+
+                  IF missing_count > 0 THEN
+                      RAISE WARNING 'Found % products with price but no price_v2', missing_count;
+                  END IF;
+
+                  -- Check for mismatches (allowing for precision differences)
+                  SELECT COUNT(*)
+                  INTO mismatch_count
+                  FROM products
+                  WHERE price IS NOT NULL
+                    AND price_v2 IS NOT NULL
+                    AND ABS(price::decimal(12,4) - price_v2) > 0.01;
+
+                  IF mismatch_count > 0 THEN
+                      RAISE WARNING 'Found % products with price/price_v2 mismatch', mismatch_count;
+                  END IF;
+
+                  IF missing_count = 0 AND mismatch_count = 0 THEN
+                      RAISE NOTICE 'Price migration validation successful';
+                  END IF;
+              END $$;
+
+      rollback:
+        - empty
+
+  # NOTE: Phase 4 (CONTRACT) will be in a separate changelog (006-remove-old-price-columns.yaml)
+  # Only run after:
+  # 1. All application instances are updated to use price_v2/cost_v2
+  # 2. Sufficient monitoring period has passed
+  # 3. We're confident the migration is successful
+
+  # Add comments for documentation
+  - changeSet:
+      id: 005-add-column-comments
+      author: devops-team
+      comment: Add documentation comments to new columns
+      changes:
+        - setColumnRemarks:
+            tableName: products
+            columnName: price_v2
+            remarks: Product price with 4 decimal precision (replaces price column)
+
+        - setColumnRemarks:
+            tableName: products
+            columnName: cost_v2
+            remarks: Product cost with 4 decimal precision (replaces cost column)
+
+      rollback:
+        - setColumnRemarks:
+            tableName: products
+            columnName: price_v2
+            remarks: null
+        - setColumnRemarks:
+            tableName: products
+            columnName: cost_v2
+            remarks: null
