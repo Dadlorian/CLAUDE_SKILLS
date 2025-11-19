@@ -1,0 +1,604 @@
+# Flux HelmRelease Examples
+# These examples demonstrate different HelmRelease configurations
+
+---
+# Example 1: Basic HelmRelease from HelmRepository
+apiVersion: helm.toolkit.fluxcd.io/v2beta2
+kind: HelmRelease
+metadata:
+  name: nginx
+  namespace: flux-system
+spec:
+  # Reconciliation interval
+  interval: 30m
+  # Chart specification
+  chart:
+    spec:
+      # Chart name
+      chart: nginx
+      # Chart version (can use semver)
+      version: "15.x"
+      # Source HelmRepository
+      sourceRef:
+        kind: HelmRepository
+        name: bitnami
+        namespace: flux-system
+      # Reconciliation interval for chart
+      interval: 12h
+  # Helm values
+  values:
+    replicaCount: 2
+    service:
+      type: LoadBalancer
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+
+---
+# HelmRepository source for the above release
+apiVersion: source.toolkit.fluxcd.io/v1beta2
+kind: HelmRepository
+metadata:
+  name: bitnami
+  namespace: flux-system
+spec:
+  interval: 1h
+  url: https://charts.bitnami.com/bitnami
+
+---
+# Example 2: HelmRelease from Git repository
+apiVersion: helm.toolkit.fluxcd.io/v2beta2
+kind: HelmRelease
+metadata:
+  name: myapp
+  namespace: flux-system
+spec:
+  interval: 10m
+  # Release name (defaults to metadata.name if not specified)
+  releaseName: myapp
+  # Target namespace for the release
+  targetNamespace: production
+  chart:
+    spec:
+      # Path to chart in Git repository
+      chart: ./charts/myapp
+      # Source GitRepository
+      sourceRef:
+        kind: GitRepository
+        name: myapp
+        namespace: flux-system
+      # Reconciliation interval
+      interval: 10m
+  values:
+    image:
+      repository: ghcr.io/example/myapp
+      tag: v1.2.3
+    replicas: 3
+
+---
+# Example 3: HelmRelease with values from ConfigMap and Secret
+apiVersion: helm.toolkit.fluxcd.io/v2beta2
+kind: HelmRelease
+metadata:
+  name: myapp-with-valuesFrom
+  namespace: flux-system
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: ./charts/myapp
+      sourceRef:
+        kind: GitRepository
+        name: myapp
+  # Values from ConfigMaps and Secrets
+  valuesFrom:
+  # Values from ConfigMap
+  - kind: ConfigMap
+    name: myapp-values
+    valuesKey: values.yaml
+    optional: false
+  # Values from Secret (higher priority)
+  - kind: Secret
+    name: myapp-secrets
+    valuesKey: secrets.yaml
+    optional: true
+  # Inline values (highest priority)
+  values:
+    environment: production
+    replicas: 5
+
+---
+# ConfigMap with Helm values
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: myapp-values
+  namespace: flux-system
+data:
+  values.yaml: |
+    service:
+      type: ClusterIP
+      port: 80
+    ingress:
+      enabled: true
+      className: nginx
+      hosts:
+        - host: app.example.com
+          paths:
+            - path: /
+              pathType: Prefix
+
+---
+# Example 4: HelmRelease with install/upgrade configuration
+apiVersion: helm.toolkit.fluxcd.io/v2beta2
+kind: HelmRelease
+metadata:
+  name: myapp-advanced
+  namespace: flux-system
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: myapp
+      version: ">=1.0.0 <2.0.0"
+      sourceRef:
+        kind: HelmRepository
+        name: private-charts
+  # Install configuration
+  install:
+    # Create target namespace if it doesn't exist
+    createNamespace: true
+    # Remediation on install failure
+    remediation:
+      retries: 3
+    # Timeout for install
+    timeout: 10m
+    # Wait for resources to be ready
+    wait: true
+    # Replace resources if they exist
+    replace: false
+    # Skip CRDs
+    crds: CreateReplace
+
+  # Upgrade configuration
+  upgrade:
+    # Remediation on upgrade failure
+    remediation:
+      retries: 3
+      # Remediate last failure
+      remediateLastFailure: true
+    # Cleanup on failure
+    cleanupOnFail: true
+    # Timeout for upgrade
+    timeout: 10m
+    # Wait for resources to be ready
+    wait: true
+    # CRDs handling
+    crds: CreateReplace
+    # Force resource update
+    force: false
+    # Preserve values from previous release
+    preserveValues: false
+
+  # Test configuration
+  test:
+    enable: true
+    timeout: 5m
+
+  # Rollback configuration
+  rollback:
+    # Recreate resources on rollback
+    recreate: true
+    # Force rollback
+    force: true
+    # Cleanup on failure
+    cleanupOnFail: true
+    # Timeout
+    timeout: 10m
+
+  # Maximum number of revisions to keep
+  maxHistory: 10
+
+  # Timeout for all operations
+  timeout: 10m
+
+---
+# Example 5: HelmRelease with post-renderers (Kustomize)
+apiVersion: helm.toolkit.fluxcd.io/v2beta2
+kind: HelmRelease
+metadata:
+  name: myapp-with-kustomize
+  namespace: flux-system
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: myapp
+      sourceRef:
+        kind: HelmRepository
+        name: private-charts
+  values:
+    replicaCount: 3
+  # Post-render with Kustomize
+  postRenderers:
+  - kustomize:
+      # Strategic merge patches
+      patches:
+      - target:
+          kind: Deployment
+          name: myapp
+        patch: |
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: myapp
+          spec:
+            template:
+              spec:
+                securityContext:
+                  runAsNonRoot: true
+                  runAsUser: 1000
+                containers:
+                - name: myapp
+                  securityContext:
+                    allowPrivilegeEscalation: false
+                    readOnlyRootFilesystem: true
+
+---
+# Example 6: HelmRelease with dependencies
+apiVersion: helm.toolkit.fluxcd.io/v2beta2
+kind: HelmRelease
+metadata:
+  name: myapp
+  namespace: flux-system
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: myapp
+      sourceRef:
+        kind: HelmRepository
+        name: private-charts
+  # Wait for these HelmReleases to be ready first
+  dependsOn:
+  - name: postgresql
+    namespace: flux-system
+  - name: redis
+    namespace: flux-system
+  values:
+    database:
+      host: postgresql.database.svc.cluster.local
+    redis:
+      host: redis.cache.svc.cluster.local
+
+---
+# Example 7: HelmRelease with suspend
+apiVersion: helm.toolkit.fluxcd.io/v2beta2
+kind: HelmRelease
+metadata:
+  name: suspended-release
+  namespace: flux-system
+spec:
+  # Suspend reconciliation
+  suspend: true
+  interval: 30m
+  chart:
+    spec:
+      chart: myapp
+      sourceRef:
+        kind: HelmRepository
+        name: private-charts
+
+---
+# Example 8: HelmRelease with drift detection
+apiVersion: helm.toolkit.fluxcd.io/v2beta2
+kind: HelmRelease
+metadata:
+  name: myapp-drift-detection
+  namespace: flux-system
+spec:
+  interval: 5m
+  chart:
+    spec:
+      chart: myapp
+      sourceRef:
+        kind: HelmRepository
+        name: private-charts
+  # Drift detection and correction
+  driftDetection:
+    mode: enabled
+    ignore:
+    # Ignore drift in these resources
+    - paths:
+      - /spec/replicas
+      target:
+        kind: Deployment
+        name: myapp
+  upgrade:
+    # Auto-remediate drift
+    remediation:
+      retries: 3
+      remediateLastFailure: true
+
+---
+# Example 9: HelmRelease with service account
+apiVersion: helm.toolkit.fluxcd.io/v2beta2
+kind: HelmRelease
+metadata:
+  name: myapp-with-sa
+  namespace: flux-system
+spec:
+  interval: 30m
+  # Use specific service account
+  serviceAccountName: helm-controller-sa
+  chart:
+    spec:
+      chart: myapp
+      sourceRef:
+        kind: HelmRepository
+        name: private-charts
+  targetNamespace: production
+
+---
+# Example 10: HelmRelease from OCI registry
+apiVersion: helm.toolkit.fluxcd.io/v2beta2
+kind: HelmRelease
+metadata:
+  name: oci-chart
+  namespace: flux-system
+spec:
+  interval: 30m
+  chart:
+    spec:
+      # OCI chart reference
+      chart: myapp
+      version: 1.2.3
+      sourceRef:
+        kind: HelmRepository
+        name: oci-registry
+        namespace: flux-system
+
+---
+# OCI HelmRepository
+apiVersion: source.toolkit.fluxcd.io/v1beta2
+kind: HelmRepository
+metadata:
+  name: oci-registry
+  namespace: flux-system
+spec:
+  interval: 1h
+  type: oci
+  url: oci://ghcr.io/example/charts
+  secretRef:
+    name: oci-credentials
+
+---
+# Example 11: Multi-environment HelmRelease pattern
+# Production release
+apiVersion: helm.toolkit.fluxcd.io/v2beta2
+kind: HelmRelease
+metadata:
+  name: myapp-production
+  namespace: flux-system
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: myapp
+      version: "1.2.3"
+      sourceRef:
+        kind: HelmRepository
+        name: private-charts
+  targetNamespace: production
+  values:
+    environment: production
+    replicaCount: 5
+    resources:
+      limits:
+        cpu: 2000m
+        memory: 2Gi
+  install:
+    createNamespace: true
+  upgrade:
+    remediation:
+      retries: 3
+
+---
+# Staging release
+apiVersion: helm.toolkit.fluxcd.io/v2beta2
+kind: HelmRelease
+metadata:
+  name: myapp-staging
+  namespace: flux-system
+spec:
+  interval: 10m
+  chart:
+    spec:
+      chart: myapp
+      version: ">=1.2.0 <2.0.0"  # Allow newer versions in staging
+      sourceRef:
+        kind: HelmRepository
+        name: private-charts
+  targetNamespace: staging
+  values:
+    environment: staging
+    replicaCount: 2
+    resources:
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+  install:
+    createNamespace: true
+
+---
+# Example 12: HelmRelease with chart template
+apiVersion: helm.toolkit.fluxcd.io/v2beta2
+kind: HelmRelease
+metadata:
+  name: myapp-templated
+  namespace: flux-system
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: myapp
+      sourceRef:
+        kind: HelmRepository
+        name: private-charts
+  # Use variable substitution in values
+  values:
+    image:
+      repository: ${image_registry}/myapp
+      tag: ${image_tag}
+    replicas: ${replicas}
+    ingress:
+      host: ${domain}
+
+---
+# Example 13: HelmRelease with persistent storage
+apiVersion: helm.toolkit.fluxcd.io/v2beta2
+kind: HelmRelease
+metadata:
+  name: postgresql
+  namespace: flux-system
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: postgresql
+      version: "12.x"
+      sourceRef:
+        kind: HelmRepository
+        name: bitnami
+  targetNamespace: database
+  values:
+    auth:
+      username: myapp
+      database: myapp
+      existingSecret: postgresql-credentials
+    primary:
+      persistence:
+        enabled: true
+        size: 20Gi
+        storageClass: gp3
+    metrics:
+      enabled: true
+      serviceMonitor:
+        enabled: true
+  install:
+    createNamespace: true
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+      remediateLastFailure: true
+
+---
+# Example 14: HelmRelease with custom values overlay
+apiVersion: helm.toolkit.fluxcd.io/v2beta2
+kind: HelmRelease
+metadata:
+  name: monitoring-stack
+  namespace: flux-system
+spec:
+  interval: 1h
+  chart:
+    spec:
+      chart: kube-prometheus-stack
+      version: "54.x"
+      sourceRef:
+        kind: HelmRepository
+        name: prometheus-community
+  targetNamespace: monitoring
+  values:
+    prometheus:
+      prometheusSpec:
+        retention: 30d
+        storageSpec:
+          volumeClaimTemplate:
+            spec:
+              accessModes: ["ReadWriteOnce"]
+              resources:
+                requests:
+                  storage: 50Gi
+              storageClassName: gp3
+    grafana:
+      adminPassword: ${grafana_admin_password}
+      persistence:
+        enabled: true
+        size: 10Gi
+      dashboardProviders:
+        dashboardproviders.yaml:
+          apiVersion: 1
+          providers:
+          - name: 'default'
+            orgId: 1
+            folder: ''
+            type: file
+            disableDeletion: false
+            editable: true
+            options:
+              path: /var/lib/grafana/dashboards/default
+    alertmanager:
+      alertmanagerSpec:
+        storage:
+          volumeClaimTemplate:
+            spec:
+              accessModes: ["ReadWriteOnce"]
+              resources:
+                requests:
+                  storage: 10Gi
+  install:
+    createNamespace: true
+    crds: CreateReplace
+    timeout: 15m
+  upgrade:
+    crds: CreateReplace
+    timeout: 15m
+
+---
+# HelmRepository for Prometheus
+apiVersion: source.toolkit.fluxcd.io/v1beta2
+kind: HelmRepository
+metadata:
+  name: prometheus-community
+  namespace: flux-system
+spec:
+  interval: 1h
+  url: https://prometheus-community.github.io/helm-charts
+
+---
+# Example 15: HelmRelease with notification
+apiVersion: helm.toolkit.fluxcd.io/v2beta2
+kind: HelmRelease
+metadata:
+  name: myapp-with-alerts
+  namespace: flux-system
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: myapp
+      sourceRef:
+        kind: HelmRepository
+        name: private-charts
+  values:
+    replicaCount: 3
+  # Alert configuration (requires notification-controller)
+  postRenderers:
+  - kustomize:
+      patches:
+      - target:
+          kind: Deployment
+        patch: |
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            annotations:
+              fluxcd.io/automated: "true"
+              fluxcd.io/tag.myapp: semver:~1.0

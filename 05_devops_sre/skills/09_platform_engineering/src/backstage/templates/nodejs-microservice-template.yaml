@@ -1,0 +1,330 @@
+# Backstage Template for Node.js Microservice
+# This template creates a production-ready Node.js service with all standard components
+
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: nodejs-microservice
+  title: Node.js Microservice
+  description: Create a production-ready Node.js microservice with TypeScript, Express, and full observability
+  tags:
+    - recommended
+    - nodejs
+    - typescript
+    - microservice
+    - rest-api
+spec:
+  owner: platform-team
+  type: service
+
+  parameters:
+    # Basic Information
+    - title: Service Information
+      required:
+        - name
+        - description
+        - owner
+      properties:
+        name:
+          title: Service Name
+          type: string
+          description: Unique name for your service (lowercase, hyphens only)
+          pattern: '^[a-z0-9-]+$'
+          minLength: 3
+          maxLength: 63
+          ui:autofocus: true
+          ui:help: 'Example: user-authentication-service'
+
+        description:
+          title: Description
+          type: string
+          description: Brief description of what this service does
+          ui:widget: textarea
+          ui:options:
+            rows: 3
+
+        owner:
+          title: Owner
+          type: string
+          description: Team that will own this service
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: Group
+            allowedKinds:
+              - Group
+
+        system:
+          title: System
+          type: string
+          description: Which system does this service belong to?
+          ui:field: EntityPicker
+          ui:options:
+            catalogFilter:
+              kind: System
+            allowedKinds:
+              - System
+
+    # Technical Configuration
+    - title: Technical Configuration
+      properties:
+        port:
+          title: Service Port
+          type: integer
+          description: Port the service will listen on
+          default: 8080
+          minimum: 1024
+          maximum: 65535
+
+        nodeVersion:
+          title: Node.js Version
+          type: string
+          description: Node.js runtime version
+          enum:
+            - '18'
+            - '20'
+          enumNames:
+            - 'Node.js 18 LTS'
+            - 'Node.js 20 LTS'
+          default: '20'
+
+    # Database Configuration
+    - title: Database Configuration
+      properties:
+        database:
+          title: Database
+          type: string
+          description: Select a database for your service
+          enum:
+            - none
+            - postgres
+            - mysql
+            - mongodb
+          enumNames:
+            - 'No Database'
+            - 'PostgreSQL (Recommended)'
+            - 'MySQL'
+            - 'MongoDB'
+          default: postgres
+
+        databaseSize:
+          title: Database Size
+          type: string
+          description: Initial database instance size
+          enum:
+            - small
+            - medium
+            - large
+          enumNames:
+            - 'Small (dev/test workloads)'
+            - 'Medium (production workloads)'
+            - 'Large (high-traffic services)'
+          default: small
+          ui:widget: radio
+
+    # Additional Services
+    - title: Additional Services
+      properties:
+        enableCache:
+          title: Enable Redis Cache
+          type: boolean
+          description: Add Redis for caching and session management
+          default: true
+
+        enableQueue:
+          title: Enable Message Queue
+          type: boolean
+          description: Add RabbitMQ for async message processing
+          default: false
+
+        enableSearch:
+          title: Enable Search
+          type: boolean
+          description: Add Elasticsearch for full-text search
+          default: false
+
+    # Repository Configuration
+    - title: Repository Configuration
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+            allowedOwners:
+              - company-org
+            allowedRepos:
+              - .*
+
+        visibility:
+          title: Repository Visibility
+          type: string
+          enum:
+            - internal
+            - private
+          enumNames:
+            - 'Internal (visible to all company members)'
+            - 'Private (restricted access)'
+          default: internal
+
+  steps:
+    # Step 1: Fetch base template
+    - id: fetch-base
+      name: Fetch Base Template
+      action: fetch:template
+      input:
+        url: ./skeleton
+        cookiecutterCompat: true
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          system: ${{ parameters.system }}
+          port: ${{ parameters.port }}
+          nodeVersion: ${{ parameters.nodeVersion }}
+          database: ${{ parameters.database }}
+          databaseSize: ${{ parameters.databaseSize }}
+          enableCache: ${{ parameters.enableCache }}
+          enableQueue: ${{ parameters.enableQueue }}
+          enableSearch: ${{ parameters.enableSearch }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    # Step 2: Publish to GitHub
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        allowedHosts:
+          - github.com
+        description: ${{ parameters.description }}
+        repoUrl: ${{ parameters.repoUrl }}
+        repoVisibility: ${{ parameters.visibility }}
+        defaultBranch: main
+        deleteBranchOnMerge: true
+        protectDefaultBranch: true
+        requireCodeOwnerReviews: true
+        requiredApprovingReviewCount: 1
+        topics:
+          - nodejs
+          - microservice
+          - platform-generated
+
+    # Step 3: Register in Backstage Catalog
+    - id: register
+      name: Register in Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps.publish.output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+    # Step 4: Create Infrastructure
+    - id: create-infrastructure
+      name: Create Infrastructure
+      action: platform:create-infrastructure
+      input:
+        serviceName: ${{ parameters.name }}
+        owner: ${{ parameters.owner }}
+        database:
+          enabled: ${{ parameters.database != 'none' }}
+          type: ${{ parameters.database }}
+          size: ${{ parameters.databaseSize }}
+        cache:
+          enabled: ${{ parameters.enableCache }}
+        queue:
+          enabled: ${{ parameters.enableQueue }}
+        search:
+          enabled: ${{ parameters.enableSearch }}
+
+    # Step 5: Create Monitoring Dashboards
+    - id: create-monitoring
+      name: Create Monitoring Dashboards
+      action: platform:create-monitoring
+      input:
+        serviceName: ${{ parameters.name }}
+        owner: ${{ parameters.owner }}
+        dashboards:
+          - grafana
+          - datadog
+        alerts: true
+
+    # Step 6: Setup CI/CD Pipeline
+    - id: setup-pipeline
+      name: Setup CI/CD Pipeline
+      action: github:actions:dispatch
+      input:
+        repoUrl: ${{ parameters.repoUrl }}
+        workflowId: setup-pipeline.yml
+        branchOrTagName: main
+        workflowInputs:
+          service_name: ${{ parameters.name }}
+          owner: ${{ parameters.owner }}
+
+    # Step 7: Create Documentation Site
+    - id: create-docs
+      name: Create Documentation Site
+      action: techdocs:create
+      input:
+        serviceName: ${{ parameters.name }}
+        repoUrl: ${{ steps.publish.output.repoContentsUrl }}
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps.publish.output.remoteUrl }}
+        icon: github
+
+      - title: Open in Catalog
+        url: /catalog/default/component/${{ parameters.name }}
+        icon: catalog
+
+      - title: View Pipeline
+        url: ${{ steps.publish.output.remoteUrl }}/actions
+        icon: scaffolder
+
+      - title: Infrastructure Status
+        url: /infrastructure/${{ parameters.name }}
+        icon: dashboard
+
+      - title: Monitoring Dashboard
+        url: https://grafana.company.com/d/${{ parameters.name }}
+        icon: dashboard
+
+      - title: Documentation
+        url: /docs/default/component/${{ parameters.name }}
+        icon: docs
+
+    text:
+      - title: Next Steps
+        content: |
+          ## Your service has been created successfully!
+
+          ### What was created:
+          - ✅ GitHub repository with complete project structure
+          - ✅ Infrastructure provisioned (database, cache, etc.)
+          - ✅ CI/CD pipeline configured
+          - ✅ Monitoring dashboards created
+          - ✅ Service registered in catalog
+          - ✅ Documentation site generated
+
+          ### Next steps:
+          1. Clone the repository: `git clone ${{ steps.publish.output.remoteUrl }}`
+          2. Install dependencies: `cd ${{ parameters.name }} && npm install`
+          3. Start development: `npm run dev`
+          4. Make your changes and commit
+          5. Push to trigger CI/CD pipeline
+          6. Monitor deployment in the pipeline view
+
+          ### Resources:
+          - [Development Guide](https://docs.company.com/guides/nodejs-development)
+          - [Deployment Guide](https://docs.company.com/guides/deployment)
+          - [Best Practices](https://docs.company.com/best-practices)
+          - [Platform Support](https://slack.company.com/channels/platform-support)
+
+          ### Need help?
+          - Slack: #platform-support
+          - Email: platform-team@company.com
+          - Office Hours: Thursdays 2-3pm

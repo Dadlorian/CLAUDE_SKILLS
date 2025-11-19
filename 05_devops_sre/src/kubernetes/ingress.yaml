@@ -1,0 +1,463 @@
+# Kubernetes Ingress Examples with TLS
+#
+# This file demonstrates various ingress configurations for
+# routing external HTTP/HTTPS traffic to services.
+
+---
+# NGINX Ingress with TLS and Advanced Features
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: web-application-ingress
+  namespace: production
+  labels:
+    app: web-application
+  annotations:
+    # Ingress class
+    kubernetes.io/ingress.class: "nginx"
+
+    # TLS and SSL configurations
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/ssl-protocols: "TLSv1.2 TLSv1.3"
+    nginx.ingress.kubernetes.io/ssl-ciphers: "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384"
+
+    # cert-manager annotations for automatic TLS
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    cert-manager.io/acme-challenge-type: "http01"
+
+    # Rate limiting
+    nginx.ingress.kubernetes.io/limit-rps: "100"
+    nginx.ingress.kubernetes.io/limit-connections: "50"
+
+    # CORS configuration
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, PUT, DELETE, OPTIONS"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "https://example.com"
+    nginx.ingress.kubernetes.io/cors-allow-credentials: "true"
+
+    # Security headers
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      more_set_headers "X-Frame-Options: DENY";
+      more_set_headers "X-Content-Type-Options: nosniff";
+      more_set_headers "X-XSS-Protection: 1; mode=block";
+      more_set_headers "Strict-Transport-Security: max-age=31536000; includeSubDomains";
+
+    # Client body size
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+
+    # Timeouts
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+
+    # Buffering
+    nginx.ingress.kubernetes.io/proxy-buffering: "on"
+    nginx.ingress.kubernetes.io/proxy-buffer-size: "8k"
+
+    # Rewrite rules
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+
+    # Backend protocol
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+
+    # Sticky sessions
+    nginx.ingress.kubernetes.io/affinity: "cookie"
+    nginx.ingress.kubernetes.io/session-cookie-name: "route"
+    nginx.ingress.kubernetes.io/session-cookie-expires: "172800"
+    nginx.ingress.kubernetes.io/session-cookie-max-age: "172800"
+
+    # Whitelist source IPs
+    nginx.ingress.kubernetes.io/whitelist-source-range: "10.0.0.0/8,192.168.0.0/16"
+
+spec:
+  ingressClassName: nginx
+
+  # TLS configuration
+  tls:
+  - hosts:
+    - www.example.com
+    - api.example.com
+    secretName: example-com-tls  # TLS certificate secret
+
+  # Routing rules
+  rules:
+  # Main website
+  - host: www.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: web-application
+            port:
+              number: 80
+
+  # API subdomain
+  - host: api.example.com
+    http:
+      paths:
+      - path: /v1
+        pathType: Prefix
+        backend:
+          service:
+            name: api-v1-service
+            port:
+              number: 80
+      - path: /v2
+        pathType: Prefix
+        backend:
+          service:
+            name: api-v2-service
+            port:
+              number: 80
+
+---
+# AWS ALB Ingress Controller
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: web-application-alb
+  namespace: production
+  annotations:
+    # ALB configuration
+    kubernetes.io/ingress.class: "alb"
+    alb.ingress.kubernetes.io/scheme: "internet-facing"
+    alb.ingress.kubernetes.io/target-type: "ip"
+
+    # SSL
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:us-west-2:123456789012:certificate/12345678-1234-1234-1234-123456789012"
+
+    # Health check
+    alb.ingress.kubernetes.io/healthcheck-protocol: "HTTP"
+    alb.ingress.kubernetes.io/healthcheck-port: "8080"
+    alb.ingress.kubernetes.io/healthcheck-path: "/health"
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: "30"
+    alb.ingress.kubernetes.io/healthcheck-timeout-seconds: "5"
+    alb.ingress.kubernetes.io/healthy-threshold-count: "2"
+    alb.ingress.kubernetes.io/unhealthy-threshold-count: "2"
+
+    # Target group attributes
+    alb.ingress.kubernetes.io/target-group-attributes: "deregistration_delay.timeout_seconds=30,stickiness.enabled=true,stickiness.lb_cookie.duration_seconds=3600"
+
+    # WAF
+    alb.ingress.kubernetes.io/wafv2-acl-arn: "arn:aws:wafv2:us-west-2:123456789012:regional/webacl/test/a1234567-890a-bcde-f123-456789012345"
+
+    # Tags
+    alb.ingress.kubernetes.io/tags: "Environment=production,Team=platform"
+
+    # Load balancer attributes
+    alb.ingress.kubernetes.io/load-balancer-attributes: "idle_timeout.timeout_seconds=60,routing.http2.enabled=true"
+
+spec:
+  ingressClassName: alb
+  rules:
+  - host: www.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: web-application
+            port:
+              number: 80
+
+---
+# GCP GKE Ingress with Google Cloud Load Balancer
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: web-application-gce
+  namespace: production
+  annotations:
+    kubernetes.io/ingress.class: "gce"
+    kubernetes.io/ingress.global-static-ip-name: "web-static-ip"
+    networking.gke.io/managed-certificates: "example-com-cert"
+
+    # Backend config
+    cloud.google.com/backend-config: '{"default": "web-backend-config"}'
+
+    # NEG (Network Endpoint Group)
+    cloud.google.com/neg: '{"ingress": true}'
+
+spec:
+  rules:
+  - host: www.example.com
+    http:
+      paths:
+      - path: /*
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: web-application
+            port:
+              number: 80
+
+---
+# Google Managed Certificate for GKE
+apiVersion: networking.gke.io/v1
+kind: ManagedCertificate
+metadata:
+  name: example-com-cert
+  namespace: production
+spec:
+  domains:
+  - www.example.com
+  - api.example.com
+
+---
+# Backend Config for GCP
+apiVersion: cloud.google.com/v1
+kind: BackendConfig
+metadata:
+  name: web-backend-config
+  namespace: production
+spec:
+  healthCheck:
+    checkIntervalSec: 30
+    timeoutSec: 5
+    healthyThreshold: 2
+    unhealthyThreshold: 3
+    type: HTTP
+    requestPath: /health
+    port: 8080
+
+  sessionAffinity:
+    affinityType: "CLIENT_IP"
+    affinityCookieTtlSec: 3600
+
+  cdn:
+    enabled: true
+    cachePolicy:
+      includeHost: true
+      includeProtocol: true
+      includeQueryString: false
+    negativeCaching: true
+    negativeCachingPolicy:
+    - code: 404
+      ttl: 300
+
+  iap:
+    enabled: false
+
+  timeoutSec: 30
+  connectionDraining:
+    drainingTimeoutSec: 60
+
+---
+# Multi-Path Ingress with Path-Based Routing
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: multi-service-ingress
+  namespace: production
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - app.example.com
+    secretName: app-example-tls
+  rules:
+  - host: app.example.com
+    http:
+      paths:
+      # Frontend application
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: frontend-service
+            port:
+              number: 80
+
+      # API service
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: api-service
+            port:
+              number: 80
+
+      # Admin panel
+      - path: /admin
+        pathType: Prefix
+        backend:
+          service:
+            name: admin-service
+            port:
+              number: 80
+
+      # Static assets (could point to CDN or separate service)
+      - path: /static
+        pathType: Prefix
+        backend:
+          service:
+            name: static-assets-service
+            port:
+              number: 80
+
+---
+# Ingress with Authentication (OAuth2 Proxy)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: protected-application
+  namespace: production
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+
+    # OAuth2 authentication
+    nginx.ingress.kubernetes.io/auth-url: "https://oauth2-proxy.example.com/oauth2/auth"
+    nginx.ingress.kubernetes.io/auth-signin: "https://oauth2-proxy.example.com/oauth2/start?rd=$escaped_request_uri"
+    nginx.ingress.kubernetes.io/auth-response-headers: "X-Auth-Request-User,X-Auth-Request-Email"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - protected.example.com
+    secretName: protected-example-tls
+  rules:
+  - host: protected.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: protected-service
+            port:
+              number: 80
+
+---
+# Ingress with Basic Authentication
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: basic-auth-ingress
+  namespace: production
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/auth-type: "basic"
+    nginx.ingress.kubernetes.io/auth-secret: "basic-auth-secret"
+    nginx.ingress.kubernetes.io/auth-realm: "Authentication Required"
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: admin.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: admin-service
+            port:
+              number: 80
+
+---
+# Canary Ingress for A/B Testing
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: web-application-canary
+  namespace: production
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/canary: "true"
+    nginx.ingress.kubernetes.io/canary-weight: "10"  # 10% traffic
+    # nginx.ingress.kubernetes.io/canary-by-header: "canary"
+    # nginx.ingress.kubernetes.io/canary-by-cookie: "canary"
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: www.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: web-application-v2  # New version
+            port:
+              number: 80
+
+---
+# Ingress with External DNS
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: external-dns-ingress
+  namespace: production
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    external-dns.alpha.kubernetes.io/hostname: "www.example.com,api.example.com"
+    external-dns.alpha.kubernetes.io/ttl: "300"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - www.example.com
+    - api.example.com
+    secretName: example-com-tls
+  rules:
+  - host: www.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: web-application
+            port:
+              number: 80
+  - host: api.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: api-service
+            port:
+              number: 80
+
+---
+# TLS Secret (for reference - typically created by cert-manager)
+# Manual creation example:
+# kubectl create secret tls example-com-tls \
+#   --cert=path/to/tls.crt \
+#   --key=path/to/tls.key \
+#   --namespace=production
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: example-com-tls
+  namespace: production
+type: kubernetes.io/tls
+data:
+  tls.crt: LS0tLS1CRUdJTi... # Base64 encoded certificate
+  tls.key: LS0tLS1CRUdJTi... # Base64 encoded private key
+
+---
+# Basic Auth Secret (for reference)
+# Create with: htpasswd -c auth username
+# kubectl create secret generic basic-auth-secret --from-file=auth --namespace=production
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: basic-auth-secret
+  namespace: production
+type: Opaque
+data:
+  auth: YWRtaW46JGFwcjEkSDY1... # Base64 encoded htpasswd file

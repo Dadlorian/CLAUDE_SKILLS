@@ -1,0 +1,232 @@
+# Litmus Chaos: Pod Network Latency Experiment
+#
+# This experiment introduces network latency to test application
+# timeout handling, retry logic, and graceful degradation.
+#
+# Use Case: Test timeout configurations, circuit breakers, and async operations
+
+apiVersion: litmuschaos.io/v1alpha1
+kind: ChaosEngine
+metadata:
+  name: network-latency-chaos
+  namespace: default
+spec:
+  appinfo:
+    appns: default
+    applabel: 'app=api-server'
+    appkind: deployment
+
+  engineState: active
+  chaosServiceAccount: litmus-admin
+  monitoring: true
+  jobCleanUpPolicy: delete
+
+  experiments:
+    - name: pod-network-latency
+      spec:
+        components:
+          env:
+            # Network interface to target
+            - name: NETWORK_INTERFACE
+              value: 'eth0'
+
+            # Network latency to inject (in milliseconds)
+            - name: NETWORK_LATENCY
+              value: '2000'  # 2 seconds
+
+            # Total duration of chaos
+            - name: TOTAL_CHAOS_DURATION
+              value: '120'  # 2 minutes
+
+            # Jitter in milliseconds
+            - name: JITTER
+              value: '100'
+
+            # Percentage of pods to affect
+            - name: PODS_AFFECTED_PERC
+              value: '50'
+
+            # Target specific pods (optional)
+            - name: TARGET_PODS
+              value: ''
+
+            # Container name (if multi-container pod)
+            - name: TARGET_CONTAINER
+              value: ''
+
+            # Destination hosts/IPs to inject latency (comma-separated)
+            # Leave empty to affect all traffic
+            - name: DESTINATION_HOSTS
+              value: ''  # e.g., 'postgres.default.svc.cluster.local,redis.cache.svc.cluster.local'
+
+            # Destination IPs
+            - name: DESTINATION_IPS
+              value: ''
+
+            # Source ports (comma-separated)
+            - name: SOURCE_PORTS
+              value: ''
+
+            # Destination ports (comma-separated)
+            - name: DESTINATION_PORTS
+              value: ''
+
+        probe:
+          # Check p99 latency during chaos
+          - name: check-p99-latency
+            type: promProbe
+            mode: Continuous
+            promProbe/inputs:
+              endpoint: http://prometheus-service.monitoring.svc.cluster.local:9090
+              query: "histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[1m]))"
+              comparator:
+                type: float
+                criteria: "<"
+                value: "5.0"  # p99 should stay under 5 seconds
+            runProperties:
+              probeTimeout: 10
+              interval: 5
+              retry: 2
+
+          # Check error rate
+          - name: check-error-rate
+            type: promProbe
+            mode: Continuous
+            promProbe/inputs:
+              endpoint: http://prometheus-service.monitoring.svc.cluster.local:9090
+              query: "rate(http_requests_total{status=~'5..'}[1m]) / rate(http_requests_total[1m])"
+              comparator:
+                type: float
+                criteria: "<"
+                value: "0.05"  # Error rate should stay under 5%
+            runProperties:
+              probeTimeout: 10
+              interval: 5
+              retry: 2
+
+          # Check service availability
+          - name: check-service-availability
+            type: httpProbe
+            mode: Continuous
+            httpProbe/inputs:
+              url: http://api-server.default.svc.cluster.local/health
+              insecureSkipVerify: false
+              responseTimeout: 10
+              method:
+                get:
+                  criteria: ==
+                  responseCode: "200"
+            runProperties:
+              probeTimeout: 10
+              interval: 5
+              retry: 2
+
+---
+apiVersion: litmuschaos.io/v1alpha1
+kind: ChaosExperiment
+metadata:
+  name: pod-network-latency
+  namespace: default
+  labels:
+    name: pod-network-latency
+    app.kubernetes.io/part-of: litmus
+spec:
+  definition:
+    scope: Namespaced
+    permissions:
+      - apiGroups:
+          - ""
+        resources:
+          - pods
+        verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - deletecollection
+      - apiGroups:
+          - ""
+        resources:
+          - events
+        verbs:
+          - create
+          - get
+          - list
+          - patch
+          - update
+      - apiGroups:
+          - ""
+        resources:
+          - pods/log
+        verbs:
+          - get
+          - list
+          - watch
+      - apiGroups:
+          - ""
+        resources:
+          - pods/exec
+        verbs:
+          - get
+          - list
+          - create
+      - apiGroups:
+          - batch
+        resources:
+          - jobs
+        verbs:
+          - create
+          - list
+          - get
+          - delete
+          - deletecollection
+
+    image: "litmuschaos/go-runner:latest"
+    imagePullPolicy: Always
+
+    args:
+      - -c
+      - ./experiments -name pod-network-latency
+
+    command:
+      - /bin/bash
+
+    env:
+      - name: NETWORK_INTERFACE
+        value: 'eth0'
+
+      - name: NETWORK_LATENCY
+        value: '2000'
+
+      - name: TOTAL_CHAOS_DURATION
+        value: '60'
+
+      - name: JITTER
+        value: '0'
+
+      - name: PODS_AFFECTED_PERC
+        value: ''
+
+      - name: TARGET_CONTAINER
+        value: ''
+
+      - name: DESTINATION_HOSTS
+        value: ''
+
+      - name: DESTINATION_IPS
+        value: ''
+
+      - name: SOURCE_PORTS
+        value: ''
+
+      - name: DESTINATION_PORTS
+        value: ''
+
+      - name: LIB
+        value: 'litmus'
+
+    labels:
+      name: pod-network-latency
+      app.kubernetes.io/part-of: litmus

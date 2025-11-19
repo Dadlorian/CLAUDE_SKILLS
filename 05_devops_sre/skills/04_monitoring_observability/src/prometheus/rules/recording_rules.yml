@@ -1,0 +1,332 @@
+# Production Recording Rules
+# These precompute expensive queries for better performance
+
+groups:
+  # HTTP Metrics Recording Rules
+  - name: http_recording_rules
+    interval: 15s
+    rules:
+      # Request rates
+      - record: job_handler:http_requests:rate5m
+        expr: |
+          sum by (job, handler) (
+            rate(http_requests_total[5m])
+          )
+
+      - record: job:http_requests:rate5m
+        expr: |
+          sum by (job) (
+            rate(http_requests_total[5m])
+          )
+
+      - record: cluster:http_requests:rate5m
+        expr: |
+          sum(rate(http_requests_total[5m]))
+
+      # Error rates
+      - record: job_handler:http_errors:rate5m
+        expr: |
+          sum by (job, handler) (
+            rate(http_requests_total{status=~"5.."}[5m])
+          )
+
+      - record: job:http_errors:rate5m
+        expr: |
+          sum by (job) (
+            rate(http_requests_total{status=~"5.."}[5m])
+          )
+
+      # Error ratios
+      - record: job_handler:http_error_ratio:rate5m
+        expr: |
+          job_handler:http_errors:rate5m
+          /
+          job_handler:http_requests:rate5m
+
+      - record: job:http_error_ratio:rate5m
+        expr: |
+          job:http_errors:rate5m
+          /
+          job:http_requests:rate5m
+
+      # Latency percentiles
+      - record: job_handler:http_request_duration:p50
+        expr: |
+          histogram_quantile(0.50,
+            sum by (job, handler, le) (
+              rate(http_request_duration_seconds_bucket[5m])
+            )
+          )
+
+      - record: job_handler:http_request_duration:p95
+        expr: |
+          histogram_quantile(0.95,
+            sum by (job, handler, le) (
+              rate(http_request_duration_seconds_bucket[5m])
+            )
+          )
+
+      - record: job_handler:http_request_duration:p99
+        expr: |
+          histogram_quantile(0.99,
+            sum by (job, handler, le) (
+              rate(http_request_duration_seconds_bucket[5m])
+            )
+          )
+
+      - record: job:http_request_duration:p99
+        expr: |
+          histogram_quantile(0.99,
+            sum by (job, le) (
+              rate(http_request_duration_seconds_bucket[5m])
+            )
+          )
+
+  # Resource Utilization Recording Rules
+  - name: resource_recording_rules
+    interval: 30s
+    rules:
+      # CPU utilization
+      - record: instance:cpu_utilization:ratio
+        expr: |
+          1 - avg by (instance) (
+            rate(node_cpu_seconds_total{mode="idle"}[5m])
+          )
+
+      - record: job:cpu_utilization:ratio
+        expr: |
+          avg by (job) (
+            instance:cpu_utilization:ratio
+          )
+
+      - record: cluster:cpu_utilization:ratio
+        expr: |
+          avg(instance:cpu_utilization:ratio)
+
+      # Memory utilization
+      - record: instance:memory_utilization:ratio
+        expr: |
+          1 - (
+            node_memory_MemAvailable_bytes
+            /
+            node_memory_MemTotal_bytes
+          )
+
+      - record: job:memory_utilization:ratio
+        expr: |
+          avg by (job) (
+            instance:memory_utilization:ratio
+          )
+
+      # Disk utilization
+      - record: instance_device:disk_utilization:ratio
+        expr: |
+          1 - (
+            node_filesystem_avail_bytes
+            /
+            node_filesystem_size_bytes
+          )
+
+      - record: instance:disk_utilization:ratio
+        expr: |
+          max by (instance) (
+            instance_device:disk_utilization:ratio
+          )
+
+      # Network I/O
+      - record: instance:network_receive_bytes:rate5m
+        expr: |
+          sum by (instance) (
+            rate(node_network_receive_bytes_total[5m])
+          )
+
+      - record: instance:network_transmit_bytes:rate5m
+        expr: |
+          sum by (instance) (
+            rate(node_network_transmit_bytes_total[5m])
+          )
+
+      # Disk I/O
+      - record: instance:disk_read_bytes:rate5m
+        expr: |
+          sum by (instance) (
+            rate(node_disk_read_bytes_total[5m])
+          )
+
+      - record: instance:disk_write_bytes:rate5m
+        expr: |
+          sum by (instance) (
+            rate(node_disk_written_bytes_total[5m])
+          )
+
+  # Database Recording Rules
+  - name: database_recording_rules
+    interval: 30s
+    rules:
+      # Query rates
+      - record: job:db_queries:rate5m
+        expr: |
+          sum by (job) (
+            rate(db_queries_total[5m])
+          )
+
+      # Connection pool utilization
+      - record: job:db_connection_pool_utilization:ratio
+        expr: |
+          db_connections_in_use
+          /
+          db_connections_max
+
+      # Query duration percentiles
+      - record: job:db_query_duration:p50
+        expr: |
+          histogram_quantile(0.50,
+            sum by (job, le) (
+              rate(db_query_duration_seconds_bucket[5m])
+            )
+          )
+
+      - record: job:db_query_duration:p95
+        expr: |
+          histogram_quantile(0.95,
+            sum by (job, le) (
+              rate(db_query_duration_seconds_bucket[5m])
+            )
+          )
+
+      - record: job:db_query_duration:p99
+        expr: |
+          histogram_quantile(0.99,
+            sum by (job, le) (
+              rate(db_query_duration_seconds_bucket[5m])
+            )
+          )
+
+  # Cache Recording Rules
+  - name: cache_recording_rules
+    interval: 30s
+    rules:
+      # Cache hit rate
+      - record: job:cache_hit_ratio:rate5m
+        expr: |
+          sum by (job) (
+            rate(cache_hits_total[5m])
+          )
+          /
+          sum by (job) (
+            rate(cache_requests_total[5m])
+          )
+
+      # Cache operations
+      - record: job:cache_operations:rate5m
+        expr: |
+          sum by (job) (
+            rate(cache_requests_total[5m])
+          )
+
+  # Application-Specific Recording Rules
+  - name: application_recording_rules
+    interval: 30s
+    rules:
+      # Goroutines (for Go apps)
+      - record: job:goroutines:avg
+        expr: |
+          avg by (job) (
+            go_goroutines
+          )
+
+      # Thread count (for Java apps)
+      - record: job:threads:avg
+        expr: |
+          avg by (job) (
+            jvm_threads_current
+          )
+
+      # Heap usage (for JVM apps)
+      - record: job:heap_utilization:ratio
+        expr: |
+          jvm_memory_bytes_used{area="heap"}
+          /
+          jvm_memory_bytes_max{area="heap"}
+
+  # SLI Recording Rules
+  - name: sli_recording_rules
+    interval: 30s
+    rules:
+      # Availability SLI
+      - record: service:availability:good_events:rate5m
+        expr: |
+          sum by (service) (
+            rate(http_requests_total{status=~"[2-4].."}[5m])
+          )
+
+      - record: service:availability:total_events:rate5m
+        expr: |
+          sum by (service) (
+            rate(http_requests_total[5m])
+          )
+
+      - record: service:availability:ratio_rate5m
+        expr: |
+          service:availability:good_events:rate5m
+          /
+          service:availability:total_events:rate5m
+
+      # Latency SLI (% of requests under 100ms)
+      - record: service:latency_le_100ms:good_events:rate5m
+        expr: |
+          sum by (service) (
+            rate(http_request_duration_seconds_bucket{le="0.1"}[5m])
+          )
+
+      - record: service:latency_le_100ms:total_events:rate5m
+        expr: |
+          sum by (service) (
+            rate(http_request_duration_seconds_count[5m])
+          )
+
+      - record: service:latency_le_100ms:ratio_rate5m
+        expr: |
+          service:latency_le_100ms:good_events:rate5m
+          /
+          service:latency_le_100ms:total_events:rate5m
+
+      # Error budget (for 99.9% SLO)
+      - record: service:error_budget:total
+        expr: |
+          0.001
+
+      - record: service:error_budget:consumption_rate:rate1h
+        expr: |
+          (1 - service:availability:ratio_rate5m)
+          /
+          service:error_budget:total
+
+  # Business Metrics Recording Rules
+  - name: business_recording_rules
+    interval: 1m
+    rules:
+      # User signups
+      - record: business:user_signups:rate5m
+        expr: |
+          sum(rate(user_signups_total[5m]))
+
+      # Orders
+      - record: business:orders_created:rate5m
+        expr: |
+          sum(rate(orders_created_total[5m]))
+
+      - record: business:orders_completed:rate5m
+        expr: |
+          sum(rate(orders_completed_total[5m]))
+
+      - record: business:order_completion_ratio:rate5m
+        expr: |
+          business:orders_completed:rate5m
+          /
+          business:orders_created:rate5m
+
+      # Revenue
+      - record: business:revenue_usd:rate5m
+        expr: |
+          sum(rate(revenue_usd_total[5m]))

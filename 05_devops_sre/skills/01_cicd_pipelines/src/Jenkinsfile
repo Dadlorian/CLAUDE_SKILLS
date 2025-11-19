@@ -1,0 +1,656 @@
+// Complete Jenkins Declarative Pipeline Example
+// This pipeline demonstrates best practices for a full-stack application
+// with build, test, security scanning, and deployment stages
+
+pipeline {
+    agent any
+
+    // Configure tools (must be configured in Jenkins Global Tool Configuration)
+    tools {
+        nodejs 'NodeJS-18'
+        maven 'Maven-3.9'
+    }
+
+    // Environment variables
+    environment {
+        // Application versioning
+        VERSION = "1.0.${BUILD_NUMBER}"
+
+        // Docker registry
+        DOCKER_REGISTRY = 'registry.example.com'
+        DOCKER_IMAGE = "${DOCKER_REGISTRY}/myapp"
+
+        // AWS configuration
+        AWS_REGION = 'us-east-1'
+        ECR_REGISTRY = credentials('aws-ecr-registry')
+
+        // SonarQube
+        SONAR_HOST_URL = 'https://sonarqube.example.com'
+
+        // Deployment environments
+        DEV_URL = 'https://dev.example.com'
+        STAGING_URL = 'https://staging.example.com'
+        PROD_URL = 'https://prod.example.com'
+
+        // Git configuration
+        GIT_COMMIT_SHORT = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
+        GIT_BRANCH_NAME = env.BRANCH_NAME ?: 'unknown'
+    }
+
+    // Pipeline options
+    options {
+        // Keep only last 10 builds
+        buildDiscarder(logRotator(numToKeepStr: '10', artifactNumToKeepStr: '5'))
+
+        // Disable concurrent builds of the same branch
+        disableConcurrentBuilds()
+
+        // Add timestamps to console output
+        timestamps()
+
+        // Overall pipeline timeout
+        timeout(time: 1, unit: 'HOURS')
+
+        // ANSI color output
+        ansiColor('xterm')
+    }
+
+    // Build parameters
+    parameters {
+        choice(
+            name: 'DEPLOY_ENV',
+            choices: ['none', 'dev', 'staging', 'production'],
+            description: 'Target deployment environment'
+        )
+        booleanParam(
+            name: 'RUN_SECURITY_SCAN',
+            defaultValue: true,
+            description: 'Run security vulnerability scans'
+        )
+        booleanParam(
+            name: 'SKIP_TESTS',
+            defaultValue: false,
+            description: 'Skip test execution (not recommended)'
+        )
+    }
+
+    stages {
+        // ============================================
+        // Stage 1: Checkout & Setup
+        // ============================================
+        stage('Checkout') {
+            steps {
+                script {
+                    echo "🔄 Checking out code from ${GIT_BRANCH_NAME}"
+                    checkout scm
+
+                    // Set build description
+                    currentBuild.description = "Branch: ${GIT_BRANCH_NAME} | Commit: ${GIT_COMMIT_SHORT}"
+                }
+            }
+        }
+
+        stage('Setup Environment') {
+            steps {
+                sh '''
+                    echo "📦 Setting up build environment"
+                    node --version
+                    npm --version
+                    java -version
+                    mvn --version
+                '''
+            }
+        }
+
+        // ============================================
+        // Stage 2: Install Dependencies
+        // ============================================
+        stage('Install Dependencies') {
+            parallel {
+                stage('Frontend Dependencies') {
+                    steps {
+                        dir('frontend') {
+                            sh 'npm ci'
+                        }
+                    }
+                }
+                stage('Backend Dependencies') {
+                    steps {
+                        dir('backend') {
+                            sh 'mvn clean install -DskipTests'
+                        }
+                    }
+                }
+            }
+        }
+
+        // ============================================
+        // Stage 3: Code Quality & Linting
+        // ============================================
+        stage('Code Quality') {
+            parallel {
+                stage('Frontend Lint') {
+                    steps {
+                        dir('frontend') {
+                            sh 'npm run lint'
+                        }
+                    }
+                }
+                stage('Backend Lint') {
+                    steps {
+                        dir('backend') {
+                            sh 'mvn checkstyle:check'
+                        }
+                    }
+                }
+                stage('TypeScript Check') {
+                    steps {
+                        dir('frontend') {
+                            sh 'npm run type-check'
+                        }
+                    }
+                }
+            }
+        }
+
+        // ============================================
+        // Stage 4: Security Scanning
+        // ============================================
+        stage('Security Scans') {
+            when {
+                expression { params.RUN_SECURITY_SCAN == true }
+            }
+            parallel {
+                stage('Dependency Scan') {
+                    steps {
+                        script {
+                            echo "🔒 Scanning dependencies for vulnerabilities"
+                            dir('frontend') {
+                                sh 'npm audit --audit-level=moderate || true'
+                            }
+                            dir('backend') {
+                                sh 'mvn org.owasp:dependency-check-maven:check || true'
+                            }
+                        }
+                    }
+                }
+                stage('Secret Scanning') {
+                    steps {
+                        script {
+                            echo "🔐 Scanning for exposed secrets"
+                            sh '''
+                                docker run --rm -v $(pwd):/path zricethezav/gitleaks:latest \
+                                  detect --source /path --verbose --redact || true
+                            '''
+                        }
+                    }
+                }
+                stage('SAST') {
+                    steps {
+                        script {
+                            echo "🛡️ Running static application security testing"
+                            withSonarQubeEnv('SonarQube') {
+                                sh '''
+                                    sonar-scanner \
+                                      -Dsonar.projectKey=myapp \
+                                      -Dsonar.projectName=MyApp \
+                                      -Dsonar.projectVersion=${VERSION} \
+                                      -Dsonar.sources=. \
+                                      -Dsonar.exclusions=**/node_modules/**,**/dist/**,**/build/**
+                                '''
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Quality Gate') {
+            when {
+                expression { params.RUN_SECURITY_SCAN == true }
+            }
+            steps {
+                timeout(time: 5, unit: 'MINUTES') {
+                    script {
+                        def qg = waitForQualityGate()
+                        if (qg.status != 'OK') {
+                            echo "⚠️ Quality gate failed: ${qg.status}"
+                            // Don't fail the build, just warn
+                            unstable(message: "Quality gate failed")
+                        }
+                    }
+                }
+            }
+        }
+
+        // ============================================
+        // Stage 5: Unit Tests
+        // ============================================
+        stage('Unit Tests') {
+            when {
+                expression { params.SKIP_TESTS == false }
+            }
+            parallel {
+                stage('Frontend Tests') {
+                    steps {
+                        dir('frontend') {
+                            sh 'npm run test:unit -- --coverage'
+                        }
+                    }
+                    post {
+                        always {
+                            junit 'frontend/junit.xml'
+                            publishHTML([
+                                reportDir: 'frontend/coverage',
+                                reportFiles: 'index.html',
+                                reportName: 'Frontend Coverage Report'
+                            ])
+                        }
+                    }
+                }
+                stage('Backend Tests') {
+                    steps {
+                        dir('backend') {
+                            sh 'mvn test'
+                        }
+                    }
+                    post {
+                        always {
+                            junit 'backend/target/surefire-reports/*.xml'
+                            jacoco(
+                                execPattern: 'backend/target/jacoco.exec',
+                                classPattern: 'backend/target/classes',
+                                sourcePattern: 'backend/src/main/java'
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // ============================================
+        // Stage 6: Build
+        // ============================================
+        stage('Build') {
+            parallel {
+                stage('Frontend Build') {
+                    steps {
+                        dir('frontend') {
+                            sh 'npm run build'
+                        }
+                    }
+                }
+                stage('Backend Build') {
+                    steps {
+                        dir('backend') {
+                            sh 'mvn package -DskipTests'
+                        }
+                    }
+                }
+            }
+            post {
+                success {
+                    archiveArtifacts artifacts: 'frontend/dist/**/*', fingerprint: true
+                    archiveArtifacts artifacts: 'backend/target/*.jar', fingerprint: true
+                }
+            }
+        }
+
+        // ============================================
+        // Stage 7: Integration Tests
+        // ============================================
+        stage('Integration Tests') {
+            when {
+                expression { params.SKIP_TESTS == false }
+            }
+            steps {
+                script {
+                    echo "🧪 Running integration tests"
+                    dir('backend') {
+                        sh 'mvn verify -P integration-tests'
+                    }
+                }
+            }
+            post {
+                always {
+                    junit 'backend/target/failsafe-reports/*.xml'
+                }
+            }
+        }
+
+        // ============================================
+        // Stage 8: Build Docker Images
+        // ============================================
+        stage('Build Docker Images') {
+            steps {
+                script {
+                    echo "🐳 Building Docker images"
+
+                    // Build frontend image
+                    dir('frontend') {
+                        sh """
+                            docker build \
+                              -t ${DOCKER_IMAGE}-frontend:${VERSION} \
+                              -t ${DOCKER_IMAGE}-frontend:${GIT_COMMIT_SHORT} \
+                              -t ${DOCKER_IMAGE}-frontend:latest \
+                              --build-arg VERSION=${VERSION} \
+                              .
+                        """
+                    }
+
+                    // Build backend image
+                    dir('backend') {
+                        sh """
+                            docker build \
+                              -t ${DOCKER_IMAGE}-backend:${VERSION} \
+                              -t ${DOCKER_IMAGE}-backend:${GIT_COMMIT_SHORT} \
+                              -t ${DOCKER_IMAGE}-backend:latest \
+                              --build-arg VERSION=${VERSION} \
+                              .
+                        """
+                    }
+                }
+            }
+        }
+
+        // ============================================
+        // Stage 9: Container Security Scan
+        // ============================================
+        stage('Container Scan') {
+            when {
+                expression { params.RUN_SECURITY_SCAN == true }
+            }
+            steps {
+                script {
+                    echo "🔍 Scanning Docker images for vulnerabilities"
+                    sh """
+                        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+                          aquasec/trivy image --severity HIGH,CRITICAL \
+                          ${DOCKER_IMAGE}-frontend:${VERSION}
+
+                        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+                          aquasec/trivy image --severity HIGH,CRITICAL \
+                          ${DOCKER_IMAGE}-backend:${VERSION}
+                    """
+                }
+            }
+        }
+
+        // ============================================
+        // Stage 10: Push to Registry
+        // ============================================
+        stage('Push to Registry') {
+            when {
+                anyOf {
+                    branch 'main'
+                    branch 'develop'
+                    branch 'release/*'
+                }
+            }
+            steps {
+                script {
+                    echo "📤 Pushing images to registry"
+                    docker.withRegistry("https://${DOCKER_REGISTRY}", 'docker-registry-credentials') {
+                        sh """
+                            docker push ${DOCKER_IMAGE}-frontend:${VERSION}
+                            docker push ${DOCKER_IMAGE}-frontend:${GIT_COMMIT_SHORT}
+                            docker push ${DOCKER_IMAGE}-frontend:latest
+
+                            docker push ${DOCKER_IMAGE}-backend:${VERSION}
+                            docker push ${DOCKER_IMAGE}-backend:${GIT_COMMIT_SHORT}
+                            docker push ${DOCKER_IMAGE}-backend:latest
+                        """
+                    }
+                }
+            }
+        }
+
+        // ============================================
+        // Stage 11: Deploy to Dev
+        // ============================================
+        stage('Deploy to Dev') {
+            when {
+                allOf {
+                    branch 'develop'
+                    expression { params.DEPLOY_ENV == 'dev' || params.DEPLOY_ENV == 'none' }
+                }
+            }
+            steps {
+                script {
+                    echo "🚀 Deploying to Development environment"
+                    withCredentials([
+                        string(credentialsId: 'dev-deploy-token', variable: 'DEPLOY_TOKEN')
+                    ]) {
+                        sh """
+                            kubectl config use-context dev-cluster
+                            kubectl set image deployment/myapp-frontend \
+                              frontend=${DOCKER_IMAGE}-frontend:${VERSION} \
+                              --namespace=dev
+                            kubectl set image deployment/myapp-backend \
+                              backend=${DOCKER_IMAGE}-backend:${VERSION} \
+                              --namespace=dev
+                            kubectl rollout status deployment/myapp-frontend --namespace=dev
+                            kubectl rollout status deployment/myapp-backend --namespace=dev
+                        """
+                    }
+                }
+            }
+            post {
+                success {
+                    echo "✅ Successfully deployed to Dev: ${DEV_URL}"
+                }
+            }
+        }
+
+        // ============================================
+        // Stage 12: Deploy to Staging
+        // ============================================
+        stage('Deploy to Staging') {
+            when {
+                allOf {
+                    branch 'release/*'
+                    expression { params.DEPLOY_ENV == 'staging' || params.DEPLOY_ENV == 'none' }
+                }
+            }
+            steps {
+                script {
+                    echo "🚀 Deploying to Staging environment"
+                    withCredentials([
+                        string(credentialsId: 'staging-deploy-token', variable: 'DEPLOY_TOKEN')
+                    ]) {
+                        sh """
+                            kubectl config use-context staging-cluster
+                            kubectl set image deployment/myapp-frontend \
+                              frontend=${DOCKER_IMAGE}-frontend:${VERSION} \
+                              --namespace=staging
+                            kubectl set image deployment/myapp-backend \
+                              backend=${DOCKER_IMAGE}-backend:${VERSION} \
+                              --namespace=staging
+                            kubectl rollout status deployment/myapp-frontend --namespace=staging
+                            kubectl rollout status deployment/myapp-backend --namespace=staging
+                        """
+                    }
+                }
+            }
+            post {
+                success {
+                    echo "✅ Successfully deployed to Staging: ${STAGING_URL}"
+                }
+            }
+        }
+
+        // ============================================
+        // Stage 13: Deploy to Production
+        // ============================================
+        stage('Deploy to Production') {
+            when {
+                allOf {
+                    branch 'main'
+                    expression { params.DEPLOY_ENV == 'production' }
+                }
+            }
+            steps {
+                script {
+                    // Manual approval required for production
+                    timeout(time: 1, unit: 'HOURS') {
+                        input message: 'Deploy to Production?',
+                              ok: 'Deploy',
+                              submitter: 'admin,release-manager'
+                    }
+
+                    echo "🚀 Deploying to Production environment"
+                    withCredentials([
+                        string(credentialsId: 'prod-deploy-token', variable: 'DEPLOY_TOKEN')
+                    ]) {
+                        // Blue-Green deployment
+                        sh """
+                            kubectl config use-context prod-cluster
+
+                            # Deploy to green environment
+                            kubectl set image deployment/myapp-frontend-green \
+                              frontend=${DOCKER_IMAGE}-frontend:${VERSION} \
+                              --namespace=production
+                            kubectl set image deployment/myapp-backend-green \
+                              backend=${DOCKER_IMAGE}-backend:${VERSION} \
+                              --namespace=production
+
+                            # Wait for rollout
+                            kubectl rollout status deployment/myapp-frontend-green --namespace=production
+                            kubectl rollout status deployment/myapp-backend-green --namespace=production
+
+                            # Health check
+                            sleep 30
+                            curl -f https://green.${PROD_URL}/health || exit 1
+
+                            # Switch traffic
+                            kubectl patch service myapp-frontend --namespace=production \
+                              -p '{"spec":{"selector":{"version":"green"}}}'
+                            kubectl patch service myapp-backend --namespace=production \
+                              -p '{"spec":{"selector":{"version":"green"}}}'
+                        """
+                    }
+                }
+            }
+            post {
+                success {
+                    echo "✅ Successfully deployed to Production: ${PROD_URL}"
+                }
+                failure {
+                    echo "❌ Production deployment failed - rolling back"
+                    sh """
+                        kubectl config use-context prod-cluster
+                        kubectl patch service myapp-frontend --namespace=production \
+                          -p '{"spec":{"selector":{"version":"blue"}}}'
+                        kubectl patch service myapp-backend --namespace=production \
+                          -p '{"spec":{"selector":{"version":"blue"}}}'
+                    """
+                }
+            }
+        }
+
+        // ============================================
+        // Stage 14: Smoke Tests
+        // ============================================
+        stage('Smoke Tests') {
+            when {
+                expression { params.DEPLOY_ENV != 'none' }
+            }
+            steps {
+                script {
+                    def targetUrl
+                    switch(params.DEPLOY_ENV) {
+                        case 'dev':
+                            targetUrl = DEV_URL
+                            break
+                        case 'staging':
+                            targetUrl = STAGING_URL
+                            break
+                        case 'production':
+                            targetUrl = PROD_URL
+                            break
+                    }
+
+                    echo "🧪 Running smoke tests against ${targetUrl}"
+                    sh """
+                        curl -f ${targetUrl}/health || exit 1
+                        curl -f ${targetUrl}/api/status || exit 1
+                    """
+                }
+            }
+        }
+    }
+
+    // Post-build actions
+    post {
+        always {
+            echo "🧹 Cleaning up workspace"
+            cleanWs()
+
+            // Clean up Docker images
+            sh '''
+                docker image prune -f
+            '''
+        }
+
+        success {
+            script {
+                echo "✅ Pipeline completed successfully!"
+
+                // Send success notification
+                slackSend(
+                    color: 'good',
+                    message: """
+                        ✅ Build Successful
+                        Job: ${env.JOB_NAME}
+                        Build: #${env.BUILD_NUMBER}
+                        Branch: ${GIT_BRANCH_NAME}
+                        Duration: ${currentBuild.durationString}
+                        ${env.BUILD_URL}
+                    """,
+                    channel: '#ci-notifications'
+                )
+            }
+        }
+
+        failure {
+            script {
+                echo "❌ Pipeline failed!"
+
+                // Send failure notification
+                slackSend(
+                    color: 'danger',
+                    message: """
+                        ❌ Build Failed
+                        Job: ${env.JOB_NAME}
+                        Build: #${env.BUILD_NUMBER}
+                        Branch: ${GIT_BRANCH_NAME}
+                        ${env.BUILD_URL}console
+                    """,
+                    channel: '#ci-notifications'
+                )
+
+                // Email notification
+                emailext(
+                    subject: "Build Failed: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                    body: """
+                        Build failed for ${env.JOB_NAME} #${env.BUILD_NUMBER}
+
+                        Branch: ${GIT_BRANCH_NAME}
+                        Commit: ${GIT_COMMIT_SHORT}
+
+                        Check console output at ${env.BUILD_URL}console
+                    """,
+                    to: 'dev-team@example.com'
+                )
+            }
+        }
+
+        unstable {
+            echo "⚠️ Pipeline completed with warnings"
+        }
+
+        changed {
+            echo "🔄 Build state changed from previous run"
+        }
+    }
+}

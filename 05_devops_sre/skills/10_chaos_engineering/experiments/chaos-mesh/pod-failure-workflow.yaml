@@ -1,0 +1,264 @@
+# Chaos Mesh: Multi-Stage Pod Failure Workflow
+#
+# This workflow demonstrates a complex, multi-stage chaos scenario that
+# simulates cascading failures across multiple services.
+#
+# Use Case: Test system resilience to cascading failures
+
+apiVersion: chaos-mesh.org/v1alpha1
+kind: Workflow
+metadata:
+  name: cascading-failure-scenario
+  namespace: chaos-mesh
+spec:
+  # Entry point of the workflow
+  entry: cascading-failure-sequence
+
+  # Workflow templates
+  templates:
+    # Main sequence
+    - name: cascading-failure-sequence
+      templateType: Serial
+      deadline: 20m
+      children:
+        - database-pod-kill
+        - wait-1min
+        - cache-layer-failure
+        - wait-30s
+        - api-network-delay
+        - wait-1min
+        - recovery-verification
+
+    # Stage 1: Kill database pod
+    - name: database-pod-kill
+      templateType: PodChaos
+      deadline: 2m
+      podChaos:
+        action: pod-kill
+        mode: one
+        selector:
+          namespaces:
+            - production
+          labelSelectors:
+            app: postgres
+            role: primary
+        gracePeriod: 0
+
+    # Wait template
+    - name: wait-1min
+      templateType: Suspend
+      deadline: 1m
+
+    - name: wait-30s
+      templateType: Suspend
+      deadline: 30s
+
+    # Stage 2: Kill cache pods
+    - name: cache-layer-failure
+      templateType: PodChaos
+      deadline: 2m
+      podChaos:
+        action: pod-failure
+        mode: fixed
+        value: "2"
+        selector:
+          namespaces:
+            - production
+          labelSelectors:
+            app: redis
+        duration: "1m"
+
+    # Stage 3: Add network delay to API
+    - name: api-network-delay
+      templateType: NetworkChaos
+      deadline: 3m
+      networkChaos:
+        action: delay
+        mode: all
+        selector:
+          namespaces:
+            - production
+          labelSelectors:
+            app: api-gateway
+        delay:
+          latency: "500ms"
+          correlation: "50"
+          jitter: "100ms"
+        duration: "2m"
+
+    # Stage 4: Verify recovery
+    - name: recovery-verification
+      templateType: Suspend
+      deadline: 1m
+
+---
+# Simple sequential pod deletion workflow
+apiVersion: chaos-mesh.org/v1alpha1
+kind: Workflow
+metadata:
+  name: rolling-pod-deletion
+  namespace: chaos-mesh
+spec:
+  entry: delete-pods-sequentially
+
+  templates:
+    - name: delete-pods-sequentially
+      templateType: Serial
+      deadline: 10m
+      children:
+        - delete-frontend-pod
+        - wait
+        - delete-api-pod
+        - wait
+        - delete-worker-pod
+
+    - name: delete-frontend-pod
+      templateType: PodChaos
+      deadline: 1m
+      podChaos:
+        action: pod-kill
+        mode: one
+        selector:
+          namespaces:
+            - production
+          labelSelectors:
+            tier: frontend
+
+    - name: delete-api-pod
+      templateType: PodChaos
+      deadline: 1m
+      podChaos:
+        action: pod-kill
+        mode: one
+        selector:
+          namespaces:
+            - production
+          labelSelectors:
+            tier: api
+
+    - name: delete-worker-pod
+      templateType: PodChaos
+      deadline: 1m
+      podChaos:
+        action: pod-kill
+        mode: one
+        selector:
+          namespaces:
+            - production
+          labelSelectors:
+            tier: worker
+
+    - name: wait
+      templateType: Suspend
+      deadline: 30s
+
+---
+# Parallel chaos execution
+apiVersion: chaos-mesh.org/v1alpha1
+kind: Workflow
+metadata:
+  name: parallel-chaos-attack
+  namespace: chaos-mesh
+spec:
+  entry: parallel-execution
+
+  templates:
+    - name: parallel-execution
+      templateType: Parallel
+      deadline: 5m
+      children:
+        - network-chaos
+        - cpu-stress
+        - pod-failures
+
+    # Run network chaos
+    - name: network-chaos
+      templateType: NetworkChaos
+      deadline: 5m
+      networkChaos:
+        action: delay
+        mode: fixed-percent
+        value: "30"
+        selector:
+          namespaces:
+            - production
+          labelSelectors:
+            chaos-enabled: "true"
+        delay:
+          latency: "200ms"
+        duration: "4m"
+
+    # Run CPU stress
+    - name: cpu-stress
+      templateType: StressChaos
+      deadline: 5m
+      stressChaos:
+        mode: fixed-percent
+        value: "20"
+        selector:
+          namespaces:
+            - production
+          labelSelectors:
+            chaos-enabled: "true"
+        stressors:
+          cpu:
+            workers: 2
+            load: 80
+        duration: "4m"
+
+    # Run pod failures
+    - name: pod-failures
+      templateType: PodChaos
+      deadline: 5m
+      podChaos:
+        action: pod-kill
+        mode: fixed-percent
+        value: "10"
+        selector:
+          namespaces:
+            - production
+          labelSelectors:
+            chaos-enabled: "true"
+
+---
+# Conditional workflow based on health checks
+apiVersion: chaos-mesh.org/v1alpha1
+kind: Workflow
+metadata:
+  name: conditional-chaos
+  namespace: chaos-mesh
+spec:
+  entry: check-and-execute
+
+  templates:
+    # Main conditional template
+    - name: check-and-execute
+      templateType: Serial
+      deadline: 10m
+      children:
+        - health-check
+        - conditional-branch
+
+    # Health check (placeholder - implement with StatusCheck)
+    - name: health-check
+      templateType: Suspend
+      deadline: 10s
+
+    # Conditional execution
+    - name: conditional-branch
+      templateType: Serial
+      children:
+        - light-chaos  # Execute if healthy
+        # - heavy-chaos  # Execute if specific conditions
+
+    - name: light-chaos
+      templateType: PodChaos
+      deadline: 1m
+      podChaos:
+        action: pod-kill
+        mode: one
+        selector:
+          namespaces:
+            - production
+          labelSelectors:
+            app: test-app

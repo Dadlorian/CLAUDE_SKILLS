@@ -1,0 +1,150 @@
+# ArgoCD Application using Helm
+# This example demonstrates deploying a Helm chart from a Git repository
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: nginx-helm
+  namespace: argocd
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+
+  source:
+    # Git repository containing the Helm chart
+    repoURL: https://github.com/example/helm-charts.git
+    targetRevision: main
+    # Path to the Helm chart directory
+    path: charts/nginx
+
+    # Helm-specific configuration
+    helm:
+      # Release name (if not specified, uses the application name)
+      releaseName: nginx
+
+      # Values files to use (relative to chart path)
+      valueFiles:
+      - values.yaml
+      - values-production.yaml
+
+      # Individual parameter overrides
+      parameters:
+      - name: replicaCount
+        value: "3"
+      - name: image.tag
+        value: "1.25.0"
+      - name: service.type
+        value: LoadBalancer
+      - name: ingress.enabled
+        value: "true"
+
+      # Values as a block of YAML
+      values: |
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+
+        autoscaling:
+          enabled: true
+          minReplicas: 3
+          maxReplicas: 10
+          targetCPUUtilizationPercentage: 70
+
+      # Skip CRDs (if they're managed separately)
+      skipCrds: false
+
+      # Pass credentials to the chart
+      passCredentials: false
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: nginx
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
+    # Replace resources instead of applying (useful for some Helm charts)
+    - Replace=false
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+---
+# ArgoCD Application using Helm Repository
+# This example demonstrates deploying a chart from a Helm repository
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: prometheus-helm-repo
+  namespace: argocd
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+spec:
+  project: monitoring
+
+  source:
+    # Helm chart repository URL
+    chart: kube-prometheus-stack
+    repoURL: https://prometheus-community.github.io/helm-charts
+    # Chart version (use semver range)
+    targetRevision: 54.x
+
+    helm:
+      releaseName: prometheus
+      values: |
+        prometheus:
+          prometheusSpec:
+            retention: 30d
+            storageSpec:
+              volumeClaimTemplate:
+                spec:
+                  accessModes: ["ReadWriteOnce"]
+                  resources:
+                    requests:
+                      storage: 50Gi
+
+        grafana:
+          adminPassword: changeme
+          ingress:
+            enabled: true
+            hosts:
+            - grafana.example.com
+
+        alertmanager:
+          alertmanagerSpec:
+            storage:
+              volumeClaimTemplate:
+                spec:
+                  accessModes: ["ReadWriteOnce"]
+                  resources:
+                    requests:
+                      storage: 10Gi
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
+    - ServerSideApply=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 5s
+        maxDuration: 2m

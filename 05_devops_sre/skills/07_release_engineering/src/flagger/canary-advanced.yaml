@@ -1,0 +1,285 @@
+# Advanced Canary Deployment with Custom Metrics and A/B Testing
+# Includes custom Prometheus metrics, webhooks, and advanced traffic management
+
+apiVersion: flagger.app/v1beta1
+kind: Canary
+metadata:
+  name: checkout-service
+  namespace: production
+  annotations:
+    fluxcd.io/automated: "true"
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: checkout-service
+
+  autoscalerRef:
+    apiVersion: autoscaling/v2
+    kind: HorizontalPodAutoscaler
+    name: checkout-service
+
+  provider: istio
+
+  service:
+    port: 8080
+    targetPort: 8080
+    gateways:
+    - public-gateway.istio-system.svc.cluster.local
+    - internal-gateway.istio-system.svc.cluster.local
+    hosts:
+    - checkout.example.com
+    - checkout.internal.example.com
+    # Retry policy
+    retries:
+      attempts: 3
+      perTryTimeout: 1s
+      retryOn: "gateway-error,connect-failure,refused-stream"
+    # Traffic policy with session affinity
+    trafficPolicy:
+      connectionPool:
+        http:
+          http1MaxPendingRequests: 1024
+          http2MaxRequests: 1024
+          maxRequestsPerConnection: 2
+      loadBalancer:
+        consistentHash:
+          httpCookie:
+            name: user-session
+            ttl: 3600s
+
+  analysis:
+    # More frequent checks for critical service
+    interval: 20s
+    # Conservative threshold
+    threshold: 10
+    # Lower max weight for safer rollout
+    maxWeight: 40
+    # Smaller steps
+    stepWeight: 5
+    # More iterations for thorough validation
+    iterations: 20
+
+    # A/B Testing: Route specific users to canary
+    match:
+    # Mobile users
+    - headers:
+        user-agent:
+          regex: ".*Mobile.*"
+    # Beta users
+    - headers:
+        x-beta-user:
+          exact: "true"
+    # Internal testers
+    - headers:
+        x-internal-tester:
+          exact: "true"
+
+    # Session affinity for consistent user experience
+    sessionAffinity:
+      cookieName: flagger-canary
+      maxAge: 3600
+
+    # Comprehensive metrics
+    metrics:
+    # Built-in Istio metrics
+    - name: request-success-rate
+      thresholdRange:
+        min: 99.5
+      interval: 1m
+
+    - name: request-duration
+      thresholdRange:
+        max: 300
+      interval: 1m
+
+    # Custom business metrics
+    - name: checkout-completion-rate
+      templateRef:
+        name: checkout-completion-rate
+        namespace: production
+      thresholdRange:
+        min: 95
+      interval: 2m
+
+    - name: payment-success-rate
+      templateRef:
+        name: payment-success-rate
+        namespace: production
+      thresholdRange:
+        min: 99
+      interval: 2m
+
+    - name: average-order-value
+      templateRef:
+        name: average-order-value
+        namespace: production
+      thresholdRange:
+        min: 45  # Minimum $45 AOV
+      interval: 5m
+
+    # Infrastructure metrics
+    - name: cpu-usage
+      templateRef:
+        name: cpu-usage
+        namespace: production
+      thresholdRange:
+        max: 80
+      interval: 1m
+
+    - name: memory-usage
+      templateRef:
+        name: memory-usage
+        namespace: production
+      thresholdRange:
+        max: 85
+      interval: 1m
+
+    # External service dependencies
+    - name: database-latency
+      templateRef:
+        name: database-latency
+        namespace: production
+      thresholdRange:
+        max: 100
+      interval: 1m
+
+    # Comprehensive webhooks
+    webhooks:
+    # Pre-rollout validation
+    - name: pre-rollout-checks
+      type: pre-rollout
+      url: http://test-runner.production/pre-rollout
+      timeout: 60s
+      metadata:
+        type: bash
+        cmd: |
+          #!/bin/bash
+          set -e
+
+          echo "Running pre-rollout validation..."
+
+          # Database migration check
+          ./check-database-migrations.sh
+
+          # Dependency health check
+          ./check-dependencies.sh
+
+          # Configuration validation
+          ./validate-config.sh
+
+          echo "Pre-rollout checks passed"
+
+    # Smoke tests
+    - name: smoke-tests
+      type: pre-rollout
+      url: http://test-runner.production/smoke-tests
+      timeout: 120s
+      metadata:
+        service: checkout-service-canary
+        namespace: production
+        tests: |
+          - health_check
+          - api_endpoints
+          - database_connectivity
+          - cache_connectivity
+          - payment_gateway_mock
+
+    # Load testing
+    - name: load-test
+      type: rollout
+      url: http://flagger-loadtester.production/
+      timeout: 15s
+      metadata:
+        type: cmd
+        cmd: "hey -z 2m -q 50 -c 10 -H 'X-Canary: true' http://checkout-service-canary.production:8080/api/checkout"
+
+    # Integration tests
+    - name: integration-tests
+      type: rollout
+      url: http://test-runner.production/integration-tests
+      timeout: 300s
+      metadata:
+        service: checkout-service-canary
+        test_suite: checkout-integration
+
+    # Contract tests (verify API compatibility)
+    - name: contract-tests
+      type: pre-rollout
+      url: http://test-runner.production/contract-tests
+      timeout: 60s
+      metadata:
+        service: checkout-service-canary
+        contracts: |
+          - checkout-api-v1
+          - checkout-api-v2
+          - payment-service-contract
+
+    # Security scan
+    - name: security-scan
+      type: pre-rollout
+      url: http://security-scanner.production/scan
+      timeout: 180s
+      metadata:
+        service: checkout-service-canary
+        scan_types: |
+          - vulnerability_scan
+          - dependency_check
+          - secrets_detection
+
+    # Custom validation webhook
+    - name: business-validation
+      type: rollout
+      url: http://validation-service.production/validate
+      timeout: 30s
+      metadata:
+        canary_name: "checkout-service"
+        validation_rules: |
+          - min_transaction_count: 100
+          - max_error_rate: 0.01
+          - min_conversion_rate: 0.95
+
+    # Rollback notification
+    - name: rollback-notification
+      type: rollback
+      url: http://notification-service.production/alert
+      timeout: 10s
+      metadata:
+        severity: critical
+        message: "Checkout service canary rollback triggered"
+        channels: |
+          - slack
+          - pagerduty
+          - email
+
+    # Promotion notification
+    - name: promotion-notification
+      type: post-rollout
+      url: http://notification-service.production/notify
+      timeout: 10s
+      metadata:
+        message: "Checkout service successfully promoted"
+        channels: |
+          - slack
+
+    # Post-rollout cleanup
+    - name: post-rollout-cleanup
+      type: post-rollout
+      url: http://cleanup-service.production/cleanup
+      timeout: 60s
+      metadata:
+        tasks: |
+          - remove_canary_pods
+          - update_documentation
+          - archive_metrics
+
+    # Confirm promotion (manual gate)
+    - name: confirm-promotion
+      type: confirm-promotion
+      url: http://approval-service.production/confirm
+      timeout: 3600s  # 1 hour to approve
+      metadata:
+        approvers: |
+          - platform-team
+          - sre-team
+        require_approvals: 2

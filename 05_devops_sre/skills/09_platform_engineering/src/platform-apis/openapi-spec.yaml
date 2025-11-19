@@ -1,0 +1,982 @@
+# Platform API OpenAPI Specification
+# This is the complete API specification for the internal developer platform
+
+openapi: 3.0.3
+info:
+  title: Internal Developer Platform API
+  description: |
+    The Platform API provides self-service capabilities for developers to create,
+    manage, and operate services and infrastructure.
+
+    ## Features
+    - Service lifecycle management
+    - Infrastructure provisioning
+    - Environment management
+    - Secrets management
+    - Deployment operations
+
+    ## Authentication
+    All API requests require authentication via API key or OAuth2 token.
+
+    ## Rate Limiting
+    - 1000 requests per hour per user
+    - 100 requests per minute per user
+
+  version: 1.0.0
+  contact:
+    name: Platform Team
+    email: platform-team@company.com
+    url: https://platform.company.com/support
+  license:
+    name: Internal Use Only
+
+servers:
+  - url: https://api.platform.company.com/v1
+    description: Production
+  - url: https://api.platform.staging.company.com/v1
+    description: Staging
+
+tags:
+  - name: Services
+    description: Service lifecycle management
+  - name: Databases
+    description: Database provisioning and management
+  - name: Secrets
+    description: Secrets and configuration management
+  - name: Deployments
+    description: Deployment operations
+  - name: Environments
+    description: Environment management
+  - name: Monitoring
+    description: Monitoring and observability
+
+security:
+  - ApiKeyAuth: []
+  - OAuth2: [read, write]
+
+paths:
+  # Services
+  /services:
+    get:
+      tags: [Services]
+      summary: List all services
+      description: Returns a paginated list of services
+      operationId: listServices
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: team
+          in: query
+          description: Filter by team
+          schema:
+            type: string
+        - name: environment
+          in: query
+          description: Filter by environment
+          schema:
+            type: string
+            enum: [development, staging, production]
+        - name: status
+          in: query
+          description: Filter by status
+          schema:
+            type: string
+            enum: [active, inactive, provisioning, failed]
+      responses:
+        '200':
+          description: List of services
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Service'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+    post:
+      tags: [Services]
+      summary: Create a new service
+      description: Creates a new service with the specified configuration
+      operationId: createService
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServiceCreate'
+            examples:
+              simple:
+                summary: Simple service
+                value:
+                  name: user-api
+                  runtime: node18
+                  team: identity-team
+              advanced:
+                summary: Advanced configuration
+                value:
+                  name: payment-api
+                  runtime: go121
+                  team: payments-team
+                  replicas: 5
+                  resources:
+                    cpu: 1000m
+                    memory: 2Gi
+                  autoscaling:
+                    enabled: true
+                    minReplicas: 3
+                    maxReplicas: 20
+                    targetCPU: 70
+      responses:
+        '201':
+          description: Service created successfully
+          headers:
+            Location:
+              description: URL of the created service
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Service'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /services/{serviceId}:
+    parameters:
+      - $ref: '#/components/parameters/ServiceIdParam'
+
+    get:
+      tags: [Services]
+      summary: Get service details
+      description: Returns detailed information about a specific service
+      operationId: getService
+      responses:
+        '200':
+          description: Service details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Service'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags: [Services]
+      summary: Update service
+      description: Updates service configuration
+      operationId: updateService
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServiceUpdate'
+      responses:
+        '200':
+          description: Service updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Service'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+    delete:
+      tags: [Services]
+      summary: Delete service
+      description: Deletes a service and all associated resources
+      operationId: deleteService
+      parameters:
+        - name: force
+          in: query
+          description: Force deletion even if service has dependencies
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '204':
+          description: Service deleted successfully
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Service has dependencies and cannot be deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /services/{serviceId}/scale:
+    post:
+      tags: [Services]
+      summary: Scale service
+      description: Manually scale service replicas
+      operationId: scaleService
+      parameters:
+        - $ref: '#/components/parameters/ServiceIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - replicas
+              properties:
+                replicas:
+                  type: integer
+                  minimum: 1
+                  maximum: 100
+                  description: Desired number of replicas
+      responses:
+        '200':
+          description: Scaling initiated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationStatus'
+
+  /services/{serviceId}/logs:
+    get:
+      tags: [Services]
+      summary: Get service logs
+      description: Stream or retrieve service logs
+      operationId: getServiceLogs
+      parameters:
+        - $ref: '#/components/parameters/ServiceIdParam'
+        - name: follow
+          in: query
+          description: Follow log output
+          schema:
+            type: boolean
+            default: false
+        - name: tail
+          in: query
+          description: Number of lines to show from the end
+          schema:
+            type: integer
+            default: 100
+        - name: since
+          in: query
+          description: Show logs since timestamp (RFC3339)
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Service logs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  logs:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        timestamp:
+                          type: string
+                          format: date-time
+                        level:
+                          type: string
+                          enum: [debug, info, warn, error]
+                        message:
+                          type: string
+                        pod:
+                          type: string
+
+  # Databases
+  /databases:
+    get:
+      tags: [Databases]
+      summary: List databases
+      operationId: listDatabases
+      parameters:
+        - name: type
+          in: query
+          description: Filter by database type
+          schema:
+            type: string
+            enum: [postgres, mysql, mongodb, redis]
+      responses:
+        '200':
+          description: List of databases
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Database'
+
+    post:
+      tags: [Databases]
+      summary: Create database
+      description: Provisions a new database instance
+      operationId: createDatabase
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DatabaseCreate'
+      responses:
+        '201':
+          description: Database created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Database'
+
+  /databases/{databaseId}:
+    parameters:
+      - name: databaseId
+        in: path
+        required: true
+        schema:
+          type: string
+
+    get:
+      tags: [Databases]
+      summary: Get database details
+      operationId: getDatabase
+      responses:
+        '200':
+          description: Database details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Database'
+
+    delete:
+      tags: [Databases]
+      summary: Delete database
+      operationId: deleteDatabase
+      responses:
+        '204':
+          description: Database deleted
+
+  /databases/{databaseId}/backup:
+    post:
+      tags: [Databases]
+      summary: Create database backup
+      operationId: createBackup
+      parameters:
+        - name: databaseId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '202':
+          description: Backup initiated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Backup'
+
+  # Secrets
+  /secrets:
+    get:
+      tags: [Secrets]
+      summary: List secrets
+      operationId: listSecrets
+      responses:
+        '200':
+          description: List of secrets (values not included)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SecretMetadata'
+
+    post:
+      tags: [Secrets]
+      summary: Create secret
+      operationId: createSecret
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SecretCreate'
+      responses:
+        '201':
+          description: Secret created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecretMetadata'
+
+  /secrets/{secretId}:
+    parameters:
+      - name: secretId
+        in: path
+        required: true
+        schema:
+          type: string
+
+    get:
+      tags: [Secrets]
+      summary: Get secret value
+      operationId: getSecret
+      responses:
+        '200':
+          description: Secret value
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Secret'
+
+    put:
+      tags: [Secrets]
+      summary: Update secret
+      operationId: updateSecret
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                value:
+                  type: string
+      responses:
+        '200':
+          description: Secret updated
+
+    delete:
+      tags: [Secrets]
+      summary: Delete secret
+      operationId: deleteSecret
+      responses:
+        '204':
+          description: Secret deleted
+
+  # Deployments
+  /deployments:
+    get:
+      tags: [Deployments]
+      summary: List deployments
+      operationId: listDeployments
+      parameters:
+        - name: serviceId
+          in: query
+          schema:
+            type: string
+        - name: environment
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of deployments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Deployment'
+
+    post:
+      tags: [Deployments]
+      summary: Create deployment
+      description: Deploys a service to an environment
+      operationId: createDeployment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeploymentCreate'
+      responses:
+        '201':
+          description: Deployment created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Deployment'
+
+  /deployments/{deploymentId}:
+    parameters:
+      - name: deploymentId
+        in: path
+        required: true
+        schema:
+          type: string
+
+    get:
+      tags: [Deployments]
+      summary: Get deployment details
+      operationId: getDeployment
+      responses:
+        '200':
+          description: Deployment details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Deployment'
+
+  /deployments/{deploymentId}/rollback:
+    post:
+      tags: [Deployments]
+      summary: Rollback deployment
+      description: Rolls back to previous version
+      operationId: rollbackDeployment
+      parameters:
+        - name: deploymentId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '202':
+          description: Rollback initiated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationStatus'
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+
+    OAuth2:
+      type: oauth2
+      flows:
+        authorizationCode:
+          authorizationUrl: https://auth.company.com/oauth/authorize
+          tokenUrl: https://auth.company.com/oauth/token
+          scopes:
+            read: Read access
+            write: Write access
+            admin: Admin access
+
+  parameters:
+    ServiceIdParam:
+      name: serviceId
+      in: path
+      required: true
+      description: Service identifier
+      schema:
+        type: string
+
+    PageParam:
+      name: page
+      in: query
+      description: Page number
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+
+    LimitParam:
+      name: limit
+      in: query
+      description: Items per page
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+  schemas:
+    Service:
+      type: object
+      required:
+        - id
+        - name
+        - runtime
+        - team
+        - status
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          pattern: '^[a-z0-9-]+$'
+        runtime:
+          type: string
+          enum: [node18, node20, python311, python312, go121, java17]
+        team:
+          type: string
+        replicas:
+          type: integer
+          minimum: 1
+          default: 3
+        resources:
+          $ref: '#/components/schemas/Resources'
+        autoscaling:
+          $ref: '#/components/schemas/Autoscaling'
+        status:
+          type: string
+          enum: [active, inactive, provisioning, failed, updating]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        url:
+          type: string
+          format: uri
+
+    ServiceCreate:
+      type: object
+      required:
+        - name
+        - runtime
+        - team
+      properties:
+        name:
+          type: string
+          pattern: '^[a-z0-9-]+$'
+          minLength: 3
+          maxLength: 63
+        runtime:
+          type: string
+          enum: [node18, node20, python311, python312, go121, java17]
+        team:
+          type: string
+        replicas:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 3
+        resources:
+          $ref: '#/components/schemas/Resources'
+        autoscaling:
+          $ref: '#/components/schemas/Autoscaling'
+        database:
+          type: object
+          properties:
+            type:
+              type: string
+              enum: [postgres, mysql, mongodb]
+            size:
+              type: string
+              enum: [small, medium, large]
+        cache:
+          type: boolean
+          default: false
+
+    ServiceUpdate:
+      type: object
+      properties:
+        replicas:
+          type: integer
+          minimum: 1
+          maximum: 100
+        resources:
+          $ref: '#/components/schemas/Resources'
+        autoscaling:
+          $ref: '#/components/schemas/Autoscaling'
+
+    Resources:
+      type: object
+      properties:
+        cpu:
+          type: string
+          pattern: '^\d+m?$'
+          example: "500m"
+        memory:
+          type: string
+          pattern: '^\d+(Mi|Gi)$'
+          example: "512Mi"
+
+    Autoscaling:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+          default: true
+        minReplicas:
+          type: integer
+          minimum: 1
+        maxReplicas:
+          type: integer
+          minimum: 1
+        targetCPU:
+          type: integer
+          minimum: 1
+          maximum: 100
+          description: Target CPU utilization percentage
+
+    Database:
+      type: object
+      required:
+        - id
+        - name
+        - type
+        - status
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        type:
+          type: string
+          enum: [postgres, mysql, mongodb, redis]
+        version:
+          type: string
+        size:
+          type: string
+          enum: [small, medium, large]
+        status:
+          type: string
+          enum: [active, provisioning, maintenance, failed]
+        endpoint:
+          type: string
+        port:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    DatabaseCreate:
+      type: object
+      required:
+        - name
+        - type
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+          enum: [postgres, mysql, mongodb, redis]
+        version:
+          type: string
+        size:
+          type: string
+          enum: [small, medium, large]
+          default: small
+
+    Secret:
+      type: object
+      required:
+        - id
+        - key
+        - value
+      properties:
+        id:
+          type: string
+        key:
+          type: string
+        value:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    SecretMetadata:
+      type: object
+      required:
+        - id
+        - key
+      properties:
+        id:
+          type: string
+        key:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    SecretCreate:
+      type: object
+      required:
+        - key
+        - value
+      properties:
+        key:
+          type: string
+        value:
+          type: string
+        description:
+          type: string
+
+    Deployment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        serviceId:
+          type: string
+        environment:
+          type: string
+          enum: [development, staging, production]
+        version:
+          type: string
+        status:
+          type: string
+          enum: [pending, in_progress, completed, failed, rolled_back]
+        strategy:
+          type: string
+          enum: [rolling, blue_green, canary]
+        createdAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+
+    DeploymentCreate:
+      type: object
+      required:
+        - serviceId
+        - environment
+        - version
+      properties:
+        serviceId:
+          type: string
+        environment:
+          type: string
+          enum: [development, staging, production]
+        version:
+          type: string
+        strategy:
+          type: string
+          enum: [rolling, blue_green, canary]
+          default: rolling
+
+    Backup:
+      type: object
+      properties:
+        id:
+          type: string
+        databaseId:
+          type: string
+        status:
+          type: string
+          enum: [pending, in_progress, completed, failed]
+        size:
+          type: integer
+          description: Backup size in bytes
+        createdAt:
+          type: string
+          format: date-time
+
+    OperationStatus:
+      type: object
+      properties:
+        operationId:
+          type: string
+        status:
+          type: string
+          enum: [pending, in_progress, completed, failed]
+        message:
+          type: string
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        pages:
+          type: integer
+
+    Error:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+        requestId:
+          type: string
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Conflict:
+      description: Resource already exists
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    ValidationError:
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    TooManyRequests:
+      description: Rate limit exceeded
+      headers:
+        X-RateLimit-Limit:
+          schema:
+            type: integer
+        X-RateLimit-Remaining:
+          schema:
+            type: integer
+        X-RateLimit-Reset:
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'

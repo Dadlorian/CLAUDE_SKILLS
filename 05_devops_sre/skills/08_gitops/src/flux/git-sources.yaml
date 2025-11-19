@@ -1,0 +1,368 @@
+# Flux GitRepository Source Examples
+# These examples demonstrate different ways to configure Git sources in Flux
+
+---
+# Example 1: Basic GitRepository with HTTPS
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: myapp
+  namespace: flux-system
+spec:
+  # Sync interval - how often to check for changes
+  interval: 5m
+  # Git repository URL (HTTPS)
+  url: https://github.com/example/myapp
+  # Reference to sync (branch, tag, or commit)
+  ref:
+    branch: main
+  # Timeout for Git operations
+  timeout: 60s
+
+---
+# Example 2: GitRepository with authentication (HTTPS)
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: private-repo
+  namespace: flux-system
+spec:
+  interval: 5m
+  url: https://github.com/example/private-repo
+  ref:
+    branch: main
+  # Reference to secret containing credentials
+  secretRef:
+    name: github-credentials
+---
+# Secret for HTTPS authentication
+apiVersion: v1
+kind: Secret
+metadata:
+  name: github-credentials
+  namespace: flux-system
+type: Opaque
+stringData:
+  username: git
+  password: ghp_your_github_personal_access_token
+
+---
+# Example 3: GitRepository with SSH
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: ssh-repo
+  namespace: flux-system
+spec:
+  interval: 10m
+  url: ssh://git@github.com/example/myapp.git
+  ref:
+    branch: main
+  secretRef:
+    name: ssh-credentials
+---
+# Secret for SSH authentication
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ssh-credentials
+  namespace: flux-system
+type: Opaque
+stringData:
+  # Private SSH key
+  identity: |
+    -----BEGIN OPENSSH PRIVATE KEY-----
+    your-private-key-here
+    -----END OPENSSH PRIVATE KEY-----
+  # Known hosts file
+  known_hosts: |
+    github.com ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA...
+
+---
+# Example 4: GitRepository tracking a specific tag
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: myapp-release
+  namespace: flux-system
+spec:
+  interval: 30m
+  url: https://github.com/example/myapp
+  # Track a specific tag
+  ref:
+    tag: v1.2.3
+  # Optionally verify tag signature
+  verify:
+    provider: cosign
+    secretRef:
+      name: cosign-public-key
+
+---
+# Example 5: GitRepository tracking semver range
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: myapp-semver
+  namespace: flux-system
+spec:
+  interval: 30m
+  url: https://github.com/example/myapp
+  # Track tags matching semver range
+  ref:
+    semver: ">=1.0.0 <2.0.0"
+
+---
+# Example 6: GitRepository tracking a commit
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: myapp-commit
+  namespace: flux-system
+spec:
+  interval: 10m
+  url: https://github.com/example/myapp
+  # Track a specific commit SHA
+  ref:
+    commit: abc123def456789
+
+---
+# Example 7: GitRepository with path filtering
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: monorepo
+  namespace: flux-system
+spec:
+  interval: 5m
+  url: https://github.com/example/monorepo
+  ref:
+    branch: main
+  # Ignore certain paths to reduce sync overhead
+  ignore: |
+    # Exclude everything
+    /*
+    # Include only specific directories
+    !/apps/myapp/
+    !/infrastructure/base/
+    # Exclude documentation
+    **/*.md
+    **/docs/
+
+---
+# Example 8: GitRepository with recursive submodules
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: repo-with-submodules
+  namespace: flux-system
+spec:
+  interval: 10m
+  url: https://github.com/example/main-repo
+  ref:
+    branch: main
+  # Include submodules
+  recurseSubmodules: true
+
+---
+# Example 9: GitRepository with GPG verification
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: signed-repo
+  namespace: flux-system
+spec:
+  interval: 10m
+  url: https://github.com/example/signed-repo
+  ref:
+    branch: main
+  # Verify commit signatures
+  verify:
+    provider: gpg
+    secretRef:
+      name: gpg-public-keys
+---
+# Secret containing GPG public keys
+apiVersion: v1
+kind: Secret
+metadata:
+  name: gpg-public-keys
+  namespace: flux-system
+type: Opaque
+stringData:
+  # GPG public key for signature verification
+  public.asc: |
+    -----BEGIN PGP PUBLIC KEY BLOCK-----
+    your-gpg-public-key-here
+    -----END PGP PUBLIC KEY BLOCK-----
+
+---
+# Example 10: GitRepository with proxy configuration
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: repo-via-proxy
+  namespace: flux-system
+spec:
+  interval: 10m
+  url: https://github.com/example/myapp
+  ref:
+    branch: main
+  # Configure Git client
+  proxySecretRef:
+    name: proxy-credentials
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: proxy-credentials
+  namespace: flux-system
+type: Opaque
+stringData:
+  proxy: http://proxy.example.com:8080
+
+---
+# Example 11: GitRepository for GitLab
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: gitlab-repo
+  namespace: flux-system
+spec:
+  interval: 5m
+  url: https://gitlab.com/example/myapp.git
+  ref:
+    branch: main
+  secretRef:
+    name: gitlab-token
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: gitlab-token
+  namespace: flux-system
+type: Opaque
+stringData:
+  username: gitlab-ci-token
+  password: your-gitlab-deploy-token
+
+---
+# Example 12: GitRepository for Azure DevOps
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: azure-devops-repo
+  namespace: flux-system
+spec:
+  interval: 5m
+  url: https://dev.azure.com/myorg/myproject/_git/myrepo
+  ref:
+    branch: main
+  secretRef:
+    name: azure-devops-pat
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: azure-devops-pat
+  namespace: flux-system
+type: Opaque
+stringData:
+  username: azure
+  password: your-personal-access-token
+
+---
+# Example 13: GitRepository with include/exclude patterns
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: filtered-repo
+  namespace: flux-system
+spec:
+  interval: 5m
+  url: https://github.com/example/myapp
+  ref:
+    branch: main
+  # Include patterns (evaluated first)
+  include:
+  - path: "k8s/**"
+  - path: "charts/**"
+  # Exclude patterns
+  ignore: |
+    # Exclude test files
+    **/*_test.yaml
+    **/test/**
+    # Exclude temporary files
+    **/*.tmp
+    **/.git/**
+
+---
+# Example 14: Multiple GitRepositories for different purposes
+# Infrastructure repository
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: infrastructure
+  namespace: flux-system
+spec:
+  interval: 10m
+  url: https://github.com/example/infrastructure
+  ref:
+    branch: main
+---
+# Applications repository
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: applications
+  namespace: flux-system
+spec:
+  interval: 5m
+  url: https://github.com/example/applications
+  ref:
+    branch: main
+---
+# Policies repository
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: policies
+  namespace: flux-system
+spec:
+  interval: 30m
+  url: https://github.com/example/policies
+  ref:
+    branch: main
+
+---
+# Example 15: GitRepository status conditions
+# This shows what a healthy GitRepository looks like
+# (You don't create this, Flux updates it)
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: status-example
+  namespace: flux-system
+spec:
+  interval: 5m
+  url: https://github.com/example/myapp
+  ref:
+    branch: main
+status:
+  # Artifact information
+  artifact:
+    checksum: sha256:abc123...
+    lastUpdateTime: "2024-01-15T10:30:00Z"
+    path: gitrepository/flux-system/myapp/abc123.tar.gz
+    revision: main@sha1:def456
+    size: 1024
+    url: http://source-controller/gitrepository/flux-system/myapp/abc123.tar.gz
+  # Conditions
+  conditions:
+  - lastTransitionTime: "2024-01-15T10:30:00Z"
+    message: stored artifact for revision 'main@sha1:def456'
+    observedGeneration: 1
+    reason: Succeeded
+    status: "True"
+    type: Ready
+  # Observed generation
+  observedGeneration: 1

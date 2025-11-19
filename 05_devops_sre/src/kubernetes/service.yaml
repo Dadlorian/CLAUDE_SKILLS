@@ -1,0 +1,339 @@
+# Kubernetes Service Examples
+#
+# This file demonstrates various service types and configurations
+# for exposing applications in Kubernetes clusters.
+
+---
+# ClusterIP Service (Internal only)
+# Most common service type for internal communication
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-application-internal
+  namespace: production
+  labels:
+    app: web-application
+    tier: frontend
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-internal: "true"
+spec:
+  type: ClusterIP
+  selector:
+    app: web-application
+    tier: frontend
+  ports:
+  - name: http
+    protocol: TCP
+    port: 80          # Service port
+    targetPort: http  # Container port name (or use 8080)
+  - name: metrics
+    protocol: TCP
+    port: 9090
+    targetPort: metrics
+  sessionAffinity: None
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+
+---
+# Headless Service (for StatefulSets)
+# Used when you need direct pod-to-pod communication
+apiVersion: v1
+kind: Service
+metadata:
+  name: database-headless
+  namespace: production
+  labels:
+    app: database
+spec:
+  type: ClusterIP
+  clusterIP: None  # Headless service
+  selector:
+    app: database
+  ports:
+  - name: postgres
+    protocol: TCP
+    port: 5432
+    targetPort: 5432
+  publishNotReadyAddresses: true  # Include non-ready pods in DNS
+
+---
+# NodePort Service (External access via node IP)
+# Exposes service on each node's IP at a static port
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-application-nodeport
+  namespace: production
+  labels:
+    app: web-application
+spec:
+  type: NodePort
+  selector:
+    app: web-application
+  ports:
+  - name: http
+    protocol: TCP
+    port: 80
+    targetPort: 8080
+    nodePort: 30080  # Optional: K8s assigns if not specified (30000-32767)
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 10800  # 3 hours
+
+---
+# LoadBalancer Service (Cloud provider)
+# Creates external load balancer (AWS ELB, GCP LB, Azure LB)
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-application-lb
+  namespace: production
+  labels:
+    app: web-application
+  annotations:
+    # AWS ELB annotations
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
+    service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
+    service.beta.kubernetes.io/aws-load-balancer-backend-protocol: "http"
+    service.beta.kubernetes.io/aws-load-balancer-ssl-cert: "arn:aws:acm:us-west-2:123456789012:certificate/12345678-1234-1234-1234-123456789012"
+    service.beta.kubernetes.io/aws-load-balancer-ssl-ports: "443"
+
+    # GCP annotations
+    # cloud.google.com/load-balancer-type: "Internal"
+    # cloud.google.com/neg: '{"ingress": true}'
+
+    # Azure annotations
+    # service.beta.kubernetes.io/azure-load-balancer-internal: "true"
+spec:
+  type: LoadBalancer
+  selector:
+    app: web-application
+  ports:
+  - name: http
+    protocol: TCP
+    port: 80
+    targetPort: 8080
+  - name: https
+    protocol: TCP
+    port: 443
+    targetPort: 8080
+  sessionAffinity: None
+  externalTrafficPolicy: Local  # Preserves source IP, but no cross-node load balancing
+  # externalTrafficPolicy: Cluster  # Cross-node LB, but loses source IP
+  loadBalancerSourceRanges:
+  - 10.0.0.0/8      # Restrict to internal network
+  - 203.0.113.0/24  # Specific public IP range
+
+---
+# ExternalName Service (CNAME to external service)
+# Maps service to external DNS name
+apiVersion: v1
+kind: Service
+metadata:
+  name: external-database
+  namespace: production
+spec:
+  type: ExternalName
+  externalName: database.external.com
+  ports:
+  - port: 5432
+
+---
+# Service with Multiple Selectors (Advanced)
+# Service routing to multiple backend deployments
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-gateway
+  namespace: production
+  labels:
+    app: api-gateway
+spec:
+  type: ClusterIP
+  selector:
+    component: gateway  # Matches all gateway pods regardless of version
+  ports:
+  - name: http
+    protocol: TCP
+    port: 80
+    targetPort: 8080
+  - name: grpc
+    protocol: TCP
+    port: 9000
+    targetPort: 9000
+
+---
+# Service with EndpointSlices (Manual endpoints)
+# Used when pods don't match selectors or for external IPs
+apiVersion: v1
+kind: Service
+metadata:
+  name: legacy-backend
+  namespace: production
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    protocol: TCP
+    port: 80
+    targetPort: 8080
+  # No selector - endpoints defined manually below
+
+---
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: legacy-backend-1
+  namespace: production
+  labels:
+    kubernetes.io/service-name: legacy-backend
+addressType: IPv4
+ports:
+- name: http
+  protocol: TCP
+  port: 8080
+endpoints:
+- addresses:
+  - "10.1.2.3"
+  conditions:
+    ready: true
+- addresses:
+  - "10.1.2.4"
+  conditions:
+    ready: true
+
+---
+# Service Topology (Topology-aware routing)
+# Routes traffic to topologically close endpoints
+apiVersion: v1
+kind: Service
+metadata:
+  name: topology-aware-service
+  namespace: production
+  annotations:
+    service.kubernetes.io/topology-mode: "Auto"
+spec:
+  type: ClusterIP
+  selector:
+    app: distributed-cache
+  ports:
+  - protocol: TCP
+    port: 6379
+    targetPort: 6379
+  topologyKeys:
+  - "topology.kubernetes.io/zone"
+  - "kubernetes.io/hostname"
+  - "*"  # Fallback to any endpoint
+
+---
+# Service with Health Check Configuration
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-healthcheck
+  namespace: production
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol: "HTTP"
+    service.beta.kubernetes.io/aws-load-balancer-healthcheck-path: "/health"
+    service.beta.kubernetes.io/aws-load-balancer-healthcheck-interval: "30"
+    service.beta.kubernetes.io/aws-load-balancer-healthcheck-timeout: "5"
+    service.beta.kubernetes.io/aws-load-balancer-healthcheck-healthy-threshold: "2"
+    service.beta.kubernetes.io/aws-load-balancer-healthcheck-unhealthy-threshold: "2"
+spec:
+  type: LoadBalancer
+  selector:
+    app: web-application
+  ports:
+  - port: 80
+    targetPort: 8080
+  externalTrafficPolicy: Local
+  healthCheckNodePort: 32000  # Custom health check port
+
+---
+# Service with IPv4/IPv6 Dual Stack
+apiVersion: v1
+kind: Service
+metadata:
+  name: dual-stack-service
+  namespace: production
+spec:
+  type: ClusterIP
+  ipFamilyPolicy: PreferDualStack
+  ipFamilies:
+  - IPv4
+  - IPv6
+  selector:
+    app: web-application
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 8080
+
+---
+# gRPC Service with Protocol Annotations
+apiVersion: v1
+kind: Service
+metadata:
+  name: grpc-service
+  namespace: production
+  annotations:
+    service.alpha.kubernetes.io/app-protocols: '{"grpc":"HTTP2"}'
+spec:
+  type: ClusterIP
+  selector:
+    app: grpc-server
+  ports:
+  - name: grpc
+    protocol: TCP
+    port: 50051
+    targetPort: 50051
+    appProtocol: grpc  # Kubernetes 1.20+
+
+---
+# Service for Prometheus Metrics Scraping
+apiVersion: v1
+kind: Service
+metadata:
+  name: app-metrics
+  namespace: production
+  labels:
+    app: web-application
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9090"
+    prometheus.io/path: "/metrics"
+    prometheus.io/scheme: "http"
+spec:
+  type: ClusterIP
+  selector:
+    app: web-application
+  ports:
+  - name: metrics
+    protocol: TCP
+    port: 9090
+    targetPort: 9090
+  clusterIP: None  # Headless for direct pod scraping
+
+---
+# Service Account Service (for IRSA/Workload Identity)
+apiVersion: v1
+kind: Service
+metadata:
+  name: secure-app-service
+  namespace: production
+spec:
+  type: ClusterIP
+  selector:
+    app: secure-application
+  ports:
+  - protocol: TCP
+    port: 443
+    targetPort: 8443
+    name: https
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 3600

@@ -1,0 +1,69 @@
+# Basic ArgoCD Application
+# This example demonstrates a simple application deployment using Kustomize
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: myapp
+  namespace: argocd
+  # Finalizers ensure resources are cleaned up when the application is deleted
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+spec:
+  # Project name (default is fine for simple deployments)
+  project: default
+
+  # Source configuration
+  source:
+    # Git repository URL
+    repoURL: https://github.com/example/myapp.git
+    # Target branch, tag, or commit
+    targetRevision: HEAD
+    # Path to the manifests within the repository
+    path: k8s/overlays/production
+
+  # Destination configuration
+  destination:
+    # Kubernetes API server URL (use this for in-cluster)
+    server: https://kubernetes.default.svc
+    # Target namespace
+    namespace: myapp
+
+  # Sync policy configuration
+  syncPolicy:
+    # Automated sync configuration
+    automated:
+      # Automatically prune resources that are no longer in Git
+      prune: true
+      # Automatically sync when the live cluster state differs from Git
+      selfHeal: true
+      # Don't sync if the app has zero resources
+      allowEmpty: false
+
+    # Sync options
+    syncOptions:
+    # Create namespace if it doesn't exist
+    - CreateNamespace=true
+    # Only sync resources that are out of sync
+    - ApplyOutOfSyncOnly=true
+    # Use server-side apply
+    - ServerSideApply=true
+
+    # Retry configuration
+    retry:
+      # Maximum number of retry attempts
+      limit: 5
+      backoff:
+        # Initial retry delay
+        duration: 5s
+        # Backoff factor (exponential backoff)
+        factor: 2
+        # Maximum retry delay
+        maxDuration: 3m
+
+  # Ignore differences in certain fields
+  ignoreDifferences:
+  - group: apps
+    kind: Deployment
+    jsonPointers:
+    - /spec/replicas  # Ignore if HPA is managing replicas

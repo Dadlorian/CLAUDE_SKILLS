@@ -1,0 +1,516 @@
+# Flux Kustomization Examples
+# These examples demonstrate different Kustomization configurations
+
+---
+# Example 1: Basic Kustomization
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: myapp
+  namespace: flux-system
+spec:
+  # Reconciliation interval
+  interval: 10m
+  # Source reference
+  sourceRef:
+    kind: GitRepository
+    name: myapp
+  # Path to kustomize directory
+  path: ./k8s
+  # Prune resources not in Git
+  prune: true
+  # Target namespace
+  targetNamespace: production
+
+---
+# Example 2: Kustomization with dependencies
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: myapp
+  namespace: flux-system
+spec:
+  interval: 10m
+  sourceRef:
+    kind: GitRepository
+    name: myapp
+  path: ./k8s
+  prune: true
+  # Wait for these Kustomizations to be ready first
+  dependsOn:
+  - name: infrastructure
+  - name: database
+  # Wait for resources to be ready before marking as successful
+  wait: true
+  # Timeout for all resources to become ready
+  timeout: 5m
+
+---
+# Example 3: Kustomization with health checks
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: myapp-with-health
+  namespace: flux-system
+spec:
+  interval: 10m
+  sourceRef:
+    kind: GitRepository
+    name: myapp
+  path: ./k8s
+  prune: true
+  # Explicit health checks
+  healthChecks:
+  - apiVersion: apps/v1
+    kind: Deployment
+    name: myapp
+    namespace: production
+  - apiVersion: apps/v1
+    kind: StatefulSet
+    name: myapp-db
+    namespace: production
+  - apiVersion: v1
+    kind: Service
+    name: myapp
+    namespace: production
+  timeout: 3m
+  wait: true
+
+---
+# Example 4: Kustomization with variable substitution
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: myapp-with-vars
+  namespace: flux-system
+spec:
+  interval: 10m
+  sourceRef:
+    kind: GitRepository
+    name: myapp
+  path: ./k8s
+  prune: true
+  # Post-build variable substitution
+  postBuild:
+    # Static variables
+    substitute:
+      cluster_name: production
+      cluster_region: us-east-1
+      environment: production
+      domain: example.com
+      replicas: "3"
+    # Variables from ConfigMaps and Secrets
+    substituteFrom:
+    - kind: ConfigMap
+      name: cluster-config
+    - kind: Secret
+      name: cluster-secrets
+      optional: true
+
+---
+# ConfigMap for variable substitution
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cluster-config
+  namespace: flux-system
+data:
+  aws_region: us-east-1
+  vpc_id: vpc-123456
+  timezone: America/New_York
+
+---
+# Example 5: Kustomization with patches
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: myapp-with-patches
+  namespace: flux-system
+spec:
+  interval: 10m
+  sourceRef:
+    kind: GitRepository
+    name: myapp
+  path: ./k8s/base
+  prune: true
+  # Strategic merge patches
+  patches:
+  # Patch specific resource
+  - patch: |
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: myapp
+      spec:
+        replicas: 5
+        template:
+          spec:
+            containers:
+            - name: myapp
+              resources:
+                limits:
+                  cpu: 2000m
+                  memory: 2Gi
+    target:
+      kind: Deployment
+      name: myapp
+
+  # JSON patch
+  - patch: |
+      - op: replace
+        path: /spec/template/spec/containers/0/image
+        value: myapp:v2.0.0
+    target:
+      kind: Deployment
+      name: myapp
+
+---
+# Example 6: Kustomization with SOPS decryption
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: myapp-with-secrets
+  namespace: flux-system
+spec:
+  interval: 10m
+  sourceRef:
+    kind: GitRepository
+    name: myapp
+  path: ./k8s
+  prune: true
+  # SOPS decryption configuration
+  decryption:
+    provider: sops
+    secretRef:
+      name: sops-gpg
+      # OR for age encryption:
+      # name: sops-age
+
+---
+# Example 7: Kustomization with service account
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: myapp-with-sa
+  namespace: flux-system
+spec:
+  interval: 10m
+  sourceRef:
+    kind: GitRepository
+    name: myapp
+  path: ./k8s
+  prune: true
+  # Use specific service account for impersonation
+  serviceAccountName: myapp-reconciler
+  # Target namespace
+  targetNamespace: production
+
+---
+# ServiceAccount for Kustomization
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: myapp-reconciler
+  namespace: flux-system
+---
+# RoleBinding for the ServiceAccount
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: myapp-reconciler
+  namespace: production
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: admin
+subjects:
+- kind: ServiceAccount
+  name: myapp-reconciler
+  namespace: flux-system
+
+---
+# Example 8: Kustomization with retry configuration
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: myapp-with-retry
+  namespace: flux-system
+spec:
+  interval: 10m
+  sourceRef:
+    kind: GitRepository
+    name: myapp
+  path: ./k8s
+  prune: true
+  # Retry configuration
+  retryInterval: 2m
+  # Force apply on next reconciliation
+  force: false
+
+---
+# Example 9: Kustomization for multi-tenancy
+# Tenant namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: team-alpha
+---
+# Tenant Kustomization
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: team-alpha
+  namespace: team-alpha
+spec:
+  interval: 10m
+  sourceRef:
+    kind: GitRepository
+    name: team-alpha
+    namespace: team-alpha
+  path: ./k8s
+  prune: true
+  serviceAccountName: team-alpha-reconciler
+  targetNamespace: team-alpha
+---
+# Tenant ServiceAccount
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: team-alpha-reconciler
+  namespace: team-alpha
+---
+# Tenant RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: team-alpha-reconciler
+  namespace: team-alpha
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: admin
+subjects:
+- kind: ServiceAccount
+  name: team-alpha-reconciler
+  namespace: team-alpha
+
+---
+# Example 10: Kustomization with kubeconfig secret (for remote clusters)
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: remote-cluster
+  namespace: flux-system
+spec:
+  interval: 10m
+  sourceRef:
+    kind: GitRepository
+    name: myapp
+  path: ./k8s
+  prune: true
+  # Reference to kubeconfig secret for remote cluster
+  kubeConfig:
+    secretRef:
+      name: remote-cluster-kubeconfig
+
+---
+# Example 11: Infrastructure Kustomization
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: infrastructure
+  namespace: flux-system
+spec:
+  interval: 10m
+  sourceRef:
+    kind: GitRepository
+    name: infrastructure
+  path: ./infrastructure/production
+  prune: true
+  wait: true
+  timeout: 10m
+  # Don't prune these resources
+  commonMetadata:
+    labels:
+      managed-by: flux
+  postBuild:
+    substitute:
+      cluster_name: prod-us-east-1
+
+---
+# Example 12: Apps Kustomization (depends on infrastructure)
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: apps
+  namespace: flux-system
+spec:
+  interval: 5m
+  sourceRef:
+    kind: GitRepository
+    name: apps
+  path: ./apps/production
+  prune: true
+  # Wait for infrastructure to be ready
+  dependsOn:
+  - name: infrastructure
+  timeout: 5m
+
+---
+# Example 13: Kustomization with validation
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: validated-app
+  namespace: flux-system
+spec:
+  interval: 10m
+  sourceRef:
+    kind: GitRepository
+    name: myapp
+  path: ./k8s
+  prune: true
+  # Validation mode (client, server, warn, ignore)
+  validation: client
+  # Common metadata applied to all resources
+  commonMetadata:
+    labels:
+      app: myapp
+      environment: production
+      managed-by: flux
+    annotations:
+      team: platform
+
+---
+# Example 14: Kustomization with suspend
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: suspended-app
+  namespace: flux-system
+spec:
+  interval: 10m
+  sourceRef:
+    kind: GitRepository
+    name: myapp
+  path: ./k8s
+  prune: true
+  # Suspend reconciliation
+  suspend: true
+
+---
+# Example 15: Progressive delivery Kustomization
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: canary-app
+  namespace: flux-system
+spec:
+  interval: 5m
+  sourceRef:
+    kind: GitRepository
+    name: myapp
+  path: ./k8s/canary
+  prune: true
+  targetNamespace: production
+  # Health checks for canary
+  healthChecks:
+  - apiVersion: flagger.app/v1beta1
+    kind: Canary
+    name: myapp
+    namespace: production
+  timeout: 10m
+  wait: true
+
+---
+# Example 16: Kustomization error handling
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: app-with-error-handling
+  namespace: flux-system
+spec:
+  interval: 10m
+  sourceRef:
+    kind: GitRepository
+    name: myapp
+  path: ./k8s
+  prune: true
+  # Continue on error
+  force: false
+  # Retry interval on failure
+  retryInterval: 2m
+  # Wait for resources
+  wait: true
+  # Timeout
+  timeout: 5m
+
+---
+# Example 17: Layered Kustomizations
+# Base infrastructure
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: infra-base
+  namespace: flux-system
+spec:
+  interval: 30m
+  sourceRef:
+    kind: GitRepository
+    name: infrastructure
+  path: ./base
+  prune: true
+---
+# Cluster-specific infrastructure
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: infra-cluster
+  namespace: flux-system
+spec:
+  interval: 10m
+  sourceRef:
+    kind: GitRepository
+    name: infrastructure
+  path: ./overlays/production
+  prune: true
+  dependsOn:
+  - name: infra-base
+---
+# Applications
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: apps
+  namespace: flux-system
+spec:
+  interval: 5m
+  sourceRef:
+    kind: GitRepository
+    name: apps
+  path: ./production
+  prune: true
+  dependsOn:
+  - name: infra-cluster
+
+---
+# Example 18: Kustomization with image update automation
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: app-auto-update
+  namespace: flux-system
+  annotations:
+    # This annotation enables image update automation
+    fluxcd.io/automated: "true"
+spec:
+  interval: 5m
+  sourceRef:
+    kind: GitRepository
+    name: myapp
+  path: ./k8s
+  prune: true
+  images:
+  - name: myapp
+    newName: ghcr.io/example/myapp
+    # Image tag will be updated automatically by image automation

@@ -1,0 +1,400 @@
+# Production Alerting Rules
+
+groups:
+  # Infrastructure Alerts
+  - name: infrastructure_alerts
+    rules:
+      - alert: InstanceDown
+        expr: up == 0
+        for: 5m
+        labels:
+          severity: critical
+          team: sre
+          page: "true"
+        annotations:
+          summary: "Instance {{ $labels.instance }} is down"
+          description: "{{ $labels.instance }} of job {{ $labels.job }} has been down for more than 5 minutes."
+          runbook_url: "https://runbooks.example.com/instance-down"
+          dashboard_url: "https://grafana.example.com/d/infrastructure"
+
+      - alert: HighCPUUsage
+        expr: instance:cpu_utilization:ratio > 0.85
+        for: 15m
+        labels:
+          severity: warning
+          team: sre
+        annotations:
+          summary: "High CPU usage on {{ $labels.instance }}"
+          description: "CPU usage is {{ $value | humanizePercentage }} on {{ $labels.instance }}"
+          runbook_url: "https://runbooks.example.com/high-cpu"
+
+      - alert: CriticalCPUUsage
+        expr: instance:cpu_utilization:ratio > 0.95
+        for: 5m
+        labels:
+          severity: critical
+          team: sre
+          page: "true"
+        annotations:
+          summary: "CRITICAL: Very high CPU usage on {{ $labels.instance }}"
+          description: "CPU usage is {{ $value | humanizePercentage }} on {{ $labels.instance }}"
+          runbook_url: "https://runbooks.example.com/critical-cpu"
+
+      - alert: HighMemoryUsage
+        expr: instance:memory_utilization:ratio > 0.85
+        for: 15m
+        labels:
+          severity: warning
+          team: sre
+        annotations:
+          summary: "High memory usage on {{ $labels.instance }}"
+          description: "Memory usage is {{ $value | humanizePercentage }} on {{ $labels.instance }}"
+          runbook_url: "https://runbooks.example.com/high-memory"
+
+      - alert: CriticalMemoryUsage
+        expr: instance:memory_utilization:ratio > 0.95
+        for: 5m
+        labels:
+          severity: critical
+          team: sre
+          page: "true"
+        annotations:
+          summary: "CRITICAL: Very high memory usage on {{ $labels.instance }}"
+          description: "Memory usage is {{ $value | humanizePercentage }} on {{ $labels.instance }}"
+          runbook_url: "https://runbooks.example.com/critical-memory"
+
+      - alert: DiskSpaceWarning
+        expr: instance_device:disk_utilization:ratio > 0.80
+        for: 30m
+        labels:
+          severity: warning
+          team: sre
+        annotations:
+          summary: "Disk space running low on {{ $labels.instance }}"
+          description: "Disk {{ $labels.device }} is {{ $value | humanizePercentage }} full on {{ $labels.instance }}"
+          runbook_url: "https://runbooks.example.com/disk-space"
+
+      - alert: DiskSpaceCritical
+        expr: instance_device:disk_utilization:ratio > 0.90
+        for: 10m
+        labels:
+          severity: critical
+          team: sre
+          page: "true"
+        annotations:
+          summary: "CRITICAL: Disk space very low on {{ $labels.instance }}"
+          description: "Disk {{ $labels.device }} is {{ $value | humanizePercentage }} full on {{ $labels.instance }}"
+          runbook_url: "https://runbooks.example.com/disk-space-critical"
+
+      - alert: DiskWillFillSoon
+        expr: predict_linear(node_filesystem_avail_bytes[1h], 4*3600) < 0
+        for: 30m
+        labels:
+          severity: warning
+          team: sre
+        annotations:
+          summary: "Disk will fill in 4 hours on {{ $labels.instance }}"
+          description: "Disk {{ $labels.device }} is predicted to fill in 4 hours on {{ $labels.instance }}"
+          runbook_url: "https://runbooks.example.com/disk-prediction"
+
+  # Application Alerts
+  - name: application_alerts
+    rules:
+      - alert: HighErrorRate
+        expr: |
+          job:http_error_ratio:rate5m > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "High error rate on {{ $labels.job }}"
+          description: "Error rate is {{ $value | humanizePercentage }} on {{ $labels.job }}"
+          runbook_url: "https://runbooks.example.com/high-error-rate"
+          dashboard_url: "https://grafana.example.com/d/application"
+
+      - alert: CriticalErrorRate
+        expr: |
+          job:http_error_ratio:rate5m > 0.10
+        for: 2m
+        labels:
+          severity: critical
+          team: backend
+          page: "true"
+        annotations:
+          summary: "CRITICAL: Very high error rate on {{ $labels.job }}"
+          description: "Error rate is {{ $value | humanizePercentage }} on {{ $labels.job }}"
+          runbook_url: "https://runbooks.example.com/critical-error-rate"
+
+      - alert: HighP95Latency
+        expr: |
+          job_handler:http_request_duration:p95 > 1.0
+        for: 10m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "High P95 latency on {{ $labels.job }}/{{ $labels.handler }}"
+          description: "P95 latency is {{ $value }}s on {{ $labels.job }}/{{ $labels.handler }}"
+          runbook_url: "https://runbooks.example.com/high-latency"
+
+      - alert: CriticalP99Latency
+        expr: |
+          job:http_request_duration:p99 > 5.0
+        for: 5m
+        labels:
+          severity: critical
+          team: backend
+        annotations:
+          summary: "CRITICAL: Very high P99 latency on {{ $labels.job }}"
+          description: "P99 latency is {{ $value }}s on {{ $labels.job }}"
+          runbook_url: "https://runbooks.example.com/critical-latency"
+
+      - alert: HighGoroutineCount
+        expr: job:goroutines:avg > 10000
+        for: 10m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "High goroutine count on {{ $labels.job }}"
+          description: "Average goroutine count is {{ $value }} on {{ $labels.job }}"
+          runbook_url: "https://runbooks.example.com/goroutine-leak"
+
+  # Database Alerts
+  - name: database_alerts
+    rules:
+      - alert: DatabaseConnectionPoolNearExhaustion
+        expr: |
+          job:db_connection_pool_utilization:ratio > 0.90
+        for: 5m
+        labels:
+          severity: warning
+          team: data
+        annotations:
+          summary: "Database connection pool near exhaustion"
+          description: "Connection pool usage is {{ $value | humanizePercentage }} on {{ $labels.job }}"
+          runbook_url: "https://runbooks.example.com/db-connection-pool"
+
+      - alert: DatabaseConnectionPoolExhausted
+        expr: |
+          job:db_connection_pool_utilization:ratio >= 1.0
+        for: 1m
+        labels:
+          severity: critical
+          team: data
+          page: "true"
+        annotations:
+          summary: "CRITICAL: Database connection pool exhausted"
+          description: "Connection pool is fully utilized on {{ $labels.job }}"
+          runbook_url: "https://runbooks.example.com/db-connection-pool-exhausted"
+
+      - alert: SlowDatabaseQueries
+        expr: |
+          job:db_query_duration:p95 > 1.0
+        for: 10m
+        labels:
+          severity: warning
+          team: data
+        annotations:
+          summary: "Slow database queries detected"
+          description: "P95 query duration is {{ $value }}s on {{ $labels.job }}"
+          runbook_url: "https://runbooks.example.com/slow-queries"
+
+  # Cache Alerts
+  - name: cache_alerts
+    rules:
+      - alert: LowCacheHitRate
+        expr: |
+          job:cache_hit_ratio:rate5m < 0.80
+        for: 30m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "Low cache hit rate on {{ $labels.job }}"
+          description: "Cache hit rate is {{ $value | humanizePercentage }} on {{ $labels.job }}"
+          runbook_url: "https://runbooks.example.com/low-cache-hit-rate"
+
+      - alert: VeryLowCacheHitRate
+        expr: |
+          job:cache_hit_ratio:rate5m < 0.50
+        for: 10m
+        labels:
+          severity: critical
+          team: backend
+        annotations:
+          summary: "CRITICAL: Very low cache hit rate on {{ $labels.job }}"
+          description: "Cache hit rate is {{ $value | humanizePercentage }} on {{ $labels.job }}"
+          runbook_url: "https://runbooks.example.com/very-low-cache-hit-rate"
+
+  # SLO Alerts (Multi-Window Multi-Burn-Rate)
+  - name: slo_alerts
+    rules:
+      # Fast burn: 2% error budget consumed in 1 hour (14.4x burn rate)
+      - alert: SLOFastBurn
+        expr: |
+          (
+            service:error_budget:consumption_rate:rate1h > 14.4
+            and
+            (
+              1 - (
+                sum by (service) (increase(http_requests_total{status=~"[2-4].."}[1h]))
+                /
+                sum by (service) (increase(http_requests_total[1h]))
+              )
+            ) / 0.001 > 14.4
+          )
+          or
+          (
+            service:error_budget:consumption_rate:rate1h > 6
+            and
+            (
+              1 - (
+                sum by (service) (increase(http_requests_total{status=~"[2-4].."}[6h]))
+                /
+                sum by (service) (increase(http_requests_total[6h]))
+              )
+            ) / 0.001 > 6
+          )
+        for: 5m
+        labels:
+          severity: critical
+          team: sre
+          page: "true"
+        annotations:
+          summary: "CRITICAL: Fast SLO error budget burn for {{ $labels.service }}"
+          description: "Error budget is being consumed at {{ $value }}x the sustainable rate for {{ $labels.service }}"
+          runbook_url: "https://runbooks.example.com/slo-fast-burn"
+          dashboard_url: "https://grafana.example.com/d/slo"
+
+      # Slow burn: 10% error budget consumed in 24 hours (3x burn rate)
+      - alert: SLOSlowBurn
+        expr: |
+          (
+            service:error_budget:consumption_rate:rate1h > 3
+            and
+            (
+              1 - (
+                sum by (service) (increase(http_requests_total{status=~"[2-4].."}[24h]))
+                /
+                sum by (service) (increase(http_requests_total[24h]))
+              )
+            ) / 0.001 > 3
+          )
+        for: 1h
+        labels:
+          severity: warning
+          team: sre
+        annotations:
+          summary: "Slow SLO error budget burn for {{ $labels.service }}"
+          description: "Error budget is being consumed at {{ $value }}x the sustainable rate for {{ $labels.service }}"
+          runbook_url: "https://runbooks.example.com/slo-slow-burn"
+          dashboard_url: "https://grafana.example.com/d/slo"
+
+  # Prometheus Self-Monitoring
+  - name: prometheus_alerts
+    rules:
+      - alert: PrometheusTargetMissing
+        expr: up == 0
+        for: 5m
+        labels:
+          severity: warning
+          team: sre
+        annotations:
+          summary: "Prometheus target {{ $labels.job }}/{{ $labels.instance }} is down"
+          description: "{{ $labels.instance }} has been down for more than 5 minutes"
+          runbook_url: "https://runbooks.example.com/prometheus-target-down"
+
+      - alert: PrometheusTooManyRestarts
+        expr: changes(process_start_time_seconds{job="prometheus"}[15m]) > 2
+        for: 0m
+        labels:
+          severity: warning
+          team: sre
+        annotations:
+          summary: "Prometheus has restarted multiple times"
+          description: "Prometheus {{ $labels.instance }} has restarted {{ $value }} times in 15 minutes"
+          runbook_url: "https://runbooks.example.com/prometheus-restarts"
+
+      - alert: PrometheusConfigReloadFailed
+        expr: prometheus_config_last_reload_successful == 0
+        for: 5m
+        labels:
+          severity: warning
+          team: sre
+        annotations:
+          summary: "Prometheus config reload failed"
+          description: "Prometheus {{ $labels.instance }} config reload has failed"
+          runbook_url: "https://runbooks.example.com/prometheus-config-reload"
+
+      - alert: PrometheusTSDBCompactionsFailed
+        expr: rate(prometheus_tsdb_compactions_failed_total[5m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+          team: sre
+        annotations:
+          summary: "Prometheus TSDB compactions failed"
+          description: "Prometheus {{ $labels.instance }} has failing TSDB compactions"
+          runbook_url: "https://runbooks.example.com/prometheus-compaction"
+
+      - alert: PrometheusNotConnectedToAlertmanagers
+        expr: prometheus_notifications_alertmanagers_discovered < 1
+        for: 5m
+        labels:
+          severity: critical
+          team: sre
+          page: "true"
+        annotations:
+          summary: "Prometheus not connected to Alertmanager"
+          description: "Prometheus {{ $labels.instance }} is not connected to any Alertmanagers"
+          runbook_url: "https://runbooks.example.com/prometheus-alertmanager"
+
+  # Kubernetes-specific Alerts
+  - name: kubernetes_alerts
+    rules:
+      - alert: KubernetesPodCrashLooping
+        expr: rate(kube_pod_container_status_restarts_total[15m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+          team: sre
+        annotations:
+          summary: "Pod {{ $labels.namespace }}/{{ $labels.pod }} is crash looping"
+          description: "Pod {{ $labels.namespace }}/{{ $labels.pod }} is restarting frequently"
+          runbook_url: "https://runbooks.example.com/pod-crash-looping"
+
+      - alert: KubernetesPodNotReady
+        expr: kube_pod_status_phase{phase!="Running"} > 0
+        for: 15m
+        labels:
+          severity: warning
+          team: sre
+        annotations:
+          summary: "Pod {{ $labels.namespace }}/{{ $labels.pod }} is not ready"
+          description: "Pod {{ $labels.namespace }}/{{ $labels.pod }} has been in {{ $labels.phase }} state for more than 15 minutes"
+          runbook_url: "https://runbooks.example.com/pod-not-ready"
+
+      - alert: KubernetesNodeNotReady
+        expr: kube_node_status_condition{condition="Ready",status="true"} == 0
+        for: 5m
+        labels:
+          severity: critical
+          team: sre
+          page: "true"
+        annotations:
+          summary: "Kubernetes node {{ $labels.node }} is not ready"
+          description: "Node {{ $labels.node }} has been in NotReady state for more than 5 minutes"
+          runbook_url: "https://runbooks.example.com/node-not-ready"
+
+      - alert: KubernetesNodeMemoryPressure
+        expr: kube_node_status_condition{condition="MemoryPressure",status="true"} == 1
+        for: 5m
+        labels:
+          severity: warning
+          team: sre
+        annotations:
+          summary: "Kubernetes node {{ $labels.node }} is under memory pressure"
+          description: "Node {{ $labels.node }} is experiencing memory pressure"
+          runbook_url: "https://runbooks.example.com/node-memory-pressure"

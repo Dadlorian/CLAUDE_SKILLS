@@ -1,0 +1,192 @@
+# Litmus Chaos: Pod Delete Experiment
+#
+# This experiment randomly deletes pods to test application resilience
+# and verify that Kubernetes properly reschedules terminated pods.
+#
+# Use Case: Test pod failure handling, auto-healing, and service availability
+
+apiVersion: litmuschaos.io/v1alpha1
+kind: ChaosEngine
+metadata:
+  name: pod-delete-chaos
+  namespace: default
+spec:
+  # Application information
+  appinfo:
+    appns: default
+    applabel: 'app=nginx'
+    appkind: deployment
+
+  # Chaos configuration
+  engineState: active
+  chaosServiceAccount: litmus-admin
+
+  # Monitoring configuration
+  monitoring: true
+
+  # Job cleanup policy
+  jobCleanUpPolicy: delete
+
+  # Experiments to run
+  experiments:
+    - name: pod-delete
+      spec:
+        components:
+          # Environment variables for the experiment
+          env:
+            # Total duration of chaos in seconds
+            - name: TOTAL_CHAOS_DURATION
+              value: '60'
+
+            # Interval between successive pod deletions
+            - name: CHAOS_INTERVAL
+              value: '10'
+
+            # Force delete (true) or graceful delete (false)
+            - name: FORCE
+              value: 'false'
+
+            # Percentage of pods to delete
+            - name: PODS_AFFECTED_PERC
+              value: '50'
+
+            # Sequence of chaos (serial or parallel)
+            - name: SEQUENCE
+              value: 'parallel'
+
+        # Health check probes
+        probe:
+          # HTTP health check
+          - name: check-service-health
+            type: httpProbe
+            mode: Continuous
+            httpProbe/inputs:
+              url: http://nginx-service.default.svc.cluster.local
+              insecureSkipVerify: false
+              responseTimeout: 5
+              method:
+                get:
+                  criteria: ==
+                  responseCode: "200"
+            runProperties:
+              probeTimeout: 5
+              interval: 2
+              retry: 1
+
+          # Prometheus metric check
+          - name: check-pod-count
+            type: promProbe
+            mode: Edge
+            promProbe/inputs:
+              endpoint: http://prometheus-service.monitoring.svc.cluster.local:9090
+              query: "count(kube_pod_status_phase{namespace='default',pod=~'nginx.*',phase='Running'})"
+              comparator:
+                type: int
+                criteria: ">="
+                value: "2"
+            runProperties:
+              probeTimeout: 5
+              interval: 2
+              retry: 1
+
+---
+# ChaosExperiment definition for pod-delete
+apiVersion: litmuschaos.io/v1alpha1
+kind: ChaosExperiment
+metadata:
+  name: pod-delete
+  namespace: default
+  labels:
+    name: pod-delete
+    app.kubernetes.io/part-of: litmus
+spec:
+  definition:
+    scope: Namespaced
+    permissions:
+      - apiGroups:
+          - ""
+        resources:
+          - pods
+        verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - deletecollection
+      - apiGroups:
+          - ""
+        resources:
+          - events
+        verbs:
+          - create
+          - get
+          - list
+          - patch
+          - update
+      - apiGroups:
+          - ""
+        resources:
+          - pods/log
+        verbs:
+          - get
+          - list
+          - watch
+      - apiGroups:
+          - ""
+        resources:
+          - pods/exec
+        verbs:
+          - get
+          - list
+          - create
+      - apiGroups:
+          - batch
+        resources:
+          - jobs
+        verbs:
+          - create
+          - list
+          - get
+          - delete
+          - deletecollection
+
+    image: "litmuschaos/go-runner:latest"
+    imagePullPolicy: Always
+
+    args:
+      - -c
+      - ./experiments -name pod-delete
+
+    command:
+      - /bin/bash
+
+    env:
+      - name: TOTAL_CHAOS_DURATION
+        value: '60'
+
+      - name: RAMP_TIME
+        value: ''
+
+      - name: FORCE
+        value: 'true'
+
+      - name: CHAOS_INTERVAL
+        value: '10'
+
+      - name: PODS_AFFECTED_PERC
+        value: ''
+
+      - name: LIB
+        value: 'litmus'
+
+      - name: TARGET_PODS
+        value: ''
+
+      - name: SEQUENCE
+        value: 'parallel'
+
+    labels:
+      name: pod-delete
+      app.kubernetes.io/part-of: litmus

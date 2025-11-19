@@ -1,0 +1,25 @@
+# Liquibase Master Changelog
+# This file orchestrates all database migrations using Liquibase
+# Author: DevOps Team
+
+databaseChangeLog:
+  # Include individual changelogs
+  - include:
+      file: changelogs/001-initial-schema.yaml
+      relativeToChangelogFile: true
+
+  - include:
+      file: changelogs/002-add-products-table.yaml
+      relativeToChangelogFile: true
+
+  - include:
+      file: changelogs/003-add-orders-table.yaml
+      relativeToChangelogFile: true
+
+  - include:
+      file: changelogs/004-add-inventory-tracking.yaml
+      relativeToChangelogFile: true
+
+  - include:
+      file: changelogs/005-migrate-column-type.yaml
+      relativeToChangelogFile: true

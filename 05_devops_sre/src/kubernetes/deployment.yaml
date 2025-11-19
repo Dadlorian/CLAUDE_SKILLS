@@ -1,0 +1,376 @@
+# Production-Ready Deployment Configuration
+#
+# This deployment demonstrates best practices for running stateless applications
+# in production Kubernetes environments.
+#
+# Features:
+# - Rolling update strategy
+# - Resource limits and requests
+# - Liveness and readiness probes
+# - Security contexts
+# - Anti-affinity for high availability
+# - Configuration and secrets management
+# - Multiple replicas with pod disruption budget
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-application
+  namespace: production
+  labels:
+    app: web-application
+    tier: frontend
+    version: v2.1.0
+    environment: production
+  annotations:
+    kubernetes.io/change-cause: "Deploy version 2.1.0 with performance improvements"
+    deployment.kubernetes.io/revision: "5"
+spec:
+  # Replica configuration
+  replicas: 5
+  revisionHistoryLimit: 10  # Keep last 10 ReplicaSets for rollback
+  progressDeadlineSeconds: 600  # 10 minutes to complete deployment
+
+  # Selector to match pods
+  selector:
+    matchLabels:
+      app: web-application
+      tier: frontend
+
+  # Update strategy
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 2        # Can add 2 extra pods during update
+      maxUnavailable: 1  # Max 1 pod can be unavailable
+
+  # Pod template
+  template:
+    metadata:
+      labels:
+        app: web-application
+        tier: frontend
+        version: v2.1.0
+        environment: production
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      # Service account for RBAC
+      serviceAccountName: web-application-sa
+
+      # Security context for the pod
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 2000
+        seccompProfile:
+          type: RuntimeDefault
+
+      # Initialization containers
+      initContainers:
+      - name: init-migrations
+        image: myregistry.azurecr.io/web-app-migrations:v2.1.0
+        command: ['sh', '-c', 'npm run migrate']
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: database-credentials
+              key: connection-string
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 256Mi
+
+      # Application containers
+      containers:
+      - name: web-app
+        image: myregistry.azurecr.io/web-application:v2.1.0
+        imagePullPolicy: IfNotPresent
+
+        # Container ports
+        ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+        - name: metrics
+          containerPort: 9090
+          protocol: TCP
+
+        # Environment variables from ConfigMap
+        envFrom:
+        - configMapRef:
+            name: web-app-config
+        - secretRef:
+            name: web-app-secrets
+
+        # Individual environment variables
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: PORT
+          value: "8080"
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: DATABASE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: database-credentials
+              key: password
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: redis-credentials
+              key: password
+
+        # Resource management
+        resources:
+          limits:
+            cpu: 1000m      # 1 CPU core max
+            memory: 2Gi     # 2GB RAM max
+          requests:
+            cpu: 500m       # 0.5 CPU core requested
+            memory: 1Gi     # 1GB RAM requested
+
+        # Liveness probe - determines if container needs restart
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: http
+            scheme: HTTP
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+
+        # Readiness probe - determines if pod can receive traffic
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: http
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          successThreshold: 1
+          failureThreshold: 3
+
+        # Startup probe - gives slow-starting containers time to start
+        startupProbe:
+          httpGet:
+            path: /health/startup
+            port: http
+          initialDelaySeconds: 0
+          periodSeconds: 10
+          timeoutSeconds: 3
+          successThreshold: 1
+          failureThreshold: 30  # 5 minutes to start (30 * 10s)
+
+        # Security context for container
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1000
+          capabilities:
+            drop:
+            - ALL
+
+        # Volume mounts
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        - name: cache
+          mountPath: /app/cache
+        - name: config
+          mountPath: /app/config
+          readOnly: true
+        - name: secrets
+          mountPath: /app/secrets
+          readOnly: true
+
+        # Lifecycle hooks
+        lifecycle:
+          preStop:
+            exec:
+              command: ["/bin/sh", "-c", "sleep 15"]  # Grace period for connections
+
+      # Sidecar container for logging
+      - name: log-router
+        image: fluent/fluent-bit:2.0
+        resources:
+          limits:
+            cpu: 200m
+            memory: 256Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        volumeMounts:
+        - name: varlog
+          mountPath: /var/log
+        - name: fluent-bit-config
+          mountPath: /fluent-bit/etc/
+
+      # Image pull secrets
+      imagePullSecrets:
+      - name: registry-credentials
+
+      # DNS configuration
+      dnsPolicy: ClusterFirst
+      dnsConfig:
+        options:
+        - name: ndots
+          value: "2"
+        - name: edns0
+
+      # Volumes
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      - name: cache
+        emptyDir:
+          sizeLimit: 1Gi
+      - name: varlog
+        emptyDir: {}
+      - name: config
+        configMap:
+          name: web-app-config
+          items:
+          - key: app.yaml
+            path: app.yaml
+      - name: secrets
+        secret:
+          secretName: web-app-secrets
+          defaultMode: 0400
+      - name: fluent-bit-config
+        configMap:
+          name: fluent-bit-config
+
+      # Pod affinity and anti-affinity
+      affinity:
+        # Prefer pods on different nodes
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - web-application
+              topologyKey: kubernetes.io/hostname
+          # Required: spread across availability zones
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - web-application
+            topologyKey: topology.kubernetes.io/zone
+
+        # Prefer nodes with SSD
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 50
+            preference:
+              matchExpressions:
+              - key: disk-type
+                operator: In
+                values:
+                - ssd
+
+      # Topology spread constraints
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: topology.kubernetes.io/zone
+        whenUnsatisfiable: DoNotSchedule
+        labelSelector:
+          matchLabels:
+            app: web-application
+      - maxSkew: 2
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app: web-application
+
+      # Tolerations
+      tolerations:
+      - key: "dedicated"
+        operator: "Equal"
+        value: "frontend"
+        effect: "NoSchedule"
+
+      # Termination grace period
+      terminationGracePeriodSeconds: 30
+
+      # Node selector
+      nodeSelector:
+        workload-type: web
+        node.kubernetes.io/instance-type: n1-standard-4
+
+      # Priority class
+      priorityClassName: high-priority
+
+      # Restart policy
+      restartPolicy: Always
+
+---
+# Service Account
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: web-application-sa
+  namespace: production
+  labels:
+    app: web-application
+
+---
+# Role for the service account
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: web-application-role
+  namespace: production
+rules:
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get", "list"]
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get"]
+
+---
+# RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: web-application-rolebinding
+  namespace: production
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: web-application-role
+subjects:
+- kind: ServiceAccount
+  name: web-application-sa
+  namespace: production
