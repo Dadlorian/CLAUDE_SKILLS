@@ -1,0 +1,171 @@
+! Route Redistribution Configuration
+! OSPF to EIGRP with tag-based loop prevention
+
+! ***** ASBR (Autonomous System Border Router) *****
+hostname ASBR-Router
+!
+! Loopback interface
+interface Loopback 0
+  ip address 192.168.1.1 255.255.255.255
+!
+! OSPF Campus Network
+interface GigabitEthernet0/0
+  description Campus OSPF Link
+  ip address 10.0.0.1 255.255.255.0
+  no shutdown
+!
+! EIGRP WAN Link
+interface GigabitEthernet0/1
+  description WAN EIGRP Link
+  ip address 10.1.0.1 255.255.255.0
+  no shutdown
+!
+! OSPF Configuration (Campus)
+router ospf 1
+  network 10.0.0.0 0.0.0.255 area 0
+  network 192.168.1.0 0.0.0.255 area 0
+  passive-interface GigabitEthernet0/1
+
+  ! Redistribute EIGRP into OSPF
+  redistribute eigrp 100 metric 100 metric-type 2 route-map EIGRP-TO-OSPF
+!
+! EIGRP Configuration (WAN)
+router eigrp CAMPUS
+  address-family ipv4 unicast autonomous-system 100
+    network 10.1.0.0 0.0.255.255
+    network 192.168.1.0 0.0.0.255
+
+    ! Redistribute OSPF into EIGRP
+    redistribute ospf 1 route-map OSPF-TO-EIGRP
+
+    af-interface default
+      passive-interface
+    af-interface GigabitEthernet0/1
+      no passive-interface
+  exit-address-family
+!
+! ***** Route-Maps for Loop Prevention (Tag-Based) *****
+!
+! Tag routes from OSPF
+route-map OSPF-TO-EIGRP permit 10
+  match ip address prefix-list OSPF-ROUTES
+  set tag 100
+  set metric 1000 100 255 1 1500
+  ! (BW, Delay, Reliability, Load, MTU)
+!
+! Tag routes from EIGRP
+route-map EIGRP-TO-OSPF permit 10
+  match ip address prefix-list EIGRP-ROUTES
+  set tag 200
+  set metric 100 metric-type 2
+!
+! Prevent routing loops:
+! Don't redistribute if tag already set (came from other protocol)
+route-map PREVENT-LOOP-EIGRP deny 10
+  match tag 200
+  ! Deny routes tagged from OSPF
+!
+route-map PREVENT-LOOP-EIGRP permit 20
+!
+route-map PREVENT-LOOP-OSPF deny 10
+  match tag 100
+  ! Deny routes tagged from EIGRP
+!
+route-map PREVENT-LOOP-OSPF permit 20
+!
+!
+! ***** Prefix-Lists for Selective Redistribution *****
+!
+ip prefix-list OSPF-ROUTES seq 10 permit 10.0.0.0/8
+ip prefix-list OSPF-ROUTES seq 20 deny 0.0.0.0/0 le 32
+
+ip prefix-list EIGRP-ROUTES seq 10 permit 10.1.0.0/16
+ip prefix-list EIGRP-ROUTES seq 20 permit 10.2.0.0/16
+ip prefix-list EIGRP-ROUTES seq 30 deny 0.0.0.0/0 le 32
+!
+!
+! ***** Alternative: Distance-Based Loop Prevention *****
+! (Instead of tags, use administrative distance)
+!
+! router eigrp CAMPUS
+!   address-family ipv4 unicast autonomous-system 100
+!     distance eigrp 90 200
+!     ! Internal 90, External 200 (deprioritize external)
+!   exit-address-family
+! !
+!
+! ***** Distribution Lists for Filtering *****
+!
+! Limit routes from OSPF
+! access-list 1 permit 10.0.0.0 0.0.0.255
+! router eigrp CAMPUS
+!   distribute-list 1 in GigabitEthernet0/0
+! !
+!
+! Verification Commands:
+! show ip route
+! show ip route ospf
+! show ip route eigrp
+! show ip route tag 100
+!
+! show route-map
+! show route-map OSPF-TO-EIGRP
+!
+! show ip prefix-list
+!
+! debug ip routing
+!
+!
+! ***** Campus OSPF Router Configuration *****
+!
+! hostname Campus-Router
+! !
+! interface Loopback 0
+!   ip address 192.168.1.10 255.255.255.255
+! !
+! interface GigabitEthernet0/0
+!   description OSPF Campus Link
+!   ip address 10.0.0.2 255.255.255.0
+!   no shutdown
+! !
+! interface GigabitEthernet0/1
+!   description Local Site Network
+!   ip address 10.10.0.1 255.255.255.0
+!   no shutdown
+! !
+! router ospf 1
+!   network 10.0.0.0 0.0.0.255 area 0
+!   network 10.10.0.0 0.0.0.255 area 0
+!   network 192.168.1.0 0.0.0.255 area 0
+!   passive-interface GigabitEthernet0/1
+! !
+!
+! ***** WAN EIGRP Router Configuration *****
+!
+! hostname WAN-Router
+! !
+! interface Loopback 0
+!   ip address 192.168.1.20 255.255.255.255
+! !
+! interface GigabitEthernet0/0
+!   description WAN EIGRP Link
+!   ip address 10.1.0.2 255.255.255.0
+!   no shutdown
+! !
+! interface GigabitEthernet0/1
+!   description Remote Site Network
+!   ip address 10.20.0.1 255.255.255.0
+!   no shutdown
+! !
+! router eigrp CAMPUS
+!   address-family ipv4 unicast autonomous-system 100
+!     network 10.1.0.0 0.0.255.255
+!     network 10.20.0.0 0.0.0.255
+!     network 192.168.1.0 0.0.0.255
+!
+!     af-interface default
+!       passive-interface
+!     af-interface GigabitEthernet0/0
+!       no passive-interface
+!   exit-address-family
+! !

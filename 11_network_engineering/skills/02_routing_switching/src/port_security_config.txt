@@ -1,0 +1,220 @@
+! Port Security Configuration
+! MAC address learning and enforcement
+
+hostname Secure-Switch
+!
+! ***** Global Configuration *****
+!
+errdisable recovery cause psecure-violation
+errdisable recovery interval 300
+! Auto-recovery after 5 minutes (optional)
+
+!
+! ***** Port Security - Individual Device Limit *****
+!
+interface GigabitEthernet0/1
+  description User Workstation
+  switchport mode access
+  switchport access vlan 20
+
+  ! Enable port security
+  switchport port-security
+
+  ! Maximum 1 MAC address (typical for user port)
+  switchport port-security maximum 1
+
+  ! Automatic learning (sticky MAC)
+  switchport port-security mac-address sticky
+  ! MAC address learned and saved to running config
+
+  ! Violation action
+  switchport port-security violation shutdown
+  ! Port err-disabled when violation detected
+
+  ! Aging - remove old learned MAC after inactivity
+  switchport port-security aging type inactivity
+  switchport port-security aging time 120
+  ! Remove if inactive for 120 minutes
+
+  spanning-tree portfast
+  spanning-tree bpduguard enable
+  no shutdown
+!
+!
+! ***** Port Security - Multiple Devices *****
+!
+interface GigabitEthernet0/2
+  description Printer (multifunction)
+  switchport mode access
+  switchport access vlan 30
+
+  switchport port-security
+  switchport port-security maximum 3
+  ! Allow up to 3 MAC addresses (printer, scanner, etc)
+
+  switchport port-security mac-address sticky
+
+  switchport port-security violation restrict
+  ! Log violation but don't shut down
+  ! Limited bandwidth for violating traffic
+
+  spanning-tree portfast
+  no shutdown
+!
+!
+! ***** Port Security - IP Phone with Voice VLAN *****
+!
+interface GigabitEthernet0/3
+  description IP Phone
+  switchport mode access
+  switchport access vlan 20
+  switchport voice vlan 50
+
+  switchport port-security
+  switchport port-security maximum 2
+  ! Phone + attached device (usually 1-2 MACs)
+
+  switchport port-security mac-address sticky
+
+  switchport port-security violation protect
+  ! Drop violating traffic, no logging
+
+  mls qos trust cos
+  ! Trust DSCP from phone
+
+  spanning-tree portfast
+  no shutdown
+!
+!
+! ***** Port Security - Static MAC Address *****
+!
+interface GigabitEthernet0/4
+  description Server
+  switchport mode access
+  switchport access vlan 100
+
+  switchport port-security
+  switchport port-security maximum 1
+
+  ! Manually configure expected MAC (instead of sticky)
+  switchport port-security mac-address aaaa.bbbb.cccc
+  ! Use actual server MAC address
+
+  switchport port-security violation shutdown
+
+  no shutdown
+!
+!
+! ***** Port Security - Trunk Port *****
+!
+interface GigabitEthernet0/47
+  description Trunk to Switch-B
+  switchport mode trunk
+  switchport trunk encapsulation dot1q
+  switchport trunk native vlan 99
+
+  ! Generally not recommended for trunk ports
+  ! But if needed:
+  ! switchport port-security
+  ! switchport port-security maximum 10
+  ! switchport port-security violation protect
+
+  no shutdown
+!
+!
+! ***** Violation Actions *****
+!
+! Protect (Default):
+!   - Drops violating traffic
+!   - No notification
+!   - Port remains active
+!
+! Restrict:
+!   - Drops violating traffic
+!   - SNMP trap sent
+!   - Port remains active
+!   - Suitable for monitoring
+!
+! Shutdown:
+!   - Port err-disabled
+!   - No traffic allowed
+!   - Manual recovery or auto-recovery timer
+!   - Strictest enforcement
+!
+!
+! ***** Verification Commands *****
+!
+! show port-security
+! show port-security interface GigabitEthernet0/1
+! show port-security address
+! show port-security statistics
+!
+! show interfaces status err-disabled
+! ! View ports in err-disabled state
+!
+! show errdisable recovery
+! ! View recovery settings
+!
+!
+! ***** Monitoring Port Security Violations *****
+!
+! show log | include SECURITY_VIOLATION
+! ! View logged violations
+!
+! debug mac-address-table
+! debug port-security
+!
+!
+! ***** Recovery from Err-Disabled *****
+!
+! Manual recovery:
+! interface GigabitEthernet0/1
+!   shutdown
+!   no shutdown
+! !
+!
+! Auto-recovery (if enabled):
+! errdisable recovery cause psecure-violation
+! errdisable recovery interval 300
+! (Wait 5 minutes and port re-enables)
+!
+!
+! ***** Port Security Best Practices *****
+!
+! 1. Maximum 1 MAC on user ports
+! 2. Use sticky MAC for automatic learning
+! 3. Set violation to shutdown for strict environments
+! 4. Enable errdisable recovery for high availability
+! 5. Combine with port-based VLAN access (802.1X)
+! 6. Monitor violations regularly
+! 7. Document expected MAC addresses for servers
+! 8. Test failover with spurious MAC source
+! 9. Consider performance impact
+! 10. Integrate with network access control
+!
+!
+! ***** Configuration Summary *****
+!
+! User Port:
+! - Maximum 1 MAC
+! - Sticky learning
+! - Violation: shutdown
+! - PortFast + BPDU Guard
+!
+! Server Port:
+! - Static known MAC
+! - Violation: shutdown
+! - No PortFast
+!
+! Printer/Scanner:
+! - Maximum 2-3 MACs
+! - Sticky learning
+! - Violation: restrict
+! - PortFast
+!
+! Phone:
+! - Maximum 2 MACs (phone + device)
+! - Sticky learning
+! - Violation: protect
+! - Voice VLAN configured
+!

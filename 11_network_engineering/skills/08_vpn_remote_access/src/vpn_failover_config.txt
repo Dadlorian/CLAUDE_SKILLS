@@ -1,0 +1,178 @@
+# VPN Failover Configuration (Cisco ASA Example)
+# Active-Passive failover with automatic switching
+
+! ===================== FAILOVER INTERFACE CONFIG =====================
+
+! Failover Link Configuration
+failover lan unit primary  ! Set this device as primary
+failover lan interface FAILOVER-LINK GigabitEthernet2
+failover lan key FAILOVER-SECRET-KEY-1234567890
+
+! Monitor Interfaces for Failover Trigger
+failover monitor interface outside
+failover monitor interface inside
+
+! Failover Timers
+failover hello-interval 3    ! Send hello every 3 seconds
+failover hold-time 9         ! Failover after 3 missed hellos (9 seconds)
+
+! ===================== PRIMARY DEVICE CONFIG =====================
+
+! Outside Interface (Public facing)
+interface GigabitEthernet0/0
+  nameif outside
+  ip address 203.0.113.1 255.255.255.0
+  ip address 203.0.113.10 255.255.255.0 standby 203.0.113.2 ! Floating IP
+  no shutdown
+
+! Inside Interface (Private network)
+interface GigabitEthernet0/1
+  nameif inside
+  ip address 10.0.0.1 255.255.255.0
+  ip address 10.0.0.10 255.255.255.0 standby 10.0.0.2 ! Floating IP
+  no shutdown
+
+! Failover Link Interface (dedicated)
+interface GigabitEthernet2
+  nameif failover
+  ip address 192.168.0.1 255.255.255.0
+  no shutdown
+
+! ===================== SECONDARY DEVICE CONFIG =====================
+! (On passive ASA - comment out for active ASA)
+
+! failover lan unit secondary   ! Uncomment on standby device
+! failover lan key FAILOVER-SECRET-KEY-1234567890
+
+! interface GigabitEthernet0/0
+!  nameif outside
+!  ip address 203.0.113.2 255.255.255.0
+!  no shutdown
+! 
+! interface GigabitEthernet0/1
+!  nameif inside
+!  ip address 10.0.0.2 255.255.255.0
+!  no shutdown
+! 
+! interface GigabitEthernet2
+!  nameif failover
+!  ip address 192.168.0.2 255.255.255.0
+!  no shutdown
+
+! ===================== SYNC CONFIGURATION =====================
+
+! Replication for stateful failover
+replication http 10.0.0.1 10.0.0.2
+replication https 10.0.0.1 10.0.0.2
+
+! Failover mode
+failover
+
+! Force failover after 30 seconds of no heartbeat
+failover timeout 30
+
+! ===================== VPN CONFIGURATION (REPLICATED) =====================
+
+! IPsec Tunnel Configuration
+crypto ikev2 proposal VPN-PROPOSAL
+  encryption aes-256
+  integrity sha256
+  group 14
+  prf sha256
+
+crypto ikev2 policy 10
+  proposal VPN-PROPOSAL
+
+crypto ikev2 keyring VPN-KEYRING
+  peer 203.0.113.20
+    address 203.0.113.20
+    pre-shared-key VPN-PSK-12345!
+
+crypto ikev2 profile VPN-PROFILE
+  match identity address 203.0.113.20
+  authentication remote pre-share
+  authentication local pre-share
+  keyring VPN-KEYRING
+  lifetime 28800
+  ipsec-proposal VPN-TRANSFORM
+
+crypto ipsec transform-set VPN-TRANSFORM esp-aes 256 esp-sha-hmac
+  mode tunnel
+
+crypto ipsec profile VPN-IPSEC
+  set transform-set VPN-TRANSFORM
+  set pfs group14
+  set security-association lifetime seconds 3600
+
+! These will sync to secondary automatically
+access-list TRAFFIC-TO-ENCRYPT extended permit ip 10.0.0.0 255.0.0.0 192.168.0.0 255.255.0.0
+
+crypto map VPN-MAP 1 ipsec-isakmp
+  set peer 203.0.113.20
+  set transform-set VPN-TRANSFORM
+  match address TRAFFIC-TO-ENCRYPT
+
+crypto map VPN-MAP interface outside
+
+! ===================== MONITORING & VERIFICATION =====================
+
+! Check failover status
+! show failover
+! show failover state
+! show failover history
+
+! Monitor synchronization
+! show failover replication
+
+! Check active unit
+! show version | include Active
+
+! Monitor failover statistics
+! show failover stats
+
+! Test failover (graceful)
+! failover activate  ! Force this unit to active
+! failover group 1 active  ! For multi-context
+
+! ===================== FAILOVER TROUBLESHOOTING =====================
+
+! Common issues and solutions:
+
+! Issue: "Failover link is offline"
+! Solution: Verify physical connection, check failover interface status
+! Debug: debug failover messages
+
+! Issue: "Failover not triggering"
+! Solution: Check failover hello interval, verify network connectivity
+! Debug: show failover | include Hello
+
+! Issue: "Out of sync"
+! Solution: Manual sync with: failover reload
+! Debug: show failover replication detailed
+
+! Issue: "Session disconnect during failover"
+! Solution: Enable Stateful Failover (requires Stateful Inspection)
+! Configure: failover lan unit primary (enables stateful)
+
+! ===================== DISASTER RECOVERY =====================
+
+! Backup configuration before failover testing
+! show running-config > backup-config.txt
+
+! Recovery procedure:
+! 1. If primary fails and doesn't recover:
+!    - Verify secondary is stable (show failover)
+!    - Reconfigure former primary with secondary config
+!    - Swap failover roles if needed
+!
+! 2. Bring failed unit back online:
+!    - Power on device
+!    - Monitor failover logs
+!    - Synchronization should occur automatically
+!    - Verify VPN tunnels reestablish
+!
+! 3. Return to primary:
+!    - Ensure primary is stable
+!    - Optional: failover activate (if device supports it)
+!    - Monitor failover state
+

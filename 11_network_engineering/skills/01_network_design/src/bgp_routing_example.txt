@@ -1,0 +1,274 @@
+! BGP Routing Configuration Examples
+! For enterprise core and data center fabric
+! Date: November 2025
+! Version: 1.0
+
+! ========================================
+! EXAMPLE 1: CAMPUS CORE BGP
+! ========================================
+
+router bgp 65001
+  bgp router-id 10.255.3.1
+  bgp log-neighbor-changes
+  !
+  neighbor 10.254.0.1 remote-as 65001
+  neighbor 10.254.0.1 description Core-2
+  neighbor 10.254.1.1 remote-as 65001
+  neighbor 10.254.1.1 description Distribution-A
+  neighbor 10.254.2.1 remote-as 65001
+  neighbor 10.254.2.1 description Distribution-B
+  neighbor 10.254.3.1 remote-as 65002
+  neighbor 10.254.3.1 description WAN-Router
+  !
+  ! Default-information originate (advertise default route)
+  !
+  address-family ipv4 unicast
+    neighbor 10.254.0.1 activate
+    neighbor 10.254.1.1 activate
+    neighbor 10.254.2.1 activate
+    neighbor 10.254.3.1 activate
+    !
+    ! Local networks (originated by this router)
+    network 10.0.0.0 mask 255.0.0.0
+    network 10.255.3.0 mask 255.255.255.0
+    !
+    ! Redistribution (if also running OSPF)
+    redistribute static route-map STATIC_TO_BGP
+    !
+    ! Load balancing
+    maximum-paths 4
+    maximum-paths ibgp 4
+    !
+  exit-address-family
+  !
+
+! Route map for redistribution
+route-map STATIC_TO_BGP permit 10
+  description Redistribute static routes to BGP
+  set local-preference 200
+  !
+
+! ========================================
+! EXAMPLE 2: DISTRIBUTION LAYER BGP
+! ========================================
+
+router bgp 65001
+  bgp router-id 10.255.2.1
+  !
+  ! Neighbors: core switches and other distributions
+  neighbor 10.254.1.0 remote-as 65001
+  neighbor 10.254.1.0 description Core-1
+  neighbor 10.254.11.0 remote-as 65001
+  neighbor 10.254.11.0 description Distribution-A (other DC)
+  !
+  address-family ipv4 unicast
+    neighbor 10.254.1.0 activate
+    neighbor 10.254.11.0 activate
+    !
+    network 10.0.0.0 mask 255.0.0.0
+    !
+    maximum-paths 4
+    !
+  exit-address-family
+  !
+
+! ========================================
+! EXAMPLE 3: SPINE-LEAF FABRIC BGP (DATA CENTER)
+! ========================================
+
+! SPINE Configuration
+router bgp 65000
+  bgp router-id 10.255.0.1
+  bgp confederation identifier 64000
+  !
+  ! Connect to all leaves
+  neighbor 10.255.1.0 remote-as 65100
+  neighbor 10.255.1.0 description Leaf-1 to Leaf-64
+  neighbor 10.255.1.0 route-reflector-client
+  !
+  address-family ipv4 unicast
+    neighbor 10.255.1.0 activate
+    neighbor 10.255.1.0 next-hop-self
+    network 10.0.0.0 mask 255.0.0.0
+    !
+    ! Maximum paths for ECMP (equal cost multi-path)
+    maximum-paths 64  ! All leaves can carry traffic
+    !
+  exit-address-family
+  !
+
+! LEAF Configuration (Example: Leaf-1)
+router bgp 65100
+  bgp router-id 10.255.1.1
+  bgp confederation identifier 64000
+  !
+  ! Connect to all spines
+  neighbor 10.255.0.1 remote-as 65000
+  neighbor 10.255.0.1 description Spine-1
+  neighbor 10.255.0.2 remote-as 65000
+  neighbor 10.255.0.2 description Spine-2
+  neighbor 10.255.0.3 remote-as 65000
+  neighbor 10.255.0.3 description Spine-3
+  ! ... continue for all 32 spines
+  !
+  address-family ipv4 unicast
+    neighbor 10.255.0.0/24 activate
+    neighbor 10.255.0.0/24 next-hop-self
+    !
+    network 10.1.0.0 mask 255.255.240.0  ! Pod-1 subnet
+    !
+    maximum-paths 32  ! Load balance across all spines
+    !
+  exit-address-family
+  !
+
+! ========================================
+! EXAMPLE 4: DUAL-ISP FAILOVER WITH BGP
+! ========================================
+
+router bgp 65001
+  bgp router-id 10.255.3.1
+  !
+  ! External ISP neighbors
+  neighbor 198.51.100.1 remote-as 65100
+  neighbor 198.51.100.1 description ISP-A (Primary)
+  neighbor 203.0.113.1 remote-as 65101
+  neighbor 203.0.113.1 description ISP-B (Backup)
+  !
+  address-family ipv4 unicast
+    neighbor 198.51.100.1 activate
+    neighbor 203.0.113.1 activate
+    !
+    ! Route maps to set local preference
+    neighbor 198.51.100.1 route-map ISP_A_IN in
+    neighbor 203.0.113.1 route-map ISP_B_IN in
+    !
+    default-information originate  ! Advertise default route
+    !
+  exit-address-family
+  !
+
+! Route maps for preference
+route-map ISP_A_IN permit 10
+  set local-preference 200  ! Primary (higher = preferred)
+  !
+
+route-map ISP_B_IN permit 10
+  set local-preference 100  ! Backup (lower preference)
+  !
+
+! Failover behavior:
+! - Normal: 90% ISP-A, 10% ISP-B (if ISP-A has more capacity)
+! - ISP-A fails: 100% ISP-B (automatic failover)
+! - Convergence: <3 seconds (or <1 sec with BFD)
+
+! ========================================
+! EXAMPLE 5: BGP WITH BFD (FAST FAILOVER)
+! ========================================
+
+! Enable BFD for fast detection
+interface Gi0/0/2
+  description Link to Distribution-A
+  ip address 10.254.1.0 255.255.255.254
+  bfd interval 300 min_rx 300 multiplier 3
+  ! Detects failure in: 300ms × 3 = <900ms
+  !
+
+! BGP configuration with BFD
+router bgp 65001
+  neighbor 10.254.1.1 remote-as 65001
+  neighbor 10.254.1.1 fall-over bfd
+  ! Immediately failover if BFD detects link down
+  !
+
+! Failover time with BFD: <1 second (much faster than standard BGP)
+
+! ========================================
+! EXAMPLE 6: ROUTE FILTERING WITH PREFIX-LISTS
+! ========================================
+
+! Define acceptable routes
+ip prefix-list VALID_ROUTES seq 10 permit 10.0.0.0/8
+ip prefix-list VALID_ROUTES seq 20 permit 10.255.0.0/16
+ip prefix-list VALID_ROUTES seq 30 deny 0.0.0.0/0
+
+! Apply to BGP neighbor
+router bgp 65001
+  neighbor 10.254.1.1 prefix-list VALID_ROUTES in
+  ! Reject any routes not in prefix-list
+  !
+
+! Benefits:
+! - Prevents accidental route leaks
+! - Reduces routing table size
+! - Improves security (no invalid routes accepted)
+
+! ========================================
+! EXAMPLE 7: MULTI-PATH LOAD BALANCING
+! ========================================
+
+! For campus core (4 paths maximum)
+router bgp 65001
+  address-family ipv4 unicast
+    maximum-paths 4
+    maximum-paths ibgp 4
+    !
+  exit-address-family
+  !
+
+! Result:
+! - Traffic to same destination load-balanced across 4 paths
+! - Per-flow hashing (same flow always takes same path)
+! - Different flows may take different paths
+! - Equal cost determines which paths are used
+
+! ========================================
+! EXAMPLE 8: ROUTE REDISTRIBUTION
+! ========================================
+
+! Redistribute from OSPF to BGP (if both protocols used)
+router bgp 65001
+  address-family ipv4 unicast
+    redistribute ospf 1 route-map OSPF_TO_BGP
+    !
+  exit-address-family
+  !
+
+! Route map to modify attributes
+route-map OSPF_TO_BGP permit 10
+  match metric 0
+  set local-preference 100
+  !
+
+route-map OSPF_TO_BGP permit 20
+  set local-preference 50
+  !
+
+! ========================================
+! VERIFICATION COMMANDS
+! ========================================
+
+show ip bgp summary
+! Shows neighbor status and route count
+
+show ip bgp neighbors 10.254.1.1
+! Shows detailed info about specific neighbor
+
+show ip route bgp
+! Shows BGP-learned routes only
+
+show ip route 10.0.0.0
+! Shows path to specific network (including next-hop)
+
+show ip bgp 10.0.30.0
+! Shows BGP information for specific route
+
+debug ip bgp keepalives
+! Enables verbose logging (use sparingly)
+
+clear ip bgp 10.254.1.1
+! Resets BGP session (forces re-negotiation)
+
+! ========================================
+! END OF BGP CONFIGURATION EXAMPLES
+! ========================================

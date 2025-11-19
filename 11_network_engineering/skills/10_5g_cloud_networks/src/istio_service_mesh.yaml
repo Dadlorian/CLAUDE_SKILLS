@@ -1,0 +1,289 @@
+# Istio Service Mesh Configuration
+# Production-grade service mesh deployment
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: istio-system
+  labels:
+    istio-injection: disabled
+
+---
+# Istio Installation via IstioOperator
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  name: istiocontrolplane
+  namespace: istio-system
+spec:
+  profile: production
+
+  hub: gcr.io/istio-release
+  tag: 1.16.0
+
+  components:
+    ingressGateway:
+      - name: istio-ingressgateway
+        enabled: true
+        namespace: istio-system
+        k8s:
+          service:
+            type: LoadBalancer
+          hpaSpec:
+            minReplicas: 3
+            maxReplicas: 10
+    egressGateway:
+      - name: istio-egressgateway
+        enabled: true
+        namespace: istio-system
+        k8s:
+          hpaSpec:
+            minReplicas: 2
+            maxReplicas: 5
+    pilot:
+      enabled: true
+      k8s:
+        hpaSpec:
+          minReplicas: 3
+          maxReplicas: 10
+        resources:
+          requests:
+            cpu: 500m
+            memory: 2048Mi
+
+  meshConfig:
+    enableTracing: true
+    traceSampling: 100
+    accessLogFile: /dev/stdout
+    ingressClassName: istio
+
+---
+# Application Namespace with sidecar injection
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: production
+  labels:
+    istio-injection: enabled
+
+---
+# VirtualService for traffic management
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: api
+  namespace: production
+spec:
+  hosts:
+  - api.production.svc.cluster.local
+  - api
+  http:
+  # Route by header for canary
+  - match:
+    - headers:
+        x-user-type:
+          exact: beta
+    route:
+    - destination:
+        host: api
+        subset: v2
+      weight: 100
+  # Default route
+  - route:
+    - destination:
+        host: api
+        subset: v1
+      weight: 90
+    - destination:
+        host: api
+        subset: v2
+      weight: 10
+  timeout: 30s
+  retries:
+    attempts: 3
+    perTryTimeout: 10s
+
+---
+# DestinationRule for circuit breaking
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: api
+  namespace: production
+spec:
+  host: api.production.svc.cluster.local
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: 1000
+      http:
+        http1MaxPendingRequests: 1000
+        http2MaxRequests: 1000
+        maxRequestsPerConnection: 2
+        h2UpgradePolicy: UPGRADE
+    loadBalancer:
+      simple: ROUND_ROBIN
+    outlierDetection:
+      consecutive5xxErrors: 5
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 50
+      minRequestVolume: 5
+      splitExternalLocalOriginErrors: true
+  subsets:
+  - name: v1
+    labels:
+      version: v1
+    trafficPolicy:
+      connectionPool:
+        tcp:
+          maxConnections: 500
+  - name: v2
+    labels:
+      version: v2
+    trafficPolicy:
+      connectionPool:
+        tcp:
+          maxConnections: 750
+
+---
+# Ingress Gateway
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: api-gateway
+  namespace: production
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "api.example.com"
+    - "*.api.example.com"
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      credentialName: api-cert
+    hosts:
+    - "api.example.com"
+
+---
+# Gateway VirtualService
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: api-external
+  namespace: production
+spec:
+  hosts:
+  - "api.example.com"
+  gateways:
+  - api-gateway
+  http:
+  - match:
+    - uri:
+        prefix: /api/v1
+    route:
+    - destination:
+        host: api
+        subset: v1
+        port:
+          number: 8080
+  - match:
+    - uri:
+        prefix: /api/v2
+    route:
+    - destination:
+        host: api
+        subset: v2
+        port:
+          number: 8080
+  - route:
+    - destination:
+        host: api
+        port:
+          number: 8080
+
+---
+# Mutual TLS Policy
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: default
+  namespace: production
+spec:
+  mtls:
+    mode: STRICT
+
+---
+# Authorization Policy
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-api-access
+  namespace: production
+spec:
+  selector:
+    matchLabels:
+      app: api
+  rules:
+  - from:
+    - source:
+        principals: ["cluster.local/ns/production/sa/frontend"]
+    to:
+    - operation:
+        methods: ["GET", "POST"]
+        paths: ["/api/*"]
+  - from:
+    - source:
+        namespaces: ["monitoring"]
+    to:
+    - operation:
+        ports: ["9090"]
+
+---
+# RequestAuthentication for JWT
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: jwt-auth
+  namespace: production
+spec:
+  jwtRules:
+  - issuer: "https://auth.example.com"
+    jwksUri: "https://auth.example.com/.well-known/jwks.json"
+    audiences: "api"
+    outputPayloadToHeader: "x-jwt-payload"
+
+---
+# Telemetry Configuration
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: api-telemetry
+  namespace: production
+spec:
+  metrics:
+  - providers:
+    - name: prometheus
+    dimensions:
+    - request_host
+    - request_method
+    - response_code
+  tracing:
+  - providers:
+    - name: jaeger
+    randomSamplingPercentage: 100.0
+    useRequestIdForTraceSampling: true
+  logging:
+  - providers:
+    - name: envoy
+    disabled: false

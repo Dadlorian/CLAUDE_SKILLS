@@ -1,0 +1,31 @@
+! Cisco ASA SSL VPN (AnyConnect) Configuration
+
+webvpn
+ enable outside
+ customize hostname VPN_GATEWAY
+ customize title "Company VPN Access"
+
+group-policy VPN_USERS internal
+ attributes
+  vpn-tunnel-protocol ssl-client
+  vpn-idle-timeout 30
+  vpn-session-timeout 480
+  split-tunnel-policy tunnelspecific
+  split-tunnel-network-list value SPLIT_TUNNEL_LIST
+  dns-server value 10.1.50.10 10.1.50.11
+  dhcp-server none
+  default-domain value example.com
+  idle-timeout 30
+  session-timeout 480
+
+tunnel-group VPN_GATEWAY type remote-access
+ general-attributes
+  address-pool VPN_POOL
+  authentication-server-group (RADIUS_AUTH)
+  accounting-server-group (RADIUS_ACCT)
+  default-group-policy VPN_USERS
+ webvpn-attributes
+  group-alias VPN_GATEWAY enable
+
+ip local pool VPN_POOL 192.168.100.1-192.168.100.254
+

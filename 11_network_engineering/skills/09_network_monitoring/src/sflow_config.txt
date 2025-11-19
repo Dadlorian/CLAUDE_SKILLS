@@ -1,0 +1,79 @@
+# sFlow Configuration Reference
+
+## OpenSwitch/sFlow-RT Configuration
+
+# Configure sFlow agent
+sflow {
+    enable = true
+    collector = 10.0.0.100:6343
+    sampling-rate = 1024
+    polling-interval = 20
+}
+
+## Cisco Catalyst IOS Configuration
+
+# Enable sFlow
+sampler NETWORK_SAMPLER
+  description "Network traffic sampling"
+  mode random 1 out-of 1000
+!
+
+# Configure sFlow exporter
+flow exporter SFLOW_COLLECTOR
+  description "sFlow collector"
+  destination 10.0.0.100
+  source GigabitEthernet0/0
+  transport udp 6343
+  template data timeout 60
+!
+
+# Apply to interface
+interface GigabitEthernet0/1
+  flow monitor NETWORK_MONITOR sampler NETWORK_SAMPLER input
+  flow monitor NETWORK_MONITOR sampler NETWORK_SAMPLER output
+!
+
+## Juniper Junos Configuration
+
+sampling {
+    input {
+        rate 1024;
+        run-length 0;
+    }
+    output {
+        cflowd {
+            localhost {
+                port 6343;
+            }
+        }
+    }
+}
+
+## Arista EOS Configuration
+
+flow exporter SFLOW_EXPORTER
+  ipv4 address 10.0.0.100
+  transport udp 6343
+  source-interface Management1
+
+sampler NETWORK_SAMPLER
+  mode random 1 out-of 1024
+
+interface Ethernet1
+  sflow sample input
+  sflow sample output
+
+## Key Parameters
+
+- Sampling rate: 1:1024 typical (1 in 1024 packets)
+- Polling interval: 20-30 seconds
+- Collector UDP port: 6343 (standard)
+- Low CPU overhead (<1%)
+- Works with statistical sampling
+
+---
+
+**Configuration Type**: sFlow Collection
+**Standard**: RFC 3176
+**Port**: UDP 6343
+**Overhead**: Minimal (statistical sampling)

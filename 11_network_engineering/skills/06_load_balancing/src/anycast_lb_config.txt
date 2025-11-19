@@ -1,0 +1,269 @@
+# Anycast Load Balancing Configuration
+# Geographic Distributed Load Balancing Using Anycast
+# Last Updated: 2025-11-19
+
+# ============================================================
+# ANYCAST NETWORK ARCHITECTURE
+# ============================================================
+
+# Single Anycast IP: 203.0.113.0/24 (Example)
+# Announced from multiple locations via BGP
+# Clients connect to geographically nearest announcement
+
+# Anycast Announcement Points:
+# - US East Data Center: Announces 203.0.113.0/24 via BGP
+# - EU Central Data Center: Announces 203.0.113.0/24 via BGP
+# - APAC Data Center: Announces 203.0.113.0/24 via BGP
+
+# ============================================================
+# US EAST DATA CENTER (Virginia)
+# ============================================================
+
+Location: US East (Northern Virginia)
+BGP ASN: 65100
+IP Block: 203.0.113.0/24
+
+# Anycast Virtual IP
+Anycast VIP: 203.0.113.1
+Health Check: Continuous (loopback health)
+
+# Physical Server Topology
+Load Balancer 1: 192.168.1.10/24 (Primary)
+  ├─ Virtual Server: 203.0.113.1:443
+  ├─ Backend Pool: 192.168.1.100-192.168.1.105 (6 servers)
+  ├─ Load Balancing: Least Connections
+  └─ Session Persistence: IP Hash
+
+Load Balancer 2: 192.168.1.11/24 (Standby)
+  ├─ Virtual Server: 203.0.113.1:443
+  ├─ Backend Pool: 192.168.1.100-192.168.1.105
+  └─ HA Failover: VRRP priority 101
+
+# BGP Configuration
+BGP Router: Core-US-East-1
+Peer AS: 64512 (upstream ISP)
+Announce: 203.0.113.0/24
+Local Preference: 200
+Med: 100
+Communities: 65100:100 (US East region)
+
+BGP Router: Core-US-East-2
+Peer AS: 64512 (upstream ISP 2)
+Announce: 203.0.113.0/24
+Local Preference: 200
+Med: 100
+Communities: 65100:100
+
+# Health-Based BGP Withdrawal
+Monitoring:
+  - If all backends down: Withdraw anycast advertisement
+  - If load > 80%: Reduce local preference (traffic shifts to other DC)
+  - If latency > 100ms: Increase Med value (deprioritize this DC)
+
+# ============================================================
+# EU CENTRAL DATA CENTER (Frankfurt)
+# ============================================================
+
+Location: Europe (Frankfurt)
+BGP ASN: 65100
+IP Block: 203.0.113.0/24 (Same as US)
+
+Load Balancer 1: 192.168.2.10/24 (Primary)
+  ├─ Virtual Server: 203.0.113.1:443
+  ├─ Backend Pool: 192.168.2.100-192.168.2.105
+  ├─ Load Balancing: Least Connections
+  └─ Session Persistence: IP Hash
+
+Load Balancer 2: 192.168.2.11/24 (Standby)
+  ├─ Virtual Server: 203.0.113.1:443
+  ├─ Backend Pool: 192.168.2.100-192.168.2.105
+  └─ HA Failover: VRRP priority 101
+
+# BGP Configuration
+BGP Router: Core-EU-Frankfurt-1
+Peer AS: 64513 (upstream ISP)
+Announce: 203.0.113.0/24
+Local Preference: 200
+Med: 100
+Communities: 65100:200 (EU region)
+
+BGP Router: Core-EU-Frankfurt-2
+Peer AS: 64513 (upstream ISP 2)
+Announce: 203.0.113.0/24
+Local Preference: 200
+Med: 100
+Communities: 65100:200
+
+# ============================================================
+# APAC DATA CENTER (Singapore)
+# ============================================================
+
+Location: Asia Pacific (Singapore)
+BGP ASN: 65100
+IP Block: 203.0.113.0/24
+
+Load Balancer 1: 192.168.3.10/24 (Primary)
+  ├─ Virtual Server: 203.0.113.1:443
+  ├─ Backend Pool: 192.168.3.100-192.168.3.105
+  ├─ Load Balancing: Least Connections
+  └─ Session Persistence: IP Hash
+
+Load Balancer 2: 192.168.3.11/24 (Standby)
+  ├─ Virtual Server: 203.0.113.1:443
+  ├─ Backend Pool: 192.168.3.100-192.168.3.105
+  └─ HA Failover: VRRP priority 101
+
+# BGP Configuration
+BGP Router: Core-APAC-Singapore-1
+Peer AS: 64514 (upstream ISP)
+Announce: 203.0.113.0/24
+Local Preference: 200
+Med: 100
+Communities: 65100:300 (APAC region)
+
+BGP Router: Core-APAC-Singapore-2
+Peer AS: 64514 (upstream ISP 2)
+Announce: 203.0.113.0/24
+Local Preference: 200
+Med: 100
+Communities: 65100:300
+
+# ============================================================
+# TRAFFIC FLOW EXAMPLE
+# ============================================================
+
+# Scenario 1: Client in New York (US)
+Client IP: 203.0.113.50
+Steps:
+  1. Client requests: GET https://example.com/
+  2. DNS resolver returns: 203.0.113.1
+  3. Client establishes TCP connection to 203.0.113.1
+  4. ISP BGP tables prefer US East announcement (closest)
+  5. Traffic routed to US East data center
+  6. Load balancer distributes to backend pool
+  7. Response returned to client
+
+# Scenario 2: Client in London (EU)
+Client IP: 192.0.2.75
+Steps:
+  1. Client requests: https://example.com/
+  2. DNS resolver returns: 203.0.113.1
+  3. TCP connection to 203.0.113.1
+  4. ISP BGP tables prefer EU Central announcement (closest)
+  5. Traffic routed to EU Central data center
+  6. Load balancer serves from EU backend pool
+  7. Reduced latency vs US routing
+
+# Scenario 3: Failover Scenario
+Normal:
+  - US East BGP announces: Local Pref 200, Med 100
+  - EU BGP announces: Local Pref 200, Med 100
+  - APAC BGP announces: Local Pref 200, Med 100
+
+US East Outage:
+  - Health check failure detected
+  - BGP announcement withdrawn from US routers
+  - US traffic automatically shifts to next-best path
+  - EU Central (lower latency than APAC) becomes secondary
+  - Automatic failover without DNS propagation delay
+
+# ============================================================
+# HEALTH CHECK & FAILOVER AUTOMATION
+# ============================================================
+
+Health Check Script (runs on each LB):
+
+#!/bin/bash
+# Check backend health
+HEALTHY_BACKENDS=$(curl -s http://localhost:8080/backend-stats | jq '.healthy_count')
+
+if [ $HEALTHY_BACKENDS -eq 0 ]; then
+  # All backends down - withdraw BGP announcement
+  bgpctl disable
+  logger "All backends down, withdrawing BGP announcement"
+
+  # Trigger alerts
+  curl -X POST https://alerts.example.com/webhook \
+    -d '{"event":"bgp_withdrawn","location":"us-east"}'
+
+elif [ $HEALTHY_BACKENDS -lt 3 ]; then
+  # Reduced capacity - increase BGP metric (deprioritize)
+  bgpctl set-metric 200
+  logger "Reduced capacity, deprioritizing this DC"
+
+  curl -X POST https://alerts.example.com/webhook \
+    -d '{"event":"capacity_reduced","location":"us-east"}'
+
+else
+  # Healthy - maintain standard BGP metrics
+  bgpctl set-metric 100
+fi
+
+# Check every 10 seconds
+# Run via systemd timer or cron
+
+# ============================================================
+# CONFIGURATION FILES
+# ============================================================
+
+# BIRD Configuration (BGP Speaker)
+# File: /etc/bird/bird.conf
+
+router id 192.168.1.1;
+
+protocol bgp upstream_isp1 {
+  local 192.168.1.1 as 65100;
+  neighbor 192.168.1.254 as 64512;
+
+  import all;
+  export where proto = "direct";
+
+  # Export anycast prefix with metrics
+  export where net = 203.0.113.0/24 {
+    bgp_local_pref = 200;
+    bgp_med = 100;
+    accept;
+  };
+}
+
+protocol direct {
+  interface "lo" {
+    ip 203.0.113.1/32;
+  };
+}
+
+# ============================================================
+# ADVANTAGES & DISADVANTAGES
+# ============================================================
+
+Advantages:
+  + Single IP for all locations
+  + Automatic geographic routing (no DNS needed)
+  + Instant failover (seconds, not DNS TTL minutes)
+  + Reduces global DNS complexity
+  + Works with all client types
+  + No client configuration needed
+  + Load distribution across regions
+
+Disadvantages:
+  - Requires BGP capability
+  - Complex network setup
+  - Potential packet asymmetry
+  - Requires monitoring/alerting
+  - Higher operational complexity
+  - Not suitable for all applications
+  - Potential for split-brain scenarios
+
+# ============================================================
+# MONITORING POINTS
+# ============================================================
+
+Monitor:
+  1. BGP session status (each peer)
+  2. Prefix announcement status
+  3. Backend health per DC
+  4. Traffic distribution per DC
+  5. Latency metrics per DC
+  6. AS path length (ensure optimal routing)
+  7. BGP convergence time (on failures)
+  8. Withdrawal/re-advertisement events

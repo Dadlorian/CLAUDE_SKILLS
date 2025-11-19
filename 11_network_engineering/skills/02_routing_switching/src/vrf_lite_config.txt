@@ -1,0 +1,167 @@
+! VRF-Lite Configuration
+! Virtual Routing and Forwarding for customer isolation
+
+! ***** Router Configuration with Multiple VRFs *****
+hostname Multi-Tenant-Router
+!
+! ***** VRF 1: Customer A *****
+!
+vrf definition CUSTOMER-A
+  description Customer A Network
+  rd 65000:100
+  route-target export 65000:100
+  route-target import 65000:100
+!
+interface GigabitEthernet0/0
+  vrf forwarding CUSTOMER-A
+  ip address 10.0.0.1 255.255.255.0
+  no shutdown
+!
+interface GigabitEthernet0/1
+  vrf forwarding CUSTOMER-A
+  ip address 10.1.0.1 255.255.255.0
+  no shutdown
+!
+interface Loopback 100
+  vrf forwarding CUSTOMER-A
+  ip address 192.168.100.1 255.255.255.255
+!
+! ***** VRF 2: Customer B *****
+!
+vrf definition CUSTOMER-B
+  description Customer B Network
+  rd 65000:200
+  route-target export 65000:200
+  route-target import 65000:200
+!
+interface GigabitEthernet0/2
+  vrf forwarding CUSTOMER-B
+  ip address 10.0.1.1 255.255.255.0
+  no shutdown
+!
+interface GigabitEthernet0/3
+  vrf forwarding CUSTOMER-B
+  ip address 10.1.1.1 255.255.255.0
+  no shutdown
+!
+interface Loopback 200
+  vrf forwarding CUSTOMER-B
+  ip address 192.168.200.1 255.255.255.255
+!
+! ***** VRF 3: Management (Global VRF) *****
+!
+! Management uses default VRF (global routing)
+interface GigabitEthernet0/4
+  ip address 192.168.1.1 255.255.255.0
+  description Management Interface
+  no shutdown
+!
+!
+! ***** OSPF per VRF *****
+!
+! Customer A OSPF (AS 1, VRF CUSTOMER-A)
+router ospf 1 vrf CUSTOMER-A
+  router-id 192.168.100.1
+  network 10.0.0.0 0.0.0.255 area 0
+  network 10.1.0.0 0.0.0.255 area 0
+  network 192.168.100.0 0.0.0.255 area 0
+  passive-interface Loopback 100
+!
+! Customer B OSPF (AS 2, VRF CUSTOMER-B)
+router ospf 2 vrf CUSTOMER-B
+  router-id 192.168.200.1
+  network 10.0.1.0 0.0.0.255 area 0
+  network 10.1.1.0 0.0.0.255 area 0
+  network 192.168.200.0 0.0.0.255 area 0
+  passive-interface Loopback 200
+!
+! Management OSPF (Global VRF)
+router ospf 3
+  router-id 192.168.1.1
+  network 192.168.1.0 0.0.0.255 area 0
+!
+!
+! ***** BGP per VRF (Optional) *****
+!
+! router bgp 65000
+!
+!   address-family ipv4 vrf CUSTOMER-A
+!     neighbor 10.0.0.2 remote-as 65001
+!     neighbor 10.0.0.2 activate
+!     network 10.0.0.0 mask 255.255.0.0
+!   exit-address-family
+!
+!   address-family ipv4 vrf CUSTOMER-B
+!     neighbor 10.0.1.2 remote-as 65002
+!     neighbor 10.0.1.2 activate
+!     network 10.0.1.0 mask 255.255.0.0
+!   exit-address-family
+! !
+!
+! ***** Static Routes per VRF *****
+!
+ip route vrf CUSTOMER-A 10.2.0.0 255.255.0.0 10.0.0.254
+ip route vrf CUSTOMER-B 10.2.0.0 255.255.0.0 10.0.1.254
+ip route 192.168.2.0 255.255.255.0 192.168.1.254
+!
+!
+! ***** Routing Summary per VRF *****
+!
+! show vrf
+! show vrf detail
+! show ip vrf CUSTOMER-A
+! show ip vrf interfaces CUSTOMER-A
+! show ip route vrf CUSTOMER-A
+! show ip ospf vrf CUSTOMER-A
+!
+!
+! ***** Ping and Traceroute in VRF *****
+!
+! ping vrf CUSTOMER-A 10.0.0.2
+! traceroute vrf CUSTOMER-A 10.1.0.254
+!
+!
+! ***** SNMP per VRF *****
+!
+! snmp-server community CUSTOMER-A RO vrf CUSTOMER-A
+! snmp-server community CUSTOMER-B RO vrf CUSTOMER-B
+!
+!
+! ***** Syslog from Specific VRF *****
+!
+! logging source-interface Loopback 100 vrf CUSTOMER-A
+! logging 10.0.0.100  ! Syslog server
+!
+!
+! ***** Access Control per VRF *****
+!
+! line vty 0 4
+!   access-class CUSTOMER-A-ACCESS in vrf CUSTOMER-A
+! !
+!
+! ip access-list standard CUSTOMER-A-ACCESS
+!   permit 10.0.0.0 0.0.0.255
+! !
+!
+! ***** MAC-based VLAN to VRF Mapping *****
+!
+! VLAN 100 -> CUSTOMER-A
+! interface Vlan 100
+!   ip vrf forwarding CUSTOMER-A
+!   ip address 10.0.0.1 255.255.255.0
+! !
+!
+! VLAN 200 -> CUSTOMER-B
+! interface Vlan 200
+!   ip vrf forwarding CUSTOMER-B
+!   ip address 10.0.1.1 255.255.255.0
+! !
+!
+! Verification Checklist:
+! 1. show vrf
+! 2. show ip route vrf [vrf-name]
+! 3. ping vrf [vrf-name] [destination]
+! 4. show ip ospf vrf [vrf-name] neighbor
+! 5. Verify no leakage between VRFs
+! 6. Test routing isolation
+!

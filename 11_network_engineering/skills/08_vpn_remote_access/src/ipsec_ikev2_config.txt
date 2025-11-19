@@ -1,0 +1,89 @@
+# IPsec IKEv2 Configuration (Cisco ASA Example)
+# Site-to-Site VPN with AES-256 encryption
+
+! Enable IKEv2 on the outside interface
+crypto ikev2 enable outside
+
+! IKEv2 Policy - defines negotiation parameters
+crypto ikev2 policy 10
+  encryption aes-256
+  integrity sha256
+  group 14
+  prf sha256
+  lifetime 86400
+
+! Pre-shared Key Storage
+crypto ikev2 keyring SITE-TO-SITE
+  peer 203.0.113.20
+    address 203.0.113.20
+    pre-shared-key SuperSecurePassword!@#$%
+
+! IKEv2 Profile - associates with keyring and policies
+crypto ikev2 profile SITE-TO-SITE-PROFILE
+  match identity address 203.0.113.20
+  authentication remote pre-share
+  authentication local pre-share
+  keyring SITE-TO-SITE
+  lifetime 86400
+  ipsec-proposal SITE-TO-SITE-TRANSFORM
+
+! IPsec Transform Set - encryption and authentication for actual data
+crypto ipsec transform-set SITE-TO-SITE-TRANSFORM esp-aes 256 esp-sha-hmac
+  mode tunnel
+
+! IPsec Profile - applies transform set and PFS
+crypto ipsec profile SITE-TO-SITE-IPSEC
+  set transform-set SITE-TO-SITE-TRANSFORM
+  set pfs group14
+  set security-association lifetime seconds 3600
+  set security-association lifetime kilobytes 100000
+
+! Access List - defines what traffic gets encrypted
+access-list TRAFFIC-TO-ENCRYPT extended permit ip 10.0.0.0 255.0.0.0 192.168.0.0 255.255.0.0
+
+! Dynamic Crypto Map - for multiple remote peers
+crypto dynamic-map DYNAMIC-MAP 10 set ikev2-profile SITE-TO-SITE-PROFILE
+crypto dynamic-map DYNAMIC-MAP 10 set transform-set SITE-TO-SITE-TRANSFORM
+crypto dynamic-map DYNAMIC-MAP 10 set pfs group14
+crypto dynamic-map DYNAMIC-MAP 10 set reverse-route
+
+! Static Crypto Map - for known peer
+crypto map SITE-TO-SITE-MAP 1 ipsec-isakmp
+  set peer 203.0.113.20
+  set transform-set SITE-TO-SITE-TRANSFORM
+  set ikev2-profile SITE-TO-SITE-PROFILE
+  match address TRAFFIC-TO-ENCRYPT
+  set pfs group14
+
+! Apply crypto map to outside interface
+crypto map SITE-TO-SITE-MAP interface outside
+
+! NAT Exemption - prevent VPN traffic from being translated
+access-list NO-NAT extended permit ip 10.0.0.0 255.0.0.0 192.168.0.0 255.255.0.0
+nat (inside,outside) source static 10.0.0.0 255.0.0.0 10.0.0.0 255.0.0.0 destination static 192.168.0.0 255.255.0.0 192.168.0.0 255.255.0.0 no-proxy-arp route-lookup
+
+! Interface Configuration
+interface GigabitEthernet0/0
+  nameif outside
+  ip address 203.0.113.1 255.255.255.0
+  no shutdown
+
+interface GigabitEthernet0/1
+  nameif inside
+  ip address 10.0.0.1 255.255.255.0
+  no shutdown
+
+! Routing
+route inside 192.168.0.0 255.255.0.0 10.0.0.254
+
+! Logging and Monitoring
+logging enable
+logging buffer-size 512000
+logging trap informational
+
+! Verification Commands
+! show crypto ikev2 sa
+! show crypto ipsec sa
+! show crypto session brief
+! debug crypto ikev2 protocol
+! debug crypto ipsec

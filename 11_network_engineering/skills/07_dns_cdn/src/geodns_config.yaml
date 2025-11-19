@@ -1,0 +1,314 @@
+# GeoDNS Configuration
+# Example configuration for geographic DNS routing
+
+# Global settings
+global:
+  log_level: info
+  log_file: /var/log/geodns/geodns.log
+  stats_interval: 60  # seconds
+
+# GeoIP database
+geoip:
+  database_type: maxmind
+  database_path: /usr/share/GeoIP/GeoLite2-City.mmdb
+  asn_database_path: /usr/share/GeoIP/GeoLite2-ASN.mmdb
+  cache_ttl: 3600
+
+# DNS server configuration
+dns:
+  bind_address: 0.0.0.0
+  bind_port: 53
+  upstream_timeout: 5
+  upstream_retries: 3
+
+# Zones (domains to serve)
+zones:
+  example.com:
+    # Default/fallback zone
+    default:
+      ttl: 3600
+      records:
+        - name: "@"
+          type: A
+          value: 203.0.113.10
+          note: "Global/fallback IP"
+
+        - name: "www"
+          type: A
+          value: 203.0.113.10
+          note: "Global www"
+
+        - name: "api"
+          type: A
+          value: 203.0.113.20
+          note: "Global API"
+
+        - name: "@"
+          type: MX
+          value: "mail.example.com"
+          priority: 10
+
+        - name: "@"
+          type: NS
+          value: "ns1.example.com"
+
+        - name: "@"
+          type: NS
+          value: "ns2.example.com"
+
+    # United States routing
+    countries:
+      US:
+        ttl: 300  # Short TTL for quick updates
+        records:
+          - name: "@"
+            type: A
+            value: 192.0.2.1
+            note: "US primary IP"
+
+          - name: "www"
+            type: A
+            value: 192.0.2.1
+
+          - name: "api"
+            type: A
+            value: 192.0.2.10
+            note: "US API server"
+
+    # Regional US routing (more specific)
+    regions:
+      US/us-east-1:
+        ttl: 300
+        records:
+          - name: "@"
+            type: A
+            value: 192.0.2.1
+            note: "US East Coast"
+
+          - name: "api"
+            type: A
+            value: 192.0.2.11
+            note: "US East API"
+
+      US/us-west-2:
+        ttl: 300
+        records:
+          - name: "@"
+            type: A
+            value: 192.0.2.2
+            note: "US West Coast"
+
+          - name: "api"
+            type: A
+            value: 192.0.2.12
+            note: "US West API"
+
+    # Europe routing
+    countries:
+      GB:
+        ttl: 300
+        records:
+          - name: "@"
+            type: A
+            value: 192.0.2.3
+            note: "UK IP"
+
+          - name: "api"
+            type: A
+            value: 192.0.2.13
+
+      DE:
+        ttl: 300
+        records:
+          - name: "@"
+            type: A
+            value: 192.0.2.4
+            note: "Germany IP"
+
+          - name: "api"
+            type: A
+            value: 192.0.2.14
+
+      FR:
+        ttl: 300
+        records:
+          - name: "@"
+            type: A
+            value: 192.0.2.5
+            note: "France IP"
+
+      EU:  # EU generic (for other EU countries)
+        ttl: 300
+        records:
+          - name: "@"
+            type: A
+            value: 192.0.2.6
+            note: "EU generic"
+
+          - name: "api"
+            type: A
+            value: 192.0.2.15
+
+    # Asia-Pacific routing
+    countries:
+      JP:
+        ttl: 300
+        records:
+          - name: "@"
+            type: A
+            value: 192.0.2.20
+            note: "Japan IP"
+
+          - name: "api"
+            type: A
+            value: 192.0.2.25
+
+      CN:
+        ttl: 300
+        records:
+          - name: "@"
+            type: A
+            value: 192.0.2.21
+            note: "China IP"
+
+      IN:
+        ttl: 300
+        records:
+          - name: "@"
+            type: A
+            value: 192.0.2.22
+            note: "India IP"
+
+      APAC:  # APAC generic
+        ttl: 300
+        records:
+          - name: "@"
+            type: A
+            value: 192.0.2.23
+            note: "APAC generic"
+
+# Health checking
+health_checks:
+  enabled: true
+  interval: 30  # seconds
+  timeout: 5    # seconds
+
+  checks:
+    - target: 192.0.2.1
+      type: tcp
+      port: 80
+      name: "US East IP"
+
+    - target: 192.0.2.2
+      type: tcp
+      port: 80
+      name: "US West IP"
+
+    - target: 192.0.2.6
+      type: http
+      port: 80
+      path: /health
+      expected_status: 200
+      name: "EU Endpoint"
+
+    - target: 192.0.2.23
+      type: http
+      port: 443
+      path: /health
+      expected_status: 200
+      name: "APAC Endpoint"
+
+# Fallback behavior when health check fails
+fallback:
+  enabled: true
+  priority:
+    - default  # Try default zone first
+    - regional # Then try regional
+    - country  # Then try country
+
+# Logging and monitoring
+logging:
+  access_log: /var/log/geodns/access.log
+  query_log: /var/log/geodns/query.log
+
+  # Log format: client_ip country region time query response
+  log_format: "[%s] [%c] [%r] [%t] %q => %a %t"
+
+# Metrics (for Prometheus or similar)
+metrics:
+  enabled: true
+  port: 9090
+  path: /metrics
+
+  # Metrics to export
+  metrics:
+    - queries_total
+    - queries_by_country
+    - queries_by_region
+    - health_check_failures
+    - response_time_ms
+
+# Advanced routing rules
+routing_rules:
+  # VPN/proxy detection (simple heuristic)
+  detect_vpn: false
+
+  # ASN-based routing (more accurate than GeoIP)
+  use_asn: true
+
+  # EDNS Client Subnet support
+  ecs_enabled: true
+  ecs_ipv4_length: 24
+  ecs_ipv6_length: 56
+
+# Response policies
+response_policies:
+  # TTL adjustment based on geography
+  ttl_adjustment:
+    US: 300
+    EU: 600
+    APAC: 900
+
+  # Weighted responses (for load distribution within region)
+  weighted:
+    enabled: false
+    # Uncomment to enable weighted routing
+    # records:
+    #   - name: api
+    #     values:
+    #       - value: 192.0.2.10
+    #         weight: 70
+    #       - value: 192.0.2.11
+    #         weight: 30
+
+# Cache settings
+cache:
+  ttl_min: 60
+  ttl_max: 86400
+
+  # Cache negative responses (NXDOMAIN)
+  negative_cache: true
+  negative_cache_ttl: 300
+
+# Maintenance/debugging
+debug:
+  # Enable debug logging
+  enabled: false
+
+  # Dump config on startup
+  dump_config: false
+
+  # Test queries (for validation)
+  test_queries:
+    - domain: "example.com"
+      from_country: "US"
+      from_region: "us-east-1"
+      expected_result: "192.0.2.1"
+
+    - domain: "example.com"
+      from_country: "DE"
+      expected_result: "192.0.2.4"
+
+    - domain: "api.example.com"
+      from_country: "JP"
+      expected_result: "192.0.2.25"

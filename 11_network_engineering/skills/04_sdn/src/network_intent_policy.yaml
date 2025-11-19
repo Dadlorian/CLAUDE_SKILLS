@@ -1,0 +1,104 @@
+---
+intents:
+  - name: "Ensure Voice Quality"
+    category: "Performance"
+    priority: "CRITICAL"
+    description: "All VoIP traffic must have <50ms latency and <1% loss"
+    
+    business_intent: "Employees must have crystal-clear voice calls"
+    
+    technical_implementation:
+      - application_identification:
+          - app: "Cisco Webex"
+            port: [5004, 5005]
+          - app: "Microsoft Teams"
+            port: [50000-65535]
+      
+      - qos_policy:
+          dscp: "EF"
+          queue: "high"
+          bandwidth_guarantee: "20%"
+          max_latency_ms: 50
+          max_loss_percent: 1
+      
+      - path_selection:
+          preferred: ["MPLS"]
+          fallback: ["Internet"]
+      
+      - monitoring:
+          metrics: ["latency", "jitter", "loss"]
+          interval_seconds: 60
+          alert_threshold:
+            latency: 100
+            loss: 2
+    
+    validation:
+      compliance_check: "enabled"
+      auto_remediation: "enabled"
+      report_frequency: "hourly"
+  
+  - name: "Isolate Finance Network"
+    category: "Security"
+    priority: "CRITICAL"
+    description: "Finance department isolated from other departments"
+    
+    business_intent: "Protect sensitive financial data"
+    
+    technical_implementation:
+      - segmentation:
+          source: "Finance-Department"
+          deny: ["Development", "Guest", "Public"]
+          allow: ["Management", "External-Partners"]
+      
+      - firewall_rules:
+          - action: "ALLOW"
+            source: "Finance"
+            destination: "SAP-Servers"
+            protocol: "TCP"
+            port: [32, 33]
+          
+          - action: "DENY"
+            source: "Finance"
+            destination: "any"
+            description: "Default deny"
+      
+      - encryption:
+          minimum_tls: "1.2"
+          cipher: "AES-256"
+      
+      - logging:
+          all_connections: "enabled"
+          retention_days: 90
+    
+    validation:
+      compliance_framework: "PCI-DSS"
+      audit: "enabled"
+      frequency: "monthly"
+
+  - name: "Optimize Cloud Access"
+    category: "Optimization"
+    priority: "HIGH"
+    description: "Cloud apps routed directly via Internet for performance"
+    
+    business_intent: "Improve user experience for cloud applications"
+    
+    technical_implementation:
+      - application_routing:
+          - app: "Salesforce"
+            route: "internet-direct"
+          - app: "Office365"
+            route: "internet-direct"
+          - app: "Slack"
+            route: "internet-direct"
+      
+      - performance:
+          target_latency_ms: 100
+          target_loss_percent: 0.5
+      
+      - fallback:
+          primary: "Internet"
+          secondary: "MPLS"
+    
+    validation:
+      metrics_tracking: "enabled"
+      recommendation_frequency: "weekly"

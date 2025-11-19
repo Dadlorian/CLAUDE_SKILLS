@@ -1,0 +1,183 @@
+# F5 BIG-IP Health Monitor Configuration
+# Production Health Check Definitions
+# Last Updated: 2025-11-19
+
+# HTTP Health Check Monitor
+create ltm monitor http http_health {
+    # Monitor configuration
+    defaults-from http
+
+    # HTTP Request configuration
+    send "GET /health HTTP/1.1\r\nHost: localhost\r\n\r\n"
+    receive "200 OK"
+
+    # Timeout and interval
+    timeout 3000
+    interval 5000
+
+    # Status thresholds
+    up-interval 0
+    down-interval 0
+
+    # Advanced settings
+    expected-codes "200"
+}
+
+# HTTP API Health Check
+create ltm monitor http http_api_health {
+    defaults-from http
+
+    # API specific health endpoint
+    send "GET /api/v1/health HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n"
+    receive "status.*healthy"
+    receive-disable ""
+
+    timeout 5000
+    interval 10000
+
+    # More lenient on timeouts for API
+    max-retries 2
+}
+
+# TCP Health Check for Database
+create ltm monitor tcp tcp_mysql {
+    defaults-from tcp
+
+    # Simple TCP connection test
+    timeout 3000
+    interval 10000
+}
+
+# TCP Health Check for Redis
+create ltm monitor tcp tcp_redis {
+    defaults-from tcp
+
+    # Redis PING command
+    send "PING\r\n"
+    receive "PONG"
+
+    timeout 2000
+    interval 5000
+}
+
+# HTTP HEAD Health Check (Bandwidth efficient)
+create ltm monitor http http_head_health {
+    defaults-from http
+
+    # Use HEAD instead of GET to reduce bandwidth
+    method head
+    send "HEAD / HTTP/1.1\r\nHost: localhost\r\n\r\n"
+    receive "200"
+
+    timeout 2000
+    interval 5000
+}
+
+# Comprehensive Application Health Check
+create ltm monitor http http_comprehensive {
+    defaults-from http
+
+    # Check multiple dependencies
+    send "GET /health-check?full=true HTTP/1.1\r\nHost: localhost\r\n\r\n"
+
+    # Expect healthy status with dependencies checked
+    receive "database.*ok"
+    receive "cache.*ok"
+    receive "status.*healthy"
+
+    # Strict timeout for comprehensive check
+    timeout 8000
+    interval 30000
+
+    # Database dependency check
+    # Expect string matching multiple conditions
+}
+
+# Custom Health Check with Script
+create ltm monitor http http_advanced {
+    defaults-from http
+
+    # Advanced health check with body parsing
+    send "POST /health HTTP/1.1\r\nHost: localhost\r\nContent-Length: 0\r\n\r\n"
+
+    # Expect JSON response
+    receive '{"status":"healthy"}'
+
+    # Strict checking
+    receive-disable '{"status":"maintenance"}'
+
+    timeout 5000
+    interval 10000
+
+    # Reverse indicator (if string found, mark down)
+    receive-disable '{"status":"unhealthy"}'
+}
+
+# PostgreSQL Database Health Check
+create ltm monitor tcp tcp_postgresql {
+    defaults-from tcp
+
+    # PostgreSQL native connection check
+    timeout 5000
+    interval 10000
+}
+
+# RabbitMQ Health Check
+create ltm monitor tcp tcp_rabbitmq {
+    defaults-from tcp
+
+    # AMQP port
+    send "AMQP\r\n"
+    receive "AMQP"
+
+    timeout 3000
+    interval 10000
+}
+
+# Weighted monitors (use multiple monitors for robustness)
+create ltm monitor http http_multi_check {
+    defaults-from http
+
+    # Primary health check
+    send "GET /health HTTP/1.1\r\nHost: localhost\r\n\r\n"
+    receive "OK"
+
+    # Dependency check
+    receive-disable "MAINTENANCE"
+    receive-disable "DEGRADED"
+
+    timeout 5000
+    interval 5000
+
+    # Aggressive health checking
+    up-interval 10000
+    down-interval 0
+}
+
+# Slow application health check (higher interval)
+create ltm monitor http http_slow_app {
+    defaults-from http
+
+    send "GET /health HTTP/1.1\r\nHost: localhost\r\n\r\n"
+    receive "200"
+
+    # Longer interval for heavy checks
+    timeout 10000
+    interval 60000
+
+    # More tolerance for slow apps
+    max-retries 3
+}
+
+# Load-aware Health Check
+create ltm monitor http http_load_aware {
+    defaults-from http
+
+    # Check if server is overloaded
+    send "GET /health?check_load=true HTTP/1.1\r\nHost: localhost\r\n\r\n"
+    receive "load.*normal"
+    receive-disable "load.*critical"
+
+    timeout 5000
+    interval 10000
+}

@@ -1,0 +1,106 @@
+! Spanning Tree Protocol Optimization Configuration
+! RSTP with multiple VLANs and optimization
+
+hostname Switch-A-Primary-Root
+!
+! Enable RSTP (802.1w)
+spanning-tree mode rapid-pvst
+!
+! ***** Root Bridge Configuration *****
+! Set as primary root for all VLANs
+spanning-tree vlan 1,10,20,30,40 root primary
+!
+! ***** Port Configuration *****
+!
+! Backbone/Trunk Ports
+interface GigabitEthernet0/47
+  description Trunk to Switch-B
+  spanning-tree vlan 1,10,20,30,40 cost 2000
+  spanning-tree vlan 1,10,20,30,40 port-priority 128
+  spanning-tree guard root      ! Root guard prevents rogue root
+  spanning-tree link-type point-to-point
+  no shutdown
+!
+interface GigabitEthernet0/48
+  description Trunk to Switch-C
+  spanning-tree vlan 1,10,20,30,40 cost 4000
+  spanning-tree vlan 1,10,20,30,40 port-priority 192
+  spanning-tree guard root
+  spanning-tree link-type point-to-point
+  no shutdown
+!
+! Access Ports with PortFast
+interface range GigabitEthernet0/1-46
+  spanning-tree portfast
+  spanning-tree bpduguard enable
+  spanning-tree cost 100
+!
+! RSTP Features
+spanning-tree pathcost method long    ! Use modern costs (802.1w)
+spanning-tree vlan 1,10,20,30,40 priority 4096
+spanning-tree vlan 1,10,20,30,40 hello-time 2
+spanning-tree vlan 1,10,20,30,40 forward-time 15
+spanning-tree vlan 1,10,20,30,40 max-age 20
+!
+! Loop Guard and BPDU Guard
+spanning-tree loopguard default
+spanning-tree portfast default
+spanning-tree portfast bpduguard default
+!
+! Monitoring
+spanning-tree bpdu rate-limit
+show spanning-tree
+!
+! ***** Switch-B Configuration (Secondary Root) *****
+! hostname Switch-B-Secondary-Root
+! !
+! spanning-tree mode rapid-pvst
+! spanning-tree vlan 1,10,20,30,40 root secondary
+! !
+! interface GigabitEthernet0/47
+!   description Trunk to Switch-A
+!   spanning-tree vlan 1,10,20,30,40 cost 2000
+!   spanning-tree guard root
+!   spanning-tree link-type point-to-point
+!   no shutdown
+! !
+! interface GigabitEthernet0/48
+!   description Trunk to Switch-C
+!   spanning-tree vlan 1,10,20,30,40 cost 3000
+!   spanning-tree guard root
+!   spanning-tree link-type point-to-point
+!   no shutdown
+! !
+! ***** MSTP Configuration (Alternative for Large Networks) *****
+! !
+! spanning-tree mode mst
+! !
+! spanning-tree mst configuration
+!   name CampusNetwork
+!   revision 1
+!   instance 0 vlan 1,1002-1005
+!   instance 1 vlan 10,20
+!   instance 2 vlan 30,40
+! !
+! spanning-tree mst 0 priority 4096   ! CST
+! spanning-tree mst 1 priority 4096   ! Instance 1 primary
+! spanning-tree mst 2 priority 8192   ! Instance 2 secondary
+! !
+! interface GigabitEthernet0/47
+!   spanning-tree mst 0 cost 100
+!   spanning-tree mst 1 cost 100
+!   spanning-tree mst 2 cost 200
+! !
+! interface GigabitEthernet0/48
+!   spanning-tree mst 0 cost 200
+!   spanning-tree mst 1 cost 200
+!   spanning-tree mst 2 cost 100
+! !
+!
+! Verification Commands:
+! show spanning-tree
+! show spanning-tree summary
+! show spanning-tree vlan 20
+! show spanning-tree interface GigabitEthernet0/47
+! show spanning-tree inconsistency
+! debug spanning-tree bpdu

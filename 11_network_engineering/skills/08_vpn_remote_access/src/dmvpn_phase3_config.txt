@@ -1,0 +1,146 @@
+# DMVPN Phase 3 Configuration (Cisco IOS/IOS-XE)
+# Hub router enabling dynamic spoke-to-spoke communication
+
+! ====================== HUB CONFIGURATION ======================
+
+! Tunnel Interface (mGRE - multipoint GRE)
+interface Tunnel0
+  description DMVPN Hub
+  ip address 172.16.0.1 255.255.255.0
+  ip mtu 1400
+  ip nhrp network-id 100
+  ip nhrp authentication DMVPN-KEY-12345
+  ip nhrp server-only
+  tunnel source GigabitEthernet0/0
+  tunnel mode gre multipoint
+  ! NHRP Redirect for Phase 3
+  ip nhrp redirect
+  no shutdown
+
+! Crypto Configuration
+crypto ikev2 proposal HUB-PROPOSAL
+  encryption aes-256-cbc
+  integrity sha256
+  group 14
+  prf sha256
+
+crypto ikev2 policy 10
+  proposal HUB-PROPOSAL
+
+crypto ikev2 keyring HUB-KEYRING
+  peer 0.0.0.0 0.0.0.0
+    address 0.0.0.0
+    pre-shared-key DMVPN-PSK-12345!
+
+crypto ikev2 profile HUB-PROFILE
+  match identity address 0.0.0.0
+  authentication remote pre-share
+  authentication local pre-share
+  keyring HUB-KEYRING
+  lifetime 28800
+  ipsec-proposal HUB-TRANSFORM
+
+crypto ipsec transform-set HUB-TRANSFORM esp-aes 256 esp-sha-hmac
+  mode tunnel
+
+crypto ipsec profile HUB-IPSEC
+  set transform-set HUB-TRANSFORM
+  set pfs group14
+  set security-association lifetime seconds 3600
+
+! Apply IPsec protection to tunnel
+interface Tunnel0
+  tunnel protection ipsec profile HUB-IPSEC ikev2 HUB-PROFILE
+
+! EIGRP Configuration (Phase 3 feature)
+router eigrp 100
+  eigrp router-id 1.1.1.1
+  network 172.16.0.0 0.0.0.255
+  network 10.0.0.0 0.0.255.255
+  passive-interface default
+  no passive-interface Tunnel0
+  !
+  address-family ipv4 unicast autonomous-system 100
+    af-interface Tunnel0
+      no split-horizon
+      ! Phase 3 Features
+      summary-address 10.0.0.0 255.0.0.0
+      bandwidth 10000
+    exit-af-interface
+  exit-address-family
+
+! BFD for failover detection
+interface Tunnel0
+  ip nhrp holdtime 600
+  ip nhrp registration timeout 600
+  bfd interval 300 min_rx 300 multiplier 3
+
+! ====================== SPOKE CONFIGURATION ======================
+! (Different configuration for branch router)
+
+interface Tunnel0
+  description DMVPN Spoke
+  ip address 172.16.0.101 255.255.255.0
+  ip mtu 1400
+  ip nhrp network-id 100
+  ip nhrp authentication DMVPN-KEY-12345
+  ! Point to hub as NHS (Next Hop Server)
+  ip nhrp nhs 172.16.0.1 multicast
+  ip nhrp registration timeout 600
+  ip nhrp holdtime 600
+  ! Phase 3 - enable shortcuts
+  ip nhrp shortcut eigrp 100
+  tunnel source GigabitEthernet0/0
+  tunnel mode gre multipoint
+  no shutdown
+
+! Same IPsec/Crypto configuration
+crypto ikev2 keyring SPOKE-KEYRING
+  peer 0.0.0.0 0.0.0.0
+    address 0.0.0.0
+    pre-shared-key DMVPN-PSK-12345!
+
+crypto ikev2 profile SPOKE-PROFILE
+  match identity address 0.0.0.0
+  authentication remote pre-share
+  authentication local pre-share
+  keyring SPOKE-KEYRING
+  lifetime 28800
+  ipsec-proposal HUB-TRANSFORM
+
+interface Tunnel0
+  tunnel protection ipsec profile HUB-IPSEC ikev2 SPOKE-PROFILE
+
+! EIGRP (Spoke is stub)
+router eigrp 100
+  eigrp router-id 101.101.101.101
+  network 172.16.0.0 0.0.0.255
+  network 192.168.100.0 0.0.0.255
+  !
+  address-family ipv4 unicast autonomous-system 100
+    af-interface Tunnel0
+      ! Enable shortcut activation based on EIGRP updates
+    exit-af-interface
+
+    af-interface default
+      passive-interface
+    exit-af-interface
+  exit-address-family
+
+  eigrp stub connected summary
+
+! Static Route to Hub (in case EIGRP fails)
+ip route 10.0.0.0 255.0.0.0 172.16.0.1
+
+! ====================== VERIFICATION COMMANDS ======================
+! show ip nhrp summary
+! show ip nhrp cache
+! show crypto ikev2 sa
+! show crypto ipsec sa
+! show ip eigrp neighbors
+! show ip eigrp topology
+! show interface Tunnel0
+! debug ip nhrp
+! debug crypto ikev2 protocol
+! ping 172.16.0.2 (to another spoke)
+! traceroute 192.168.101.1 (should show direct tunnel)

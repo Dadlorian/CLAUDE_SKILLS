@@ -1,0 +1,184 @@
+# F5 BIG-IP Pool Configuration
+# Production Web Application Backends
+# Last Updated: 2025-11-19
+
+# Pool Definition with Load Balancing Configuration
+create ltm pool pool_web_prod {
+    # Load balancing method
+    load-balancing-mode least-connections
+
+    # Health check configuration
+    monitor http_health
+
+    # Member timeout settings
+    timeout connect 5000
+    timeout inactive 300000
+
+    # Connection settings
+    connection-limit 500
+    connection-ratio 0
+
+    # Pool members (backend servers)
+    members {
+        192.168.1.10:80 {
+            # Primary web server
+            address 192.168.1.10
+            port 80
+            priority-group 1
+            connection-limit 200
+            description "Web Server 1 - Primary"
+            state enabled
+        }
+        192.168.1.11:80 {
+            # Secondary web server
+            address 192.168.1.11
+            port 80
+            priority-group 1
+            connection-limit 200
+            description "Web Server 2 - Secondary"
+            state enabled
+        }
+        192.168.1.12:80 {
+            # Tertiary web server
+            address 192.168.1.12
+            port 80
+            priority-group 1
+            connection-limit 200
+            description "Web Server 3 - Tertiary"
+            state enabled
+        }
+    }
+
+    # Allow dynamic pool member control
+    allow-nat enabled
+    allow-snat enabled
+
+    # QoS settings
+    minimum-active-members 2
+}
+
+# Weighted pool for capacity distribution
+create ltm pool pool_web_weighted {
+    load-balancing-mode weighted-round-robin
+    monitor http_health
+
+    members {
+        192.168.1.20:80 {
+            address 192.168.1.20
+            port 80
+            weight 5
+            description "High capacity server (4 CPUs)"
+        }
+        192.168.1.21:80 {
+            address 192.168.1.21
+            port 80
+            weight 3
+            description "Medium capacity server (2 CPUs)"
+        }
+        192.168.1.22:80 {
+            address 192.168.1.22
+            port 80
+            weight 2
+            description "Low capacity server (1 CPU)"
+        }
+    }
+}
+
+# Database connection pool with IP affinity
+create ltm pool pool_mysql_prod {
+    load-balancing-mode source-ip-hash
+    monitor tcp_mysql
+
+    members {
+        192.168.1.30:3306 {
+            address 192.168.1.30
+            port 3306
+            description "MySQL Primary"
+        }
+        192.168.1.31:3306 {
+            address 192.168.1.31
+            port 3306
+            description "MySQL Replica 1"
+        }
+        192.168.1.32:3306 {
+            address 192.168.1.32
+            port 3306
+            description "MySQL Replica 2"
+            state disabled
+        }
+    }
+
+    minimum-active-members 1
+}
+
+# Redis cache pool for session storage
+create ltm pool pool_redis_cache {
+    load-balancing-mode least-connections
+    monitor tcp_redis
+
+    members {
+        192.168.1.40:6379 {
+            address 192.168.1.40
+            port 6379
+            description "Redis Cluster Node 1"
+        }
+        192.168.1.41:6379 {
+            address 192.168.1.41
+            port 6379
+            description "Redis Cluster Node 2"
+        }
+        192.168.1.42:6379 {
+            address 192.168.1.42
+            port 6379
+            description "Redis Cluster Node 3"
+        }
+    }
+}
+
+# API backend pool with custom health check
+create ltm pool pool_api_backend {
+    load-balancing-mode least-connections
+    monitor http_api_health
+
+    members {
+        192.168.1.50:8080 {
+            address 192.168.1.50
+            port 8080
+            description "API Server 1"
+        }
+        192.168.1.51:8080 {
+            address 192.168.1.51
+            port 8080
+            description "API Server 2"
+        }
+    }
+
+    minimum-active-members 1
+}
+
+# Static content CDN backend pool
+create ltm pool pool_cdn_backend {
+    load-balancing-mode round-robin
+    monitor http_head_health
+
+    members {
+        192.168.1.60:80 {
+            address 192.168.1.60
+            port 80
+            weight 3
+            description "CDN Cache Node 1"
+        }
+        192.168.1.61:80 {
+            address 192.168.1.61
+            port 80
+            weight 3
+            description "CDN Cache Node 2"
+        }
+        192.168.1.62:80 {
+            address 192.168.1.62
+            port 80
+            weight 1
+            description "CDN Cache Node 3 (lower capacity)"
+        }
+    }
+}

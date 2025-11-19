@@ -1,0 +1,167 @@
+# Data Center Spine-and-Leaf Topology Configuration
+# Used for: Spine-leaf fabric design
+# Date: November 2025
+# Version: 1.0
+
+spine_leaf_topology:
+  data_center: "DC1-Primary"
+  location: "US-East Region"
+  total_servers: 512
+
+spine_layer:
+  description: "Top of Fabric - Core Aggregation"
+  platform: "Cisco Nexus 9372"
+  count: 32
+
+  spine_switches:
+    - name: "Spine-01"
+      asn: 65000
+      loopback: "10.255.0.1/32"
+      uplinks_per_leaf: 1
+      total_leaf_connections: 64
+      interface_type: "100G QSFP28"
+      total_ports: 48
+
+    - name: "Spine-02"
+      asn: 65000
+      loopback: "10.255.0.2/32"
+      uplinks_per_leaf: 1
+      total_leaf_connections: 64
+      interface_type: "100G QSFP28"
+
+    - name: "Spine-03"
+      asn: 65000
+      loopback: "10.255.0.3/32"
+
+    # ... Spine-04 through Spine-32 follow same pattern
+
+leaf_layer:
+  description: "Pod Aggregation - Server Connectivity"
+  platform: "Cisco Nexus 9396"
+  count: 64
+
+  leaf_switches:
+    - name: "Leaf-01"
+      asn: 65100
+      loopback: "10.255.1.1/32"
+      pod: "Pod-1"
+      rack: "Rack-1"
+      downlink_ports: 48
+      uplink_ports: 32
+      servers_per_leaf: 8
+
+      downlinks:
+        - interface: "Eth1/1-8"
+          speed: "25G"
+          servers:
+            - "Server-1-1"
+            - "Server-1-2"
+            - "Server-1-3"
+            - "Server-1-4"
+            - "Server-1-5"
+            - "Server-1-6"
+            - "Server-1-7"
+            - "Server-1-8"
+
+      uplinks:
+        - interface: "Eth1/49-80"
+          speed: "100G"
+          destination: "All Spines (1-32)"
+          connections: 32
+
+    - name: "Leaf-02"
+      asn: 65100
+      loopback: "10.255.1.2/32"
+      pod: "Pod-1"
+      rack: "Rack-2"
+      servers: ["Server-2-1", "Server-2-2", "...", "Server-2-8"]
+
+    # ... Leaf-03 through Leaf-64 follow same pattern
+
+pod_structure:
+  pod_1:
+    name: "Pod-1 (Tenant-A)"
+    leaves: ["Leaf-1", "Leaf-2", "Leaf-3", "Leaf-4"]
+    servers: 32
+    subnet: "10.1.0.0/20"
+    vlan_range: "1000-1010"
+
+  pod_2:
+    name: "Pod-2 (Tenant-B)"
+    leaves: ["Leaf-5", "Leaf-6", "Leaf-7", "Leaf-8"]
+    servers: 32
+    subnet: "10.1.16.0/20"
+    vlan_range: "1100-1110"
+
+  # ... Pod-3 through Pod-8 follow same pattern
+
+network_design:
+  fabric_type: "Clos (Spine-Leaf)"
+  topology_model: "2-tier"
+
+  bandwidth_calculation:
+    per_leaf_downlinks: 48
+    downlink_speed: "25G"
+    downlink_total: "1200 Gbps"  # 48 × 25G
+
+    per_leaf_uplinks: 32
+    uplink_speed: "100G"
+    uplink_total: "3200 Gbps"  # 32 × 100G
+
+    oversubscription_ratio: "0.375:1"  # Non-blocking (1200/3200)
+
+    total_spine_capacity: "153.6 Tbps"  # 32 × 48 × 100G
+
+routing_configuration:
+  protocol: "BGP"
+  spine_asn: 65000
+  leaf_asn_range: "65100-65199"
+
+  bgp_features:
+    - ecmp_maximum_paths: 32
+    - convergence_time: "<3 seconds"
+    - load_balancing: "per-flow ECMP"
+    - bfd_enabled: true
+    - bfd_detect_multiplier: 3
+
+  interface_addressing:
+    spine_loopback: "10.255.0.0/8"
+    leaf_loopback: "10.255.1.0/8"
+    link_local: "fe80::/10"  # IPv6 link-local (RFC 5549)
+
+    p2p_links:
+      - from: "Leaf-1 Eth1/49"
+        to: "Spine-1 Eth1/1"
+        addressing: "link-local (automatic)"
+
+redundancy:
+  description: "Non-blocking architecture"
+  single_spine_failure: "31/32 spine capacity (96.9%)"
+  single_leaf_failure: "N/A to other leaves (via different spine)"
+
+  failover_time:
+    BGP_convergence: "<3 seconds"
+    BFD_detection: "<1 second"
+
+  availability_target: "99.99%"
+
+traffic_patterns:
+  east_west: "80%"
+  north_south: "15%"
+  backup: "5%"
+
+  typical_flow:
+    source: "Server in Leaf-1 (10.1.0.10)"
+    destination: "Server in Leaf-5 (10.1.16.10)"
+    path: "Leaf-1 → Spine-X (varies per flow) → Leaf-5"
+    hop_count: 2
+    latency_target: "<1ms"
+
+verification_commands:
+  - "show ip bgp summary"
+  - "show ip route summary"
+  - "show interface ethernet 1/49 status"
+  - "show ip bgp neighbors 10.255.0.1"
+  - "show ip route bgp"
+
+# End of Spine-Leaf Topology Configuration

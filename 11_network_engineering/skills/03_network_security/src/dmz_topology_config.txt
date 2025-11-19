@@ -1,0 +1,273 @@
+! DMZ Topology Configuration
+! Multi-Tier Demilitarized Zone Design
+! Production-Grade Enterprise Architecture
+
+! =====================================
+! Network Topology Overview
+! =====================================
+
+! Internet
+!     |
+! [Perimeter Firewall - Outside Interface]
+!     |
+! [DMZ Tier 1 - Web Layer - VLAN 10]
+!   10.1.10.0/24
+!   - Load Balancers (10.1.10.1)
+!   - Web Servers (10.1.10.5-10)
+!     |
+! [Internal Firewall]
+!     |
+! [DMZ Tier 2 - App Layer - VLAN 20]
+!   10.1.20.0/24
+!   - App Servers (10.1.20.5-10)
+!   - Cache Servers (10.1.20.30-35)
+!     |
+! [Database Firewall]
+!     |
+! [Data Tier - Internal - VLAN 30]
+!   10.1.30.0/24
+!   - Database Servers (10.1.30.5-10)
+!   - Backup Systems (10.1.30.20-25)
+
+! =====================================
+! VLAN Configuration
+! =====================================
+
+vlan 10
+ name DMZ_WEB_TIER
+ description Web servers, load balancers, WAF
+
+vlan 20
+ name DMZ_APP_TIER
+ description Application servers, middleware
+
+vlan 30
+ name DATA_TIER
+ description Database servers, internal use
+
+vlan 100
+ name MANAGEMENT
+ description Device management interface
+
+! =====================================
+! Router Configuration (Core Router)
+! =====================================
+
+interface Vlan10
+ ip address 10.1.10.1 255.255.255.0
+ description DMZ Web Tier Gateway
+
+interface Vlan20
+ ip address 10.1.20.1 255.255.255.0
+ description DMZ App Tier Gateway
+
+interface Vlan30
+ ip address 10.1.30.1 255.255.255.0
+ description Data Tier Gateway
+
+! =====================================
+! Firewall Configuration - Web Tier (DMZ 1)
+! =====================================
+
+! Inbound from Internet
+access-list WEB_TIER_INBOUND extended permit tcp any 10.1.10.0 255.255.255.0 eq 80 log
+access-list WEB_TIER_INBOUND extended permit tcp any 10.1.10.0 255.255.255.0 eq 443 log
+access-list WEB_TIER_INBOUND extended permit tcp 10.1.100.0 255.255.255.0 10.1.10.0 255.255.255.0 eq 22 log
+access-list WEB_TIER_INBOUND extended deny ip any 10.1.10.0 255.255.255.0 log
+
+! Outbound to App Tier
+access-list WEB_TO_APP extended permit tcp 10.1.10.0 255.255.255.0 10.1.20.0 255.255.255.0 eq 8080 log
+access-list WEB_TO_APP extended permit tcp 10.1.10.0 255.255.255.0 10.1.20.0 255.255.255.0 eq 8443 log
+access-list WEB_TO_APP extended permit udp 10.1.10.0 255.255.255.0 10.1.50.0 255.255.255.0 eq 53 log
+access-list WEB_TO_APP extended deny ip any any log
+
+! =====================================
+! Firewall Configuration - App Tier (DMZ 2)
+! =====================================
+
+! Inbound from Web Tier
+access-list APP_TIER_INBOUND extended permit tcp 10.1.10.0 255.255.255.0 10.1.20.0 255.255.255.0 eq 8080 log
+access-list APP_TIER_INBOUND extended permit tcp 10.1.10.0 255.255.255.0 10.1.20.0 255.255.255.0 eq 8443 log
+access-list APP_TIER_INBOUND extended permit tcp 10.1.100.0 255.255.255.0 10.1.20.0 255.255.255.0 eq 22 log
+access-list APP_TIER_INBOUND extended deny ip any any log
+
+! Outbound to Data Tier
+access-list APP_TO_DATA extended permit tcp 10.1.20.0 255.255.255.0 10.1.30.0 255.255.255.0 eq 3306 log
+access-list APP_TO_DATA extended permit tcp 10.1.20.0 255.255.255.0 10.1.30.0 255.255.255.0 eq 5432 log
+access-list APP_TO_DATA extended permit tcp 10.1.20.0 255.255.255.0 10.1.30.0 255.255.255.0 eq 1433 log
+access-list APP_TO_DATA extended deny ip any any log
+
+! =====================================
+! Switch Port Configuration
+! =====================================
+
+! Web Tier Ports
+interface FastEthernet0/1
+ description Load Balancer 1
+ switchport mode access
+ switchport access vlan 10
+ switchport port-security
+ switchport port-security mac-address sticky
+
+interface FastEthernet0/2
+ description Load Balancer 2
+ switchport mode access
+ switchport access vlan 10
+ switchport port-security
+ switchport port-security mac-address sticky
+
+interface FastEthernet0/5
+ description Web Server 1
+ switchport mode access
+ switchport access vlan 10
+ switchport port-security
+
+interface FastEthernet0/6
+ description Web Server 2
+ switchport mode access
+ switchport access vlan 10
+ switchport port-security
+
+! App Tier Ports
+interface FastEthernet0/10
+ description App Server 1
+ switchport mode access
+ switchport access vlan 20
+ switchport port-security
+
+interface FastEthernet0/11
+ description App Server 2
+ switchport mode access
+ switchport access vlan 20
+ switchport port-security
+
+interface FastEthernet0/15
+ description Cache Server Cluster
+ switchport mode access
+ switchport access vlan 20
+ switchport port-security
+
+! Data Tier Ports
+interface FastEthernet0/20
+ description Primary Database
+ switchport mode access
+ switchport access vlan 30
+ switchport port-security
+
+interface FastEthernet0/21
+ description Secondary Database
+ switchport mode access
+ switchport access vlan 30
+ switchport port-security
+
+interface FastEthernet0/25
+ description Backup System
+ switchport mode access
+ switchport access vlan 30
+ switchport port-security
+
+! Trunk Ports
+interface GigabitEthernet0/1
+ description Trunk to Core Switch
+ switchport mode trunk
+ switchport trunk allowed vlan 10,20,30,100
+ switchport nonegotiate
+
+! =====================================
+! Load Balancer Configuration (HAProxy)
+! =====================================
+
+# global
+#   log /dev/log local0
+#   log /dev/log local1 notice
+#   chroot /var/lib/haproxy
+#   stats socket /run/haproxy/admin.sock mode 660 level admin
+#   stats timeout 30s
+#   user haproxy
+#   group haproxy
+#   daemon
+
+# defaults
+#   log     global
+#   mode    http
+#   option  httplog
+#   option  dontlognull
+#   timeout connect 5000
+#   timeout client  50000
+#   timeout server  50000
+
+# frontend web_frontend
+#   bind *:80
+#   bind *:443 ssl crt /etc/ssl/certs/server.pem
+#   mode http
+#   option httpchk GET / HTTP/1.1
+#   default_backend web_backend
+
+# backend web_backend
+#   mode http
+#   balance roundrobin
+#   server web1 10.1.10.5:80 check inter 2000 rise 2 fall 5
+#   server web2 10.1.10.6:80 check inter 2000 rise 2 fall 5
+#   server web3 10.1.10.7:80 check inter 2000 rise 2 fall 5
+
+# =====================================
+! IDS/IPS Rule Example (Snort)
+! =====================================
+
+# alert tcp any any -> 10.1.10.0/24 80 (msg:"Web Server Scan"; 
+#   content:"GET";
+#   flow:established,to_server;
+#   classtype:web-application-activity;
+#   sid:1000001; rev:1;)
+
+# alert tcp any any -> 10.1.20.0/24 8080 (msg:"SQL Injection Attempt"; 
+#   content:"union select";
+#   flow:established,to_server;
+#   classtype:web-application-attack;
+#   sid:1000002; rev:1;)
+
+# =====================================
+! Monitoring and Logging
+! =====================================
+
+! Log all inter-tier traffic
+logging 10.1.50.10
+logging facility local3
+logging class access-lists
+logging class default-implementation-level notifications
+
+! =====================================
+! Security Best Practices
+! =====================================
+
+! 1. Each tier is separate VLAN
+! 2. Explicit firewall rules between tiers
+! 3. Default deny all
+! 4. Logging enabled for all traffic
+! 5. DPI/WAF on Web Tier
+! 6. Load balancing for availability
+! 7. Encryption between tiers
+! 8. No direct internet access from internal
+! 9. Regular security audits
+! 10. Incident response procedures
+
+! =====================================
+! Testing and Validation
+! =====================================
+
+! Verify connectivity:
+! ping 10.1.10.5 (from 10.1.20.10)
+! curl http://10.1.10.5:80
+! 
+! Verify firewall rules:
+! show access-lists WEB_TIER_INBOUND
+! show access-lists WEB_TO_APP
+! 
+! Monitor traffic:
+! show ip traffic
+! show ip interface stats
+! 
+! Check VLAN membership:
+! show vlan id 10
+! show vlan id 20
+

@@ -1,0 +1,35 @@
+! 802.1X Port-Based Network Access Control Configuration
+
+aaa new-model
+aaa authentication dot1x default group radius
+aaa authorization network default group radius
+aaa accounting dot1x default start-stop group radius
+
+radius server RADIUS_AUTH
+ address ipv4 10.1.100.10 auth-port 1812 acct-port 1813
+ key SuperSecretRadiusKey123!
+
+radius server RADIUS_AUTH
+ address ipv4 10.1.100.11 auth-port 1812 acct-port 1813
+ key SuperSecretRadiusKey123!
+
+dot1x system-auth-control
+
+interface GigabitEthernet0/0/1
+ description User Port - 802.1X
+ dot1x pae authenticator
+ dot1x port-control auto
+ dot1x reauthentication enable
+ dot1x timeout reauth-period 3600
+ dot1x timeout tx-period 30
+ dot1x timeout quiet-period 60
+ dot1x guest-vlan 999
+ authentication host-mode single-host
+ authentication open
+ authentication order dot1x mab
+
+! Verify
+! show dot1x interface GigabitEthernet0/0/1
+! show authentication sessions
+! show dot1x statistics
+

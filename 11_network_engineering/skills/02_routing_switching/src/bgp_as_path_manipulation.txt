@@ -1,0 +1,178 @@
+! BGP AS-Path Manipulation Configuration
+! AS-path prepending and filtering for traffic engineering
+
+hostname AS65000-Router
+!
+interface Loopback 0
+  ip address 192.168.1.1 255.255.255.255
+!
+! ISP-A link (Primary)
+interface GigabitEthernet0/0
+  description ISP-A Primary
+  ip address 203.0.113.2 255.255.255.0
+  no shutdown
+!
+! ISP-B link (Backup)
+interface GigabitEthernet0/1
+  description ISP-B Backup
+  ip address 198.51.100.2 255.255.255.0
+  no shutdown
+!
+!
+! ***** AS-Path Access Lists for Filtering *****
+!
+! Deny routes with specific AS
+ip as-path access-list 10 deny _65001_
+ip as-path access-list 10 permit .*
+
+! Only accept routes from specific AS (direct customer)
+ip as-path access-list 20 permit _65100$
+ip as-path access-list 20 deny .*
+
+! Deny customer routes that shouldn't transit
+ip as-path access-list 30 deny _65100_65101_  ! Customer to customer
+ip as-path access-list 30 permit .*
+
+!
+! ***** BGP Configuration *****
+!
+router bgp 65000
+  bgp log-neighbor-changes
+
+  neighbor 203.0.113.1 remote-as 65001
+  neighbor 203.0.113.1 description ISP-A-Primary
+  neighbor 203.0.113.1 route-map PRIMARY-POLICY in
+  neighbor 203.0.113.1 route-map ADVERTISE-TO-ISP out
+
+  neighbor 198.51.100.1 remote-as 65002
+  neighbor 198.51.100.1 description ISP-B-Backup
+  neighbor 198.51.100.1 route-map BACKUP-POLICY in
+  neighbor 198.51.100.1 route-map ADVERTISE-TO-ISP out
+
+  address-family ipv4
+    neighbor 203.0.113.1 activate
+    neighbor 203.0.113.1 soft-reconfiguration inbound
+
+    neighbor 198.51.100.1 activate
+    neighbor 198.51.100.1 soft-reconfiguration inbound
+
+    network 10.0.0.0 mask 255.0.0.0
+  exit-address-family
+!
+!
+! ***** Route-Maps for AS-Path Manipulation *****
+!
+! Primary path - accept with higher preference
+route-map PRIMARY-POLICY permit 10
+  match ip address prefix-list INCOMING-ROUTES
+  set local-preference 200
+  ! Prefer primary ISP
+!
+! Backup path - lower preference
+route-map BACKUP-POLICY permit 10
+  match ip address prefix-list INCOMING-ROUTES
+  set local-preference 100
+  ! Backup ISP less preferred
+!
+! Advertise to ISPs with prepending
+route-map ADVERTISE-TO-ISP permit 10
+  match ip address prefix-list OUR-ROUTES
+  set as-path prepend 65000
+  ! Single prepend - customer traffic balanced
+!
+!
+! ***** AS-Path Prepending Examples *****
+!
+! Advertise to backup ISP with extra prepending (discourage use)
+! route-map ADVERTISE-TO-BACKUP out
+!   match ip address prefix-list OUR-ROUTES
+!   set as-path prepend 65000 65000 65000
+!   ! Triple prepend makes path 4 hops longer - avoided unless primary fails
+! !
+!
+! Advertise specific customer route with prepending
+! route-map CUSTOMER-A-POLICY out
+!   match ip address prefix-list CUSTOMER-A-ROUTES
+!   set as-path prepend 65000 65000
+!   ! Customer A traffic discouraged on backup path
+! !
+!
+! ***** Prefix Lists for AS-Path Policies *****
+!
+ip prefix-list INCOMING-ROUTES seq 10 permit 0.0.0.0/0 le 24
+ip prefix-list INCOMING-ROUTES seq 20 deny 0.0.0.0/0 le 32
+
+ip prefix-list OUR-ROUTES seq 10 permit 10.0.0.0/8
+ip prefix-list OUR-ROUTES seq 20 deny 0.0.0.0/0 le 32
+
+ip prefix-list CUSTOMER-A-ROUTES seq 10 permit 192.0.2.0/24
+ip prefix-list CUSTOMER-A-ROUTES seq 20 deny 0.0.0.0/0 le 32
+
+!
+! ***** Advanced AS-Path Manipulation *****
+!
+! Deny customer from advertising internally used prefixes
+! ip as-path access-list 40 deny _10_
+! ip as-path access-list 40 permit .*
+!
+! route-map CUSTOMER-INBOUND in
+!   match as-path 40
+!   deny
+!   ! Block if AS-path contains '10'
+! !
+!
+! Allow only direct customer ASN (prevent transiting)
+! ip as-path access-list 50 permit _65100$
+! ip as-path access-list 50 deny .*
+!
+! route-map CUSTOMER-FILTER in
+!   match as-path 50
+!   permit
+! !
+!
+! ***** Verification Commands *****
+!
+! show ip bgp summary
+! show ip bgp neighbors 203.0.113.1 received-routes
+! ! Shows AS-path prepending
+!
+! show ip bgp 10.0.0.0/8
+! ! Check our route with AS-path
+!
+! show route-map
+! show route-map PRIMARY-POLICY
+! ! View prepending statistics
+!
+! show as-path-access-list
+! show as-path-access-list 10
+!
+! debug ip bgp updates | include AS
+! ! View AS-path changes
+!
+!
+! ***** Best Practices *****
+!
+! 1. Single prepend for slight preference change
+! 2. Triple prepend for significant avoidance
+! 3. Document why each prepending is used
+! 4. Test with ISPs before implementation
+! 5. Monitor actual traffic flow
+! 6. Update prepending if ISP topology changes
+! 7. Don't over-use prepending (can cause issues)
+! 8. Combine with local-preference for internal control
+!
+! ***** Example Scenario *****
+!
+! ISP-A Primary:
+!   Advertised: 10.0.0.0/8 AS-path: 65000
+!   (Single prepend - normal path length)
+!
+! ISP-B Backup:
+!   Advertised: 10.0.0.0/8 AS-path: 65000 65000 65000
+!   (Triple prepend - path appears 4 hops longer)
+!
+! Result:
+! External routers see ISP-A path as shorter (3 ASes vs 4 ASes)
+! Traffic naturally prefers ISP-A
+! If ISP-A fails, traffic uses ISP-B
+!

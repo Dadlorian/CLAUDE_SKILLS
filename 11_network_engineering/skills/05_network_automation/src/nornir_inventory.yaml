@@ -1,0 +1,52 @@
+---
+routers:
+  router1:
+    hostname: 192.168.1.1
+    groups:
+      - routers
+      - cisco
+      - production
+    data:
+      site: dc1
+      device_type: core
+      asn: 65001
+      ospf_process: 1
+
+  router2:
+    hostname: 192.168.1.2
+    groups:
+      - routers
+      - juniper
+      - production
+    data:
+      site: dc2
+      device_type: edge
+      asn: 65001
+      ospf_process: 1
+
+switches:
+  switch1:
+    hostname: 192.168.1.3
+    groups:
+      - switches
+      - cisco
+      - production
+    data:
+      site: dc1
+      device_type: access
+
+routers:
+  username: admin
+  password: password
+  port: 22
+
+switches:
+  username: admin
+  password: password
+  port: 22
+
+cisco:
+  platform: ios
+  
+juniper:
+  platform: junos

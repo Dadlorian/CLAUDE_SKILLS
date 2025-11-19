@@ -1,0 +1,213 @@
+! Multicast PIM Sparse Mode Configuration
+! ISM (Internet Standard Multicast) with Rendezvous Point
+
+hostname Core-Router-RP
+!
+! ***** Multicast Enable *****
+ip multicast-routing
+!
+! ***** IGMP Configuration *****
+!
+interface Vlan 100
+  ip address 10.0.0.1 255.255.255.0
+  ip igmp version 3
+  ip igmp query-interval 60
+  ip igmp query-max-response-time 10
+  no shutdown
+!
+interface Vlan 200
+  ip address 10.1.0.1 255.255.255.0
+  ip igmp version 3
+  ip igmp query-interval 60
+  no shutdown
+!
+interface Vlan 300
+  ip address 10.2.0.1 255.255.255.0
+  ip igmp version 3
+  no shutdown
+!
+! ***** PIM Sparse Mode Configuration *****
+!
+interface Vlan 100
+  ip pim sparse-mode
+!
+interface Vlan 200
+  ip pim sparse-mode
+!
+interface Vlan 300
+  ip pim sparse-mode
+!
+! Loopback for RP (Rendezvous Point)
+interface Loopback 0
+  ip address 192.168.1.100 255.255.255.255
+  ip pim sparse-mode
+!
+! Backbone links to other core routers
+interface GigabitEthernet0/0
+  description Core Link to Router-B
+  ip address 10.3.0.1 255.255.255.0
+  ip pim sparse-mode
+  no shutdown
+!
+interface GigabitEthernet0/1
+  description Core Link to Router-C
+  ip address 10.4.0.1 255.255.255.0
+  ip pim sparse-mode
+  no shutdown
+!
+!
+! ***** Static RP Configuration *****
+!
+! Configure RP address globally
+ip pim rp-address 192.168.1.100 access-list 20
+
+! Define multicast groups managed by this RP
+access-list 20 permit 224.0.0.0 15.255.255.255
+! Matches 224.0.0.0 through 239.255.255.255
+
+!
+! ***** Alternative: Auto-RP (Dynamic RP Election) *****
+!
+! interface Loopback 0
+!   ip pim send-rp-announce Loopback0 scope 32
+!   ! This router is RP candidate
+! !
+!
+! ! On mapping agent (separate router)
+! interface Loopback 0
+!   ip pim send-rp-discovery Loopback0 scope 32
+!   ! Discovers and announces RP
+! !
+!
+! ***** Multicast Source Configuration *****
+!
+interface GigabitEthernet0/2
+  description Video Source
+  ip address 10.5.0.1 255.255.255.0
+  ip pim sparse-mode
+  no shutdown
+!
+!
+! ***** Multicast Routing and Forwarding *****
+!
+! SPT threshold (when to switchover from shared to source tree)
+ip pim spt-threshold 0
+! Switchover immediately - use source tree
+!
+! OR for shared tree emphasis:
+! ip pim spt-threshold infinity
+! Remain on shared tree (RP-based)
+!
+!
+! ***** Multicast Address Allocation *****
+!
+! 239.x.x.x range for organization-local use
+! Example groups:
+!   239.1.1.1 - Video Stream 1
+!   239.1.1.2 - Video Stream 2
+!   239.1.2.1 - Data Feed 1
+!   239.1.2.2 - Data Feed 2
+!
+!
+! ***** MSDP Configuration (Multi-Domain) *****
+!
+! (Only needed if connecting multiple PIM-SM domains)
+!
+! ip msdp peer 10.3.0.2 connect-source Loopback0
+! ! Connect to RP in adjacent domain
+!
+! show ip msdp peer
+! show ip msdp sa
+! ! Source-Active announcements
+!
+!
+! ***** Multicast Monitoring *****
+!
+! show ip multicast
+! show ip multicast summary
+!
+! show ip pim interface
+! show ip pim neighbor
+! show ip pim rp
+! show ip pim rp mapping
+!
+! show ip mroute
+! show ip mroute 239.1.1.1
+! show ip mroute summary
+! show ip mroute count
+!
+! show ip igmp groups
+! show ip igmp interface
+!
+!
+! ***** Receiver Configuration *****
+!
+! hostname Access-Router
+! !
+! interface Vlan 100
+!   ip address 10.0.0.2 255.255.255.0
+!   ip igmp version 3
+!   ip pim sparse-mode
+!   no shutdown
+! !
+!
+! ***** Source Configuration *****
+!
+! hostname Source-Router
+! !
+! interface GigabitEthernet0/0
+!   description Multicast Source
+!   ip address 10.5.0.2 255.255.255.0
+!   ip pim sparse-mode
+!   no shutdown
+! !
+!
+! ***** Multicast Routing Tree Example *****
+!
+! Shared Tree (*, G):
+! Source → RP (192.168.1.100) → Receivers
+!
+! Source Tree (S, G):
+! Source (10.5.0.2) → Receivers (direct)
+!
+! SPT switchover: When traffic rate exceeds threshold
+!
+!
+! ***** Filtering Multicast *****
+!
+! Block specific groups
+! access-list 110 deny ip any 239.1.3.0 0.0.0.255
+! access-list 110 permit ip any any
+!
+! route-map BLOCK-GROUPS
+!   match ip address 110
+!   deny
+! !
+!
+!
+! ***** Debugging Multicast *****
+!
+! debug ip pim
+! debug ip pim detail
+! debug ip pim hello
+!
+! debug ip igmp
+! debug ip mroute
+! debug ip msdp
+!
+! undebug all (or clear debug)
+!
+!
+! ***** Best Practices *****
+!
+! 1. Central RP placement for optimal tree
+! 2. RP redundancy for high-availability
+! 3. Separate control/data plane if large
+! 4. Use SSM (232.x.x.x) when possible
+! 5. Monitor RP load and convergence
+! 6. Document multicast address allocation
+! 7. Filter unnecessary multicast traffic
+! 8. Test convergence on link failures
+! 9. Monitor bandwidth usage
+! 10. Implement QoS for multicast flows
+!

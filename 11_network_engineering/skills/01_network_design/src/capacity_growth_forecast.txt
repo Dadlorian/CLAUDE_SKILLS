@@ -1,0 +1,359 @@
+NETWORK CAPACITY GROWTH FORECAST
+
+Project: Campus Network Design
+Planning Period: 2025-2030 (5 years)
+Date: November 2025
+Version: 1.0
+
+==============================================
+EXECUTIVE SUMMARY
+==============================================
+
+This document forecasts network capacity requirements over 5 years and identifies upgrade timing and costs.
+
+Key Finding: Current design supports growth through Year 4, with major upgrades needed in Year 3-4.
+
+==============================================
+USER GROWTH PROJECTION
+==============================================
+
+Year 0 (2025 - Current):
+  - Total users: 500
+  - Devices (2.5x per user): 1,250
+  - Growth rate: 15% annually (aggressive)
+
+Year 1 (2026):
+  - Total users: 575 (+15%)
+  - Devices: 1,438 (+15%)
+  - Cumulative growth: 15%
+
+Year 2 (2027):
+  - Total users: 661 (+15%)
+  - Devices: 1,653 (+15%)
+  - Cumulative growth: 32%
+
+Year 3 (2028):
+  - Total users: 760 (+15%)
+  - Devices: 1,901 (+15%)
+  - Cumulative growth: 52%
+  - ACTION: Consider additional access switches
+
+Year 4 (2029):
+  - Total users: 874 (+15%)
+  - Devices: 2,186 (+15%)
+  - Cumulative growth: 75%
+  - ACTION: Significant expansion required
+
+Year 5 (2030):
+  - Total users: 1,006 (+15%)
+  - Devices: 2,514 (+15%)
+  - Cumulative growth: 101% (double)
+  - ACTION: Major infrastructure upgrade
+
+==============================================
+BANDWIDTH GROWTH FORECAST
+==============================================
+
+Year 0 (Current):
+  - Peak bandwidth: 850 Mbps
+  - Average bandwidth: 400 Mbps
+  - Utilization trend: Stable
+
+Year 1:
+  - Peak bandwidth: 978 Mbps (+15%)
+  - Average bandwidth: 460 Mbps
+  - Trend: Linear growth
+
+Year 2:
+  - Peak bandwidth: 1,124 Mbps (+15%)
+  - Average bandwidth: 530 Mbps
+  - Trend: Sustained growth
+
+Year 3:
+  - Peak bandwidth: 1,293 Mbps (+15%)
+  - Average bandwidth: 610 Mbps
+  - Utilization: 86% of current 1.5 Gbps capacity
+  - ACTION: Upgrade uplinks from 4x10G to 8x10G
+
+Year 4:
+  - Peak bandwidth: 1,487 Mbps (+15%)
+  - Average bandwidth: 701 Mbps
+  - Utilization: 99% of upgraded capacity
+  - ACTION: Plan for next-generation interfaces (40G minimum)
+
+Year 5:
+  - Peak bandwidth: 1,711 Mbps (+15%)
+  - Average bandwidth: 806 Mbps
+  - Utilization: Full capacity exceeded
+  - ACTION: Major core upgrade required
+
+==============================================
+PORT DENSITY GROWTH
+==============================================
+
+Current State (Year 0):
+  - Access switches deployed: 24
+  - Ports per switch: 48 (total 1,152 ports)
+  - Current utilization: 1,250 devices / 1,152 ports = 108%
+  - Status: Over-capacity, need immediate expansion
+  - ACTION: Add 1-2 switches immediately
+
+Year 1-2 (Gradual Growth):
+  - Added switches: 2 (26 total)
+  - Total ports: 1,248
+  - Devices: 1,438
+  - Utilization: 115%
+  - ACTION: Add additional switch for headroom
+
+Year 3 (Significant Growth):
+  - Added switches: 3 (29 total)
+  - Total ports: 1,392
+  - Devices: 1,901
+  - Utilization: 136%
+  - ACTION: Add 4-6 more switches to reach 35 total (1,680 ports)
+
+Year 4 (Major Expansion):
+  - Added switches: 8 (33 total)
+  - Total ports: 1,584
+  - Devices: 2,186
+  - Utilization: 138%
+  - ACTION: Add 6 more switches (40 total, 1,920 ports)
+
+Year 5 (Full Expansion):
+  - Added switches: 8 (40 total)
+  - Total ports: 1,920
+  - Devices: 2,514
+  - Utilization: 131%
+  - Healthy utilization achieved
+
+Port Addition Schedule:
+  Year 0-1: Add 2 switches (cost: $35,000)
+  Year 1-2: Add 1 switch (cost: $18,000)
+  Year 2-3: Add 4 switches (cost: $72,000)
+  Year 3-4: Add 6 switches (cost: $108,000)
+  Year 4-5: Add 8 switches (cost: $144,000)
+  Total: 21 additional switches over 5 years
+  Total Cost: $377,000
+
+==============================================
+PoE POWER REQUIREMENT GROWTH
+==============================================
+
+Current (Year 0):
+  - IP Phones: 85 devices × 10W = 850W
+  - WiFi APs: 8 devices × 30W = 240W
+  - Cameras (planned): 20 devices × 5W = 100W
+  - Total PoE load: 1,190W
+  - Available per switch: 885W (limit reached)
+  - Status: AT CAPACITY, need external injectors
+
+Year 1-2 Growth:
+  - Additional phones: +13 (98 total, 980W)
+  - Additional APs: +2 (10 total, 300W)
+  - Additional cameras: +10 (30 total, 150W)
+  - Total PoE: 1,430W
+  - Capacity: Exceeded by 545W
+  - Solution: Deploy external PoE injectors for cameras
+
+Year 3 Action:
+  - All phones: 113 (1,130W)
+  - All APs: 12 (360W)
+  - All cameras: 40 (200W)
+  - Printers (PoE): 8 (80W)
+  - Total PoE: 1,770W
+  - Per-switch allocation: 1,770W / 40 switches = 44W per switch
+  - Status: Comfortable headroom now
+  - ACTION: Migrate to larger switches with 1,000W+ PoE
+
+PoE Investment:
+  Year 1: External injectors (6 units × $2,000) = $12,000
+  Year 3: Upgrade switches to 1000W+ models = $50,000 additional
+  Total PoE Cost: $62,000
+
+==============================================
+DISTRIBUTION LAYER SCALING
+==============================================
+
+Current Configuration:
+  - Distribution pairs: 4
+  - Uplinks per pair: 4 × 10G = 40 Gbps
+  - Access capacity per pair: ~600 Gbps aggregate
+  - Utilization: Low (less than 10%)
+
+Year 2 Capacity Check:
+  - Estimated peak: 1,124 Mbps
+  - Per-distribution capacity: 40 Gbps (40,000 Mbps)
+  - Utilization: 2.8% (excellent headroom)
+  - Action: No changes needed
+
+Year 3 Assessment:
+  - Estimated peak: 1,293 Mbps
+  - Distribution capacity adequate
+  - Uplinks: Upgrade to 8 × 10G = 80 Gbps (future-proof)
+  - Cost: $30,000 for transceivers and upgrades
+
+Year 4-5:
+  - Consider upgrading to 25G interface cards
+  - Estimated cost: $100,000+ for major upgrade
+  - Timeline: Plan in Year 3, implement Year 4
+
+==============================================
+CORE LAYER PLANNING
+==============================================
+
+Current Core:
+  - 2 x Catalyst 9500
+  - Throughput: 65 Tbps each
+  - BGP load balancing: 4-way ECMP
+  - Capacity: Sufficient for 10+ years
+
+Year 3-4:
+  - No changes required to core switches
+  - Core is not the bottleneck
+  - Monitor BGP convergence time
+
+Year 5:
+  - Evaluate 400G interface capability
+  - Plan eventual upgrade path
+  - Cost: $150,000-200,000 (deferred to Year 6+)
+
+==============================================
+DATA CENTER CAPACITY
+==============================================
+
+Current Spine-Leaf:
+  - 32 spine switches × 48 ports = 1,536 leaf uplinks
+  - 64 leaf switches × 48 ports = 3,072 server connections
+  - Server capacity: 3,072 maximum
+
+Growth Projection:
+  Year 0: 512 servers (17% utilized)
+  Year 3: 768 servers (25% utilized)
+  Year 5: 1,024 servers (33% utilized)
+
+Scalability:
+  - Design supports 3,072 servers
+  - Current growth path reaches 1,024 servers by Year 5
+  - No changes required until Year 7+
+  - Excellent scalability
+
+==============================================
+WAN CAPACITY GROWTH
+==============================================
+
+Current WAN:
+  - Hub (HQ): 2 × 1 Gbps MPLS + Internet backup = 2 Gbps total
+  - Branches: 100 Mbps per branch (average)
+  - Total: 2 Gbps
+
+Year 1-2 Growth:
+  - Branch additions: +5 sites
+  - Hub utilization: 15% (600 Mbps)
+  - Action: Monitor, no upgrades needed
+
+Year 3 Assessment:
+  - Hub utilization: 22% (880 Mbps)
+  - Branch count: +10 additional sites
+  - Action: Plan Hub upgrade to 3 Gbps (add 1 Gbps)
+
+Year 4:
+  - Hub utilization: 28% (1,120 Mbps)
+  - Action: Implement Hub upgrade (1 Gbps new circuit)
+  - Cost: $2,000-3,000/month (approximately $30,000 total)
+
+Year 5:
+  - Hub utilization: 34% (1,368 Mbps)
+  - Status: Adequate with Year 4 upgrade
+  - Action: Plan additional regional hubs
+
+WAN Investment Summary:
+  Year 3-4: Add 1 Gbps circuit ($30,000)
+  Year 5: Plan additional regional hub ($100,000+ in Year 5-6)
+
+==============================================
+SUMMARY INVESTMENT PLAN
+==============================================
+
+Year 1 (2026):
+  - Access switches: 2 additional ($35,000)
+  - PoE injectors: 6 units ($12,000)
+  - Subtotal: $47,000
+
+Year 2 (2027):
+  - Access switches: 1 additional ($18,000)
+  - Subtotal: $18,000
+
+Year 3 (2028):
+  - Access switches: 4 additional ($72,000)
+  - Distribution uplinks: Upgrade to 8x10G ($30,000)
+  - WAN: Add 1 Gbps circuit ($30,000)
+  - PoE: Switch upgrades to 1000W+ ($50,000)
+  - Subtotal: $182,000
+
+Year 4 (2029):
+  - Access switches: 6 additional ($108,000)
+  - WAN: Regional hub planning ($25,000)
+  - Subtotal: $133,000
+
+Year 5 (2030):
+  - Access switches: 8 additional ($144,000)
+  - Subtotal: $144,000
+
+TOTAL 5-YEAR INVESTMENT: $524,000
+COMBINED WITH INITIAL: $725,000 + $524,000 = $1,249,000
+
+Cost per User (5-year): $1,249,000 / 1,006 users = $1,240/user
+Annual Cost: ~$250,000/year average
+
+==============================================
+RECOMMENDATIONS
+==============================================
+
+1. Immediate (Next 30 days):
+   [ ] Procure 2 additional access switches (inventory)
+   [ ] Plan PoE external injectors (6 units)
+   [ ] Verify building power capacity
+
+2. Year 1 (2026):
+   [ ] Deploy 2 additional access switches
+   [ ] Install external PoE injectors
+   [ ] Baseline current utilization
+   [ ] Forecast review
+
+3. Year 2 (2027):
+   [ ] Deploy 1 additional access switch
+   [ ] Monitor capacity trending
+   [ ] Plan Year 3 upgrades
+
+4. Year 3 (2028):
+   [ ] Deploy 4 access switches
+   [ ] Upgrade distribution uplinks
+   [ ] Add WAN circuit
+   [ ] Upgrade switch PoE capabilities
+
+5. Year 4 (2029):
+   [ ] Deploy 6 access switches
+   [ ] Plan regional WAN hubs
+   [ ] Evaluate core switch upgrade path
+
+6. Year 5 (2030):
+   [ ] Deploy 8 access switches
+   [ ] Final capacity check
+   [ ] Plan Year 5+ expansion
+
+==============================================
+CONCLUSION
+==============================================
+
+The current design provides excellent scalability for the next 3-4 years. Incremental upgrades are planned to accommodate growth. Total 5-year investment of $524,000 maintains network performance and availability throughout the forecast period.
+
+Key milestones:
+- Year 1: Basic expansion
+- Year 3: Significant growth absorption
+- Year 5: Infrastructure ready for next expansion cycle
+
+---
+
+Created: November 2025
+Next Review: Q4 2026 (Annual capacity review)
+Status: Final Forecast

@@ -1,0 +1,220 @@
+# NetFlow Exporter Configuration
+
+## Cisco IOS NetFlow v9 Configuration
+
+# Create flow exporter
+flow exporter PRIMARY_COLLECTOR
+  destination 10.0.0.100
+  source GigabitEthernet0/0
+  transport udp 2055
+  template data timeout 60
+  timeout inactive 15
+  timeout active 300
+  export-protocol netflow-v9
+  option interface-table
+  option application-table
+  option sampler-table
+  !
+
+# Secondary collector for redundancy
+flow exporter SECONDARY_COLLECTOR
+  destination 10.0.0.101
+  source GigabitEthernet0/0
+  transport udp 2055
+  export-protocol netflow-v9
+  !
+
+# Create flow monitor
+flow monitor NETWORK_MONITOR
+  description "Network traffic monitoring"
+  exporter PRIMARY_COLLECTOR
+  exporter SECONDARY_COLLECTOR
+  record netflow ipv4 original-input
+  record netflow ipv4 original-output
+  ! Advanced record with BGP/MPLS info
+  ! record netflow ipv4 extended-routing
+  cache timeout active 300
+  cache timeout inactive 15
+  cache timeout update-timeout 60
+  cache type normal
+  cache entries 1000000
+  sampler RATE_1000
+  !
+
+# Create sampler for high-speed interfaces
+sampler RATE_1000
+  description "1 in 1000 sampling"
+  mode deterministic 1 out-of 1000
+  !
+
+# Apply monitor to interfaces
+interface GigabitEthernet0/0
+  description "Internet Link"
+  ip flow monitor NETWORK_MONITOR input
+  ip flow monitor NETWORK_MONITOR output
+  !
+
+interface GigabitEthernet0/1
+  description "Data Center Link"
+  ip flow monitor NETWORK_MONITOR input
+  ip flow monitor NETWORK_MONITOR output
+  !
+
+# High-speed interface with sampling
+interface TenGigabitEthernet2/0
+  description "Backbone Link"
+  ip flow monitor NETWORK_MONITOR sampler RATE_1000 input
+  ip flow monitor NETWORK_MONITOR sampler RATE_1000 output
+  !
+
+# Verify configuration
+show flow exporter
+show flow monitor NETWORK_MONITOR statistics
+show sampler RATE_1000
+show ip flow interfaces
+
+---
+
+## Cisco IOS-XE Flexible NetFlow
+
+# Define a custom record
+flow record CUSTOM_RECORD
+  description "Custom flow record with BGP data"
+  match ipv4 source address
+  match ipv4 destination address
+  match transport source-port
+  match transport destination-port
+  match transport protocol
+  match interface input
+  match interface output
+  match bgp source as-number
+  match bgp destination as-number
+  collect counter bytes long
+  collect counter packets long
+  collect timestamp absolute first
+  collect timestamp absolute last
+  !
+
+# Create monitor with custom record
+flow monitor CUSTOM_MONITOR
+  description "Custom application monitoring"
+  record CUSTOM_RECORD
+  exporter PRIMARY_COLLECTOR
+  cache timeout active 300
+  cache timeout inactive 15
+  !
+
+# Apply to interface
+interface GigabitEthernet0/0
+  ip flow monitor CUSTOM_MONITOR input
+  ip flow monitor CUSTOM_MONITOR output
+  !
+
+---
+
+## Juniper Junos NetFlow Configuration
+
+forwarding-options {
+    sampling {
+        input {
+            rate 1000;
+            run-length 0;
+        }
+        output {
+            cflowd {
+                local-dump;
+                inline-jflow {
+                    flow-active-timeout 300;
+                    flow-inactive-timeout 15;
+                    template-refresh-rate {
+                        packets 100;
+                        seconds 60;
+                    }
+                }
+            }
+        }
+    }
+}
+
+services {
+    analytics {
+        export {
+            profile NETFLOW_PROFILE {
+                local-address 192.168.1.1;
+                local-port 4739;
+                target-address 10.0.0.100;
+                target-port 2055;
+                target-format netflow-v9;
+                target-version 9;
+                flow-active-timeout 300;
+                flow-inactive-timeout 15;
+                flow-template-timeout 60;
+            }
+        }
+    }
+}
+
+---
+
+## Arista EOS NetFlow Configuration
+
+flow exporter NETFLOW_COLLECTOR
+  ipv4 address 10.0.0.100
+  transport udp 2055
+  source-interface Management1
+  template export timeout 300
+
+flow monitor NETWORK_MONITOR
+  exporter NETFLOW_COLLECTOR
+  cache timeout active 300
+  cache timeout inactive 15
+
+interface GigabitEthernet1/1
+  flow monitor NETWORK_MONITOR input
+  flow monitor NETWORK_MONITOR output
+
+interface GigabitEthernet2/1
+  flow monitor NETWORK_MONITOR input
+  flow monitor NETWORK_MONITOR output
+
+---
+
+## Best Practices
+
+### Collector Configuration
+- Primary + secondary collectors for HA
+- UDP 2055 is standard port
+- Verify network path to collector
+- Monitor collector capacity
+
+### Sampling Strategy
+- 1Gbps link: 1:1000 typical
+- 10Gbps link: 1:10000 typical
+- 100Gbps link: 1:100000 typical
+- Adjust based on collector capacity
+
+### Performance Considerations
+- Cache entries: Based on device capability
+- Active timeout: 300 seconds typical
+- Inactive timeout: 15 seconds typical
+- Review device CPU impact
+
+### Verification Commands
+Cisco:
+  show flow exporter
+  show flow monitor statistics
+  show ip flow interfaces
+
+Juniper:
+  show forwarding-options sampling
+
+Arista:
+  show flow exporter
+  show flow monitor statistics
+
+---
+
+**Configuration Type**: NetFlow Collection
+**Devices**: Cisco IOS/IOS-XE, Juniper Junos, Arista EOS
+**Standard**: NetFlow v9, IPFIX
+**Target**: Flow collector (nProbe, sFlow-RT, etc.)

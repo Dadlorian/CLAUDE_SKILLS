@@ -1,0 +1,163 @@
+! BGP iBGP with Route Reflector Configuration
+! AS 65000 with RR for scalability
+
+! ***** Route Reflector Configuration *****
+hostname Route-Reflector
+!
+interface Loopback 0
+  ip address 192.168.1.100 255.255.255.255
+!
+interface GigabitEthernet0/0
+  description iBGP Interface
+  ip address 10.0.0.100 255.255.255.0
+  no shutdown
+!
+router bgp 65000
+  bgp router-id 192.168.1.100
+
+  ! RR cluster configuration
+  bgp cluster-id 192.168.1.100
+  bgp log-neighbor-changes
+
+  ! iBGP clients (spokes)
+  neighbor 10.0.0.1 remote-as 65000
+  neighbor 10.0.0.1 description Router-A-Client
+  neighbor 10.0.0.1 timers 60 180 180 300
+  neighbor 10.0.0.1 route-reflector-client
+  neighbor 10.0.0.1 soft-reconfiguration inbound
+
+  neighbor 10.0.0.2 remote-as 65000
+  neighbor 10.0.0.2 description Router-B-Client
+  neighbor 10.0.0.2 timers 60 180 180 300
+  neighbor 10.0.0.2 route-reflector-client
+  neighbor 10.0.0.2 soft-reconfiguration inbound
+
+  neighbor 10.0.0.3 remote-as 65000
+  neighbor 10.0.0.3 description Router-C-Client
+  neighbor 10.0.0.3 timers 60 180 180 300
+  neighbor 10.0.0.3 route-reflector-client
+  neighbor 10.0.0.3 soft-reconfiguration inbound
+
+  ! eBGP uplinks (not clients)
+  neighbor 203.0.113.1 remote-as 65001
+  neighbor 203.0.113.1 description ISP-Primary
+
+  neighbor 203.0.113.129 remote-as 65002
+  neighbor 203.0.113.129 description ISP-Backup
+
+  address-family ipv4
+    neighbor 10.0.0.1 activate
+    neighbor 10.0.0.2 activate
+    neighbor 10.0.0.3 activate
+    neighbor 203.0.113.1 activate
+    neighbor 203.0.113.129 activate
+    neighbor 203.0.113.1 soft-reconfiguration inbound
+    neighbor 203.0.113.129 soft-reconfiguration inbound
+
+    redistribute ospf 1
+  exit-address-family
+!
+! ***** Router-A Configuration (RR Client) *****
+! hostname Router-A
+! !
+! interface Loopback 0
+!   ip address 192.168.1.1 255.255.255.255
+! !
+! interface GigabitEthernet0/0
+!   description Connection to RR and sites
+!   ip address 10.0.0.1 255.255.255.0
+!   no shutdown
+! !
+! interface GigabitEthernet0/1
+!   description Local site network
+!   ip address 10.1.0.1 255.255.255.0
+!   no shutdown
+! !
+! router bgp 65000
+!   bgp router-id 192.168.1.1
+!   bgp log-neighbor-changes
+!
+!   ! Only peer with RR (hub-and-spoke)
+!   neighbor 10.0.0.100 remote-as 65000
+!   neighbor 10.0.0.100 description Route-Reflector
+!   neighbor 10.0.0.100 timers 60 180 180 300
+!   neighbor 10.0.0.100 soft-reconfiguration inbound
+!
+!   address-family ipv4
+!     neighbor 10.0.0.100 activate
+!     network 10.1.0.0 mask 255.255.255.0
+!     redistribute ospf 1
+!   exit-address-family
+! !
+! router ospf 1
+!   network 10.1.0.0 0.0.0.255 area 0
+!   network 192.168.1.0 0.0.0.255 area 0
+! !
+! ***** Router-B Configuration (RR Client) *****
+! hostname Router-B
+! !
+! interface Loopback 0
+!   ip address 192.168.1.2 255.255.255.255
+! !
+! interface GigabitEthernet0/0
+!   description Connection to RR
+!   ip address 10.0.0.2 255.255.255.0
+!   no shutdown
+! !
+! interface GigabitEthernet0/1
+!   description Local site network
+!   ip address 10.2.0.1 255.255.255.0
+!   no shutdown
+! !
+! router bgp 65000
+!   bgp router-id 192.168.1.2
+!   bgp log-neighbor-changes
+!
+!   neighbor 10.0.0.100 remote-as 65000
+!   neighbor 10.0.0.100 description Route-Reflector
+!   neighbor 10.0.0.100 timers 60 180 180 300
+!   neighbor 10.0.0.100 soft-reconfiguration inbound
+!
+!   address-family ipv4
+!     neighbor 10.0.0.100 activate
+!     network 10.2.0.0 mask 255.255.255.0
+!     redistribute ospf 1
+!   exit-address-family
+! !
+! ***** Router-C Configuration (RR Client) *****
+! hostname Router-C
+! !
+! interface Loopback 0
+!   ip address 192.168.1.3 255.255.255.255
+! !
+! interface GigabitEthernet0/0
+!   description Connection to RR
+!   ip address 10.0.0.3 255.255.255.0
+!   no shutdown
+! !
+! interface GigabitEthernet0/1
+!   description Local site network
+!   ip address 10.3.0.1 255.255.255.0
+!   no shutdown
+! !
+! router bgp 65000
+!   bgp router-id 192.168.1.3
+!   bgp log-neighbor-changes
+!
+!   neighbor 10.0.0.100 remote-as 65000
+!   neighbor 10.0.0.100 description Route-Reflector
+!   neighbor 10.0.0.100 timers 60 180 180 300
+!   neighbor 10.0.0.100 soft-reconfiguration inbound
+!
+!   address-family ipv4
+!     neighbor 10.0.0.100 activate
+!     network 10.3.0.0 mask 255.255.255.0
+!     redistribute ospf 1
+!   exit-address-family
+! !
+!
+! Verification commands (RR):
+! show ip bgp summary
+! show ip bgp neighbors | include RR
+! show ip bgp cluster-list
+! show ip bgp neighbors 10.0.0.1 advertised-routes

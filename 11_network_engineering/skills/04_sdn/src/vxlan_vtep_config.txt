@@ -1,0 +1,46 @@
+! VXLAN VTEP Configuration (Distributed)
+! Applied to each hypervisor or TOR switch
+
+# Interface configuration for VTEP
+vlan 1001
+ name Production
+ vn-segment 1001
+
+interface nve1
+ no shutdown
+ source-interface Loopback1
+ 
+# Configure for each VNI
+interface nve1
+ member vni 1001
+  mcast-group 224.1.1.1
+ member vni 1002
+  mcast-group 224.1.1.2
+
+# MAC Address Learning
+# Local learning from VXLAN tunnel
+# Remote learning via BGP EVPN (if configured)
+
+# Optional: Suppress ARP
+# Prevent gratuitous ARP from flooding
+arp suppression
+ enable
+
+# Performance tuning
+interface nve1
+ hold-queue 2000 in  ! Increase input queue
+ mtu 1600            ! Support jumbo frames
+
+# Underlay connectivity
+interface Loopback1
+ ip address 10.0.0.1 255.255.255.255
+
+! Route to other VTEP loopbacks
+ip route 10.0.0.2 255.255.255.255 10.1.0.254
+ip route 10.0.0.3 255.255.255.255 10.1.0.254
+
+# Verify commands
+show nve interface
+show nve peers
+show nve vni
+show mac address-table vni 1001

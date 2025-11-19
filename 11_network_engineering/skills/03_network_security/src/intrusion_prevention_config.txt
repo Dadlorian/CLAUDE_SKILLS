@@ -1,0 +1,27 @@
+! Intrusion Prevention System Configuration
+! Inline threat detection and prevention
+
+! Enable IPS service
+threat-defense enable
+
+! Create IPS profile
+class-map type inspect http HTTP_PROFILE
+ match request uri regex "union.*select"
+ match request uri regex "drop.*table"
+
+! Policy for inspection
+policy-map type inspect IPS_POLICY
+ class HTTP_PROFILE
+  inspect
+  drop log
+
+! Apply globally
+service-policy IPS_POLICY global
+
+! Configure signature updates
+threat-defense signature update url http://updates.example.com
+
+! Verify
+! show threat-defense stats
+! show threat-defense status
+! show class-map type inspect

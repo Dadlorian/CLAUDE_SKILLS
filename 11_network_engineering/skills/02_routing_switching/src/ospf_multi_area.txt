@@ -1,0 +1,150 @@
+! OSPF Multi-Area Configuration
+! Large Campus Network with Backbone (Area 0) and Regional Areas
+
+! ***** ABR (Area Border Router) Configuration *****
+hostname ABR-Core
+!
+interface Loopback 0
+  ip address 192.168.1.10 255.255.255.255
+!
+! Backbone Connection
+interface GigabitEthernet0/0
+  description Backbone to Core-Router
+  ip address 10.0.0.10 255.255.255.0
+  ip ospf cost 1
+  no shutdown
+!
+! Area 1 - Building A (Interior Routers)
+interface GigabitEthernet0/1
+  description Area 1 - Building A
+  ip address 10.1.0.1 255.255.255.0
+  ip ospf cost 1
+  no shutdown
+!
+! Area 2 - Building B (Interior Routers)
+interface GigabitEthernet0/2
+  description Area 2 - Building B
+  ip address 10.2.0.1 255.255.255.0
+  ip ospf cost 1
+  no shutdown
+!
+! Area 3 - Stub Area - Branch Office
+interface GigabitEthernet0/3
+  description Area 3 - Stub Area (Branch)
+  bandwidth 5000
+  ip address 10.3.0.1 255.255.255.0
+  ip ospf cost 100
+  no shutdown
+!
+! OSPF Configuration
+router ospf 1
+  router-id 192.168.1.10
+
+  ! Backbone area (Area 0)
+  network 10.0.0.0 0.0.0.255 area 0
+  network 192.168.1.0 0.0.0.255 area 0
+
+  ! Regular areas
+  network 10.1.0.0 0.0.0.255 area 1
+  network 10.2.0.0 0.0.0.255 area 2
+
+  ! Stub area configuration
+  network 10.3.0.0 0.0.0.255 area 3
+  area 3 stub
+
+  ! Passive interface default
+  passive-interface default
+  no passive-interface GigabitEthernet0/0
+  no passive-interface GigabitEthernet0/1
+  no passive-interface GigabitEthernet0/2
+  no passive-interface GigabitEthernet0/3
+
+  ! Inter-area summarization (at ABR)
+  area 1 range 10.1.0.0 255.255.255.0
+  area 2 range 10.2.0.0 255.255.255.0
+  area 3 range 10.3.0.0 255.255.255.0
+
+  ! Authentication
+  area 0 authentication message-digest
+  area 1 authentication message-digest
+  area 2 authentication message-digest
+  area 3 authentication message-digest
+
+  ! Tuning
+  auto-cost reference-bandwidth 10000
+  timers throttle spf 50 200 5000
+  default-information originate metric 100
+!
+! Interface authentication (all areas)
+interface GigabitEthernet0/0
+  ip ospf message-digest-key 1 md5 OSPF_KEY_AREA0
+interface GigabitEthernet0/1
+  ip ospf message-digest-key 1 md5 OSPF_KEY_AREA1
+interface GigabitEthernet0/2
+  ip ospf message-digest-key 1 md5 OSPF_KEY_AREA2
+interface GigabitEthernet0/3
+  ip ospf message-digest-key 1 md5 OSPF_KEY_AREA3
+!
+! ***** Area 1 Interior Router Configuration *****
+!
+! hostname IR-Building-A
+! !
+! interface Loopback 0
+!   ip address 192.168.1.11 255.255.255.255
+! !
+! interface GigabitEthernet0/0
+!   description Connect to ABR
+!   ip address 10.1.0.2 255.255.255.0
+!   no shutdown
+! !
+! interface GigabitEthernet0/1
+!   description Local Building A Network
+!   ip address 10.11.0.1 255.255.255.0
+!   no shutdown
+! !
+! router ospf 1
+!   router-id 192.168.1.11
+!   network 10.1.0.0 0.0.0.255 area 1
+!   network 10.11.0.0 0.0.0.255 area 1
+!   network 192.168.1.0 0.0.0.255 area 1
+!   passive-interface default
+!   no passive-interface GigabitEthernet0/0
+!   no passive-interface GigabitEthernet0/1
+!   area 1 authentication message-digest
+!   auto-cost reference-bandwidth 10000
+! !
+! interface GigabitEthernet0/0
+!   ip ospf message-digest-key 1 md5 OSPF_KEY_AREA1
+! interface GigabitEthernet0/1
+!   ip ospf message-digest-key 1 md5 OSPF_KEY_AREA1
+!
+! ***** Stub Area Router Configuration *****
+!
+! hostname Stub-Branch-Office
+! !
+! interface Loopback 0
+!   ip address 192.168.1.30 255.255.255.255
+! !
+! interface GigabitEthernet0/0
+!   description Connect to ABR (Stub Area)
+!   ip address 10.3.0.2 255.255.255.0
+!   no shutdown
+! !
+! router ospf 1
+!   router-id 192.168.1.30
+!   network 10.3.0.0 0.0.0.255 area 3
+!   network 192.168.1.0 0.0.0.255 area 3
+!   passive-interface default
+!   no passive-interface GigabitEthernet0/0
+!   area 3 stub
+!   auto-cost reference-bandwidth 10000
+! !
+! interface GigabitEthernet0/0
+!   ip ospf message-digest-key 1 md5 OSPF_KEY_AREA3
+!
+! Verification commands:
+! show ip ospf neighbor
+! show ip ospf interface
+! show ip ospf database summary
+! show ip route ospf
+! show ip ospf border-routers

@@ -1,0 +1,266 @@
+# Kubernetes Network Policies using Calico
+# Production-grade network policies for microsegmentation
+
+---
+# Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: production
+  labels:
+    name: production
+    monitoring: "true"
+
+---
+# Default deny all ingress
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: production
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+
+---
+# Default deny all egress
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-egress
+  namespace: production
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+
+---
+# Allow frontend ingress
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-frontend-ingress
+  namespace: production
+spec:
+  podSelector:
+    matchLabels:
+      app: frontend
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: 8080
+
+---
+# Allow frontend egress to API
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-frontend-egress
+  namespace: production
+spec:
+  podSelector:
+    matchLabels:
+      app: frontend
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: api
+    ports:
+    - protocol: TCP
+      port: 8080
+  # DNS
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+      podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+    ports:
+    - protocol: UDP
+      port: 53
+
+---
+# Allow API ingress
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-api-ingress
+  namespace: production
+spec:
+  podSelector:
+    matchLabels:
+      app: api
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: frontend
+    ports:
+    - protocol: TCP
+      port: 8080
+  # Health check port
+  - from:
+    - podSelector: {}
+    ports:
+    - protocol: TCP
+      port: 8090
+
+---
+# Allow API egress
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-api-egress
+  namespace: production
+spec:
+  podSelector:
+    matchLabels:
+      app: api
+  policyTypes:
+  - Egress
+  egress:
+  # To database
+  - to:
+    - podSelector:
+        matchLabels:
+          app: postgres
+    ports:
+    - protocol: TCP
+      port: 5432
+  # To cache
+  - to:
+    - podSelector:
+        matchLabels:
+          app: redis
+    ports:
+    - protocol: TCP
+      port: 6379
+  # DNS
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+      podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+    ports:
+    - protocol: UDP
+      port: 53
+  # External HTTPS
+  - to:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+        except:
+        - 169.254.169.254/32
+    ports:
+    - protocol: TCP
+      port: 443
+
+---
+# Allow database ingress
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-database-ingress
+  namespace: production
+spec:
+  podSelector:
+    matchLabels:
+      app: postgres
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: api
+    ports:
+    - protocol: TCP
+      port: 5432
+
+---
+# Calico Global Network Policy for cluster-wide rules
+apiVersion: projectcalico.org/v3
+kind: GlobalNetworkPolicy
+metadata:
+  name: restrict-external-ips
+spec:
+  selector: all()
+  types:
+  - Egress
+  egress:
+  # Allow internal networks
+  - action: Allow
+    destination:
+      nets:
+      - 10.0.0.0/8
+      - 172.16.0.0/12
+      - 192.168.0.0/16
+  # Allow DNS
+  - action: Allow
+    destination:
+      selector: "k8s-app == coredns"
+    protocol: UDP
+    ports:
+    - 53
+  # Allow HTTPS
+  - action: Allow
+    destination:
+      nets:
+      - 0.0.0.0/0
+    protocol: TCP
+    ports:
+    - 443
+  # Deny everything else
+  - action: Deny
+    destination:
+      nets:
+      - 0.0.0.0/0
+
+---
+# Calico NetworkPolicy with advanced features
+apiVersion: projectcalico.org/v3
+kind: NetworkPolicy
+metadata:
+  name: advanced-api-policy
+  namespace: production
+spec:
+  selector: 'app == "api"'
+  order: 10
+  ingress:
+  - action: Allow
+    from:
+    - selector: 'app == "frontend"'
+    protocol: TCP
+    destination:
+      ports:
+      - 8080
+      - 8081
+  - action: Log
+    from:
+    - selector: 'app == "monitoring"'
+    protocol: TCP
+    destination:
+      ports:
+      - 9090
+  egress:
+  - action: Allow
+    to:
+    - selector: 'app == "postgres"'
+    protocol: TCP
+    destination:
+      ports:
+      - 5432

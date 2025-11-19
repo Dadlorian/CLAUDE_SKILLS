@@ -1,0 +1,25 @@
+! DHCP Snooping Configuration
+! Prevent Rogue DHCP Servers
+
+ip dhcp snooping
+ip dhcp snooping vlan 10,20,50,100
+
+! Trusted ports (where DHCP servers are located)
+interface GigabitEthernet0/48
+ description Link to DHCP Server
+ ip dhcp snooping trust
+
+! Client ports (user access)
+interface FastEthernet0/1
+ description User Access Port
+ ip dhcp snooping limit rate 15
+ ip dhcp snooping decline on nack from server
+
+! Verify configuration
+! show ip dhcp snooping
+! show ip dhcp snooping binding
+! show ip dhcp snooping statistics
+
+! Logging
+logging host 10.1.50.10 facility LOCAL3
+logging class dhcp-snooping

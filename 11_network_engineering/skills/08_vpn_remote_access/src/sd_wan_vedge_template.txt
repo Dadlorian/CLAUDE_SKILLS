@@ -1,0 +1,213 @@
+# Cisco SD-WAN (Viptela) Edge Device Template Configuration
+# Branch device - connects to SD-WAN fabric
+
+system
+ host-name branch-001
+ system-ip 192.168.1.1
+ site-id 100
+ admin-tech-on-failure
+ enable-module-loader
+ timezone UTC
+ ntp
+  server 10.0.0.1 prefer
+  server 8.8.8.8
+ !
+exit
+
+logging
+ disk
+  enable
+ !
+ server 10.0.0.100
+  priority information
+ !
+exit
+
+# VPN 0 - Transport plane (public/internet)
+vpn 0
+ interface eth0
+  ip address 203.0.113.100 255.255.255.0
+  tunnel-interface
+   encapsulation ipsec
+   color public-internet
+   restrict
+  !
+  no shutdown
+ !
+ interface eth1
+  ip address 209.0.113.100 255.255.255.0
+  tunnel-interface
+   encapsulation ipsec
+   color public-internet
+   carrier-class
+  !
+  no shutdown
+ !
+ ip route 0.0.0.0/0 203.0.113.1
+ ip route 0.0.0.0/0 209.0.113.1
+exit
+
+# VPN 512 - Management
+vpn 512
+ ip route 0.0.0.0/0 203.0.113.1
+exit
+
+# VPN 1-1000 - Data VPNs (corporate traffic)
+vpn 1
+ interface eth2
+  ip address 10.100.1.1 255.255.255.0
+  mtu 1500
+  no shutdown
+ !
+ ip route 0.0.0.0/0 10.100.1.254
+ ip route 10.0.0.0/8 10.100.1.254
+ ip route 192.168.0.0/16 10.100.1.254
+exit
+
+omp
+ send-path-limit 4
+ ecmp-limit 4
+ graceful-restart
+ advertise aggregate
+ graceful-restart-timer 600
+ eor-timer 300
+exit
+
+security
+ ipsec
+  authentication-type sha1-hmac sha2-hmac
+  integrity-type esp-sha1-hmac esp-sha2-256-hmac esp-sha2-512-hmac
+  encryption-type esp-aes-128-cbc esp-aes-192-cbc esp-aes-256-cbc esp-aes-128-gcm esp-aes-256-gcm
+  pairwise-keying
+ !
+exit
+
+device-specific
+ vedge
+  aaa
+   auth-order local radius tacacs
+   userdb
+    user admin
+     password encrypted Openvapp1234567
+     privilege 15
+    !
+   !
+  !
+ !
+ vedge
+  aaa
+   userdb
+    user netadmin
+     password encrypted MySecurePass123
+     privilege 15
+    !
+   !
+  !
+ !
+exit
+
+policy
+ app-route-policy BRANCH-POLICY
+  sequence 10
+   match
+    app-list critical-apps
+   !
+   action
+    count
+    set
+     tloc 203.0.113.100 color public-internet preference 1
+     tloc 209.0.113.100 color public-internet preference 2
+    !
+   !
+  !
+  sequence 20
+   action
+    count
+    set
+     tloc 203.0.113.100 color public-internet preference 1
+    !
+   !
+  !
+ !
+exit
+
+service
+ bgp 65001
+  address-family ipv4
+   network 10.100.0.0/16
+  !
+  neighbor 10.0.0.1
+   remote-as 65000
+   address-family ipv4
+   !
+  !
+  neighbor 10.0.0.2
+   remote-as 65000
+   address-family ipv4
+   !
+  !
+ !
+exit
+
+# QoS Configuration
+class-map CRITICAL
+ match access-group 101
+!
+class-map BUSINESS
+ match access-group 102
+!
+policy-map BRANCH-QOS
+ class CRITICAL
+  priority level 1
+ !
+ class BUSINESS
+  priority level 2
+ !
+ class class-default
+  fair-queue
+ !
+!
+
+interface eth2
+ service-policy output BRANCH-QOS
+!
+
+# Application List
+app-list critical-apps
+ app SAP
+ app Oracle
+ app SQL-Server
+!
+
+app-list business-apps
+ app Office-365
+ app Salesforce
+ app WebEx
+!
+
+# Device Configuration
+system
+ settings
+  collect-omp-metrics
+  vmanage-server 10.0.0.1
+  vbond-server 203.0.113.10
+  organization-name CompanyName
+  sp-organization-name CompanyName
+  admin-technology-password Openvapp1234567
+ !
+!
+
+# Interfaces Summary:
+# eth0: MPLS transport (color: mpls)
+# eth1: Internet DIA transport (color: public-internet)
+# eth2: Local LAN interface (VPN 1)
+# eth3: Optional LTE backup (color: lte)
+
+# Verification:
+# show omp peers
+# show interface eth0/eth1
+# show system status
+# show running-config
+# show crypto ikev2 sa
+# show app-route stats
+

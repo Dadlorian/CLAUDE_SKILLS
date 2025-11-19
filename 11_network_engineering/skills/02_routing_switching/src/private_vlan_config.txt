@@ -1,0 +1,274 @@
+! Private VLAN (PVLAN) Configuration
+! Layer 2 isolation within VLAN - Cisco proprietary
+
+hostname PVLAN-Switch
+!
+! ***** Private VLAN Types *****
+!
+! Primary VLAN:   Main VLAN providing connectivity
+! Isolated VLAN:  Cannot communicate with other hosts (except promiscuous)
+! Community VLAN: Limited communication within community
+!
+!
+! ***** PVLAN Configuration Example: Server Hosting *****
+!
+! Primary VLAN 100
+vlan 100
+  name Primary-VLAN
+  private-vlan primary
+!
+! Isolated VLAN 101 (servers can't talk to each other)
+vlan 101
+  name Isolated-VLAN
+  private-vlan isolated
+!
+! Community VLAN 102 (servers can talk within community)
+vlan 102
+  name Community-VLAN
+  private-vlan community
+!
+! Community VLAN 103 (second community)
+vlan 103
+  name Community-VLAN-2
+  private-vlan community
+!
+! Associate secondary VLANs with primary
+vlan 100
+  private-vlan association 101,102,103
+!
+!
+! ***** Port Configuration *****
+!
+! Isolated Host Port (server in isolated VLAN)
+interface GigabitEthernet0/1
+  description Isolated Server 1
+  switchport mode private-vlan host
+  switchport private-vlan host-association 100 101
+  ! Primary VLAN 100, secondary VLAN 101 (isolated)
+  spanning-tree portfast
+  no shutdown
+!
+interface GigabitEthernet0/2
+  description Isolated Server 2
+  switchport mode private-vlan host
+  switchport private-vlan host-association 100 101
+  ! Same isolated VLAN - cannot communicate with Gi0/1
+  spanning-tree portfast
+  no shutdown
+!
+! Community Host Ports (servers can talk within group)
+interface GigabitEthernet0/3
+  description Community Server A1
+  switchport mode private-vlan host
+  switchport private-vlan host-association 100 102
+  ! Primary VLAN 100, secondary VLAN 102 (community)
+  spanning-tree portfast
+  no shutdown
+!
+interface GigabitEthernet0/4
+  description Community Server A2
+  switchport mode private-vlan host
+  switchport private-vlan host-association 100 102
+  ! Same community VLAN - CAN communicate with Gi0/3
+  spanning-tree portfast
+  no shutdown
+!
+interface GigabitEthernet0/5
+  description Community Server B1
+  switchport mode private-vlan host
+  switchport private-vlan host-association 100 103
+  ! Different community VLAN - cannot communicate with community 102
+  spanning-tree portfast
+  no shutdown
+!
+! Promiscuous Port (gateway/router)
+interface GigabitEthernet0/48
+  description Gateway/Router
+  switchport mode private-vlan promiscuous
+  switchport private-vlan mapping 100 101,102,103
+  ! Can communicate with all (primary and all secondary VLANs)
+  no shutdown
+!
+!
+! ***** Inter-Switch PVLAN Communication *****
+!
+! Trunk port (transparent for PVLAN)
+interface GigabitEthernet0/47
+  description Trunk to Switch-B
+  switchport mode trunk
+  switchport trunk encapsulation dot1q
+  switchport trunk allowed vlan 100,101,102,103
+  ! All PVLAN VLANs must be on trunk
+  no shutdown
+!
+! On Switch-B, configure same PVLANs
+! vlan 100
+!   private-vlan primary
+! vlan 101
+!   private-vlan isolated
+! vlan 100
+!   private-vlan association 101,102,103
+!
+!
+! ***** Promiscuous Port Configuration *****
+!
+! Promiscuous port requirements:
+! 1. Connected to router/gateway
+! 2. Has IP in primary VLAN
+! 3. Receives all traffic from primary + secondary VLANs
+! 4. Can send traffic to all VLANs
+
+interface Vlan 100
+  description Primary VLAN
+  ip address 10.0.0.1 255.255.255.0
+  ip helper-address 10.0.0.254
+  ! DHCP relay to DHCP server
+  no shutdown
+!
+!
+! ***** PVLAN Use Cases *****
+!
+! 1. Server Hosting
+!    - Servers cannot see each other
+!    - All servers see gateway
+!    - Prevents inter-server attacks
+!
+! 2. Multi-tenant Hosting
+!    - Communities separate customers
+!    - Customers can't access each other
+!    - ISP gateway provides uplink
+!
+! 3. Medical Facility
+!    - Private room networks (isolated)
+!    - Shared resources community
+!    - Administration promiscuous
+!
+! 4. Government/Military
+!    - Classified (isolated)
+!    - Unclassified (community)
+!    - Secure gateway (promiscuous)
+!
+!
+! ***** Traffic Flow Examples *****
+!
+! Gi0/1 (Isolated 101) → Gi0/2 (Isolated 101):
+!   Blocked (different isolation instances)
+!
+! Gi0/1 (Isolated 101) → Gi0/48 (Promiscuous):
+!   Allowed (isolated can reach promiscuous)
+!
+! Gi0/3 (Community 102) → Gi0/4 (Community 102):
+!   Allowed (same community)
+!
+! Gi0/3 (Community 102) → Gi0/5 (Community 103):
+!   Blocked (different communities)
+!
+! Gi0/3 (Community 102) → Gi0/48 (Promiscuous):
+!   Allowed (community can reach promiscuous)
+!
+! Gi0/48 (Promiscuous) → All:
+!   Allowed (promiscuous can reach all)
+!
+!
+! ***** Verification Commands *****
+!
+! show vlan private-vlan
+! Display PVLAN configuration and associations
+
+! show vlan private-vlan type
+! Show PVLAN type (primary/secondary)
+
+! show interfaces switchport private-vlan
+! Port-level PVLAN configuration
+
+! show interfaces Gi0/1 switchport
+! Check port mode and associations
+!
+!
+! ***** Limitations *****
+!
+! - Cisco proprietary (not standards-based)
+! - Limited to Layer 2
+! - Requires support across all switches
+! - Cannot be extended via VTP
+! - Only works on VLAN-capable switches
+!
+!
+! ***** Comparison: PVLAN vs VLAN ACL *****
+!
+! PVLAN:
+!   - Hardware-based (fast)
+!   - Transparent (no IP configuration)
+!   - More granular control
+!   - Not scalable to many groups
+!
+! VLAN ACL:
+!   - Software-based (slower)
+!   - Requires IP configuration
+!   - Flexible rule sets
+!   - Scales to more policies
+!
+!
+! ***** Alternative: 802.1X with Dynamic VLAN *****
+!
+! Instead of static PVLAN, use dynamic VLAN assignment
+! interface GigabitEthernet0/1
+!   authentication port-control auto
+!   dot1x pae authenticator
+! !
+!
+! RADIUS server assigns VLAN based on authentication
+! More flexible but more complex
+!
+!
+! ***** Best Practices *****
+!
+! 1. Plan PVLAN design carefully (immutable once set)
+! 2. Document associations clearly
+! 3. Test on one switch first
+! 4. Promiscuous ports should be routers
+! 5. Use DHCP relay on promiscuous for DHCP
+! 6. Monitor for unexpected traffic flows
+! 7. Combine with port security
+! 8. Document security implications
+! 9. Train support staff on configuration
+! 10. Consider future growth needs
+!
+!
+! ***** Example: Healthcare Facility *****
+!
+! vlan 1000
+!   private-vlan primary
+! !
+! vlan 1001
+!   private-vlan isolated     ! Isolated rooms
+! vlan 1002
+!   private-vlan isolated     ! Isolation ward
+! vlan 1003
+!   private-vlan community    ! Shared services (printer, etc)
+! !
+! vlan 1000
+!   private-vlan association 1001,1002,1003
+! !
+!
+! ! Patient rooms (isolated)
+! interface Gi0/1-20
+!   switchport private-vlan host-association 1000 1001
+! !
+!
+! ! Isolation ward
+! interface Gi0/21-30
+!   switchport private-vlan host-association 1000 1002
+! !
+!
+! ! Printers/shared resources
+! interface Gi0/31-40
+!   switchport private-vlan host-association 1000 1003
+! !
+!
+! ! Administrative gateway
+! interface Gi0/48
+!   switchport private-vlan promiscuous
+!   switchport private-vlan mapping 1000 1001,1002,1003
+! !
+!

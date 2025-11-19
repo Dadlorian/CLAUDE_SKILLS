@@ -1,0 +1,96 @@
+---
+sd_wan_policies:
+  site_definition:
+    site_id: 100
+    site_type: hub
+    hostname: dc-vedge-1
+
+  transport_links:
+    - interface: ge0/1
+      color: mpls
+      preference: 1
+      restricted: false
+      description: "Primary MPLS Link"
+    
+    - interface: ge0/2
+      color: internet
+      preference: 2
+      restricted: false
+      description: "Backup Internet Link"
+    
+    - interface: ge0/3
+      color: 4g
+      preference: 3
+      restricted: true
+      description: "4G Emergency Fallback"
+
+  traffic_policies:
+    - name: "Select-Best-Path"
+      rules:
+        - rule_id: 10
+          match:
+            application: salesforce
+          action:
+            prefer_color: internet
+            failover: [internet, mpls]
+          
+        - rule_id: 20
+          match:
+            application: voice
+          action:
+            prefer_color: mpls
+            failover: [mpls, internet]
+            dscp: EF
+        
+        - rule_id: 30
+          match:
+            application: video
+          action:
+            prefer_color: mpls
+            failover: [mpls, internet]
+            dscp: AF41
+
+  qos_policies:
+    - class: real-time
+      applications: [skype, teams, zoom]
+      queue: high
+      bandwidth_allocation: 20%
+      loss_tolerance: low
+    
+    - class: transactional
+      applications: [http, https, smtp]
+      queue: standard
+      bandwidth_allocation: 50%
+      loss_tolerance: medium
+    
+    - class: bulk
+      applications: [ftp, backup, p2p]
+      queue: low
+      bandwidth_allocation: best-effort
+      loss_tolerance: high
+
+  firewall_policies:
+    - rule_id: 1
+      action: allow
+      source: internal-users
+      destination: internet
+    
+    - rule_id: 2
+      action: allow
+      source: branch-sites
+      destination: data-center
+    
+    - rule_id: 100
+      action: deny
+      source: any
+      destination: any
+      description: "Default deny"
+
+  monitoring:
+    enabled: true
+    telemetry_interval: 60
+    metrics:
+      - link_latency
+      - jitter
+      - packet_loss
+      - bandwidth_usage

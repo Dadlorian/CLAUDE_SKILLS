@@ -1,0 +1,118 @@
+! VRRP (Virtual Router Redundancy Protocol) Configuration
+! Standards-based gateway redundancy (RFC 5798)
+
+! ***** Primary Router (Master) *****
+hostname Router-Primary
+!
+interface GigabitEthernet0/0
+  description Campus Interface
+  ip address 10.0.0.10 255.255.255.0
+  no shutdown
+!
+! VRRP for Building A Network
+interface Vlan 100
+  ip address 10.1.0.1 255.255.255.0
+  vrrp 1 ip 10.1.0.254
+  vrrp 1 priority 200                ! Higher priority = master
+  vrrp 1 timers advertise 1
+  vrrp 1 timers learn
+  vrrp 1 track 1 decrement 20        ! Decrement on link failure
+  no shutdown
+!
+! VRRP for Building B Network
+interface Vlan 200
+  ip address 10.2.0.1 255.255.255.0
+  vrrp 2 ip 10.2.0.254
+  vrrp 2 priority 200
+  vrrp 2 timers advertise 1
+  no shutdown
+!
+! ***** Backup Router (Backup) *****
+! hostname Router-Backup
+! !
+! interface GigabitEthernet0/0
+!   description Campus Interface
+!   ip address 10.0.0.11 255.255.255.0
+!   no shutdown
+! !
+! interface Vlan 100
+!   ip address 10.1.0.2 255.255.255.0
+!   vrrp 1 ip 10.1.0.254
+!   vrrp 1 priority 100               ! Lower priority = backup
+!   vrrp 1 timers advertise 1
+!   vrrp 1 timers learn
+!   no shutdown
+! !
+! interface Vlan 200
+!   ip address 10.2.0.2 255.255.255.0
+!   vrrp 2 ip 10.2.0.254
+!   vrrp 2 priority 100
+!   vrrp 2 timers advertise 1
+!   no shutdown
+! !
+!
+! ***** IPv6 VRRP Configuration *****
+!
+! interface Vlan 300
+!   ip address 10.3.0.1 255.255.255.0
+!   ipv6 address 2001:db8:1::1/64
+!
+!   vrrp 3 ip 10.3.0.254
+!   vrrp 3 priority 200
+!
+!   vrrp 300 ipv6 2001:db8:1::254
+!   vrrp 300 priority 200
+!   no shutdown
+! !
+!
+! ***** Object Tracking for Automatic Failover *****
+!
+track 1 interface GigabitEthernet0/0 line-protocol
+  ! Track if uplink is up
+!
+track 2 ip routing 10.0.0.0 255.0.0.0
+  ! Track if route to upstream exists
+!
+track 3 list boolean and
+  object 1
+  object 2
+  ! Both conditions must be true
+!
+interface Vlan 100
+  vrrp 1 track 3 decrement 30
+  ! Reduce priority by 30 if link down
+!
+!
+! Verification Commands (on Primary):
+! show vrrp
+! show vrrp brief
+! show vrrp interface Vlan 100
+! show vrrp summary
+!
+! show track
+! show track 1
+!
+! debug vrrp events
+! debug vrrp packets
+!
+!
+! Configuration Notes:
+! - VRRP preemption is enabled by default (unlike HSRP)
+! - Advertisement interval default: 1 second
+! - Master down interval: 3 × advertisement + skew time
+! - Virtual MAC: 0000.5e00.01XX (XX = VRRP group ID)
+! - Multicast address: 224.0.0.18
+! - RFC 5798 version recommended
+!
+! Failover Behavior:
+! 1. Primary sends advertisements
+! 2. Backup waits for advertisements
+! 3. If primary fails, backup becomes master in ~3 seconds
+! 4. When primary recovers, it may become master again (preemption)
+! 5. No preemption can be disabled (if needed for load balancing)
+!
+! Multi-vendor deployment (VRRP advantage over HSRP):
+! - Supports multiple vendors (standard protocol)
+! - Easier in heterogeneous networks
+! - RFC 5798 ensures compatibility
+!

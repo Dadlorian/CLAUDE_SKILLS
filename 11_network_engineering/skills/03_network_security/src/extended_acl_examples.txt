@@ -1,0 +1,227 @@
+! Extended ACL Examples
+! Production-Grade Network Security Rules
+
+! =====================================
+! Example 1: User to Web Server Access
+! =====================================
+
+object-group network USER_VLANS
+ network-object 10.1.10.0 255.255.255.0
+ network-object 10.1.11.0 255.255.255.0
+
+object-group network WEB_SERVERS
+ network-object host 10.1.50.5
+ network-object host 10.1.50.6
+ network-object host 10.1.50.7
+
+object-group service WEB_PORTS tcp
+ port-object eq 80
+ port-object eq 443
+ port-object eq 8080
+
+ip access-list extended ALLOW_WEB_ACCESS
+ 10 permit tcp object-group USER_VLANS object-group WEB_SERVERS object-group WEB_PORTS log
+ 20 deny tcp object-group USER_VLANS object-group WEB_SERVERS log
+ 30 permit ip any any
+
+interface FastEthernet0/1
+ ip access-group ALLOW_WEB_ACCESS in
+
+! =====================================
+! Example 2: Restrict Database Access
+! =====================================
+
+object-group network APP_SERVERS
+ network-object 10.1.20.5
+ network-object 10.1.20.6
+ network-object 10.1.20.7
+
+object-group network DB_SERVERS
+ network-object 10.1.30.5
+ network-object 10.1.30.6
+
+object-group service DB_PORTS tcp
+ port-object eq 3306
+ port-object eq 5432
+ port-object eq 1433
+
+ip access-list extended RESTRICT_DB_ACCESS
+ 10 permit tcp object-group APP_SERVERS object-group DB_SERVERS object-group DB_PORTS log
+ 20 deny tcp any object-group DB_SERVERS eq 3306 log
+ 30 deny tcp any object-group DB_SERVERS eq 5432 log
+ 30 deny tcp any object-group DB_SERVERS eq 1433 log
+ 40 permit ip any any
+
+interface Vlan30
+ ip access-group RESTRICT_DB_ACCESS in
+
+! =====================================
+! Example 3: Management Access Only
+! =====================================
+
+object-group network ADMIN_SOURCES
+ network-object 10.1.100.0 255.255.255.0
+ description Management Network
+
+object-group service SSH_RDP tcp
+ port-object eq 22
+ port-object eq 3389
+
+ip access-list extended ADMIN_ONLY
+ 10 permit tcp object-group ADMIN_SOURCES any object-group SSH_RDP log
+ 20 deny tcp any any eq 22 log
+ 30 deny tcp any any eq 3389 log
+ 40 permit ip any any
+
+interface GigabitEthernet0/1
+ ip access-group ADMIN_ONLY in
+
+! =====================================
+! Example 4: DMZ to Internal Filtering
+! =====================================
+
+ip access-list extended DMZ_TO_INTERNAL
+ 10 permit tcp host 10.1.10.5 host 10.1.20.10 eq 8080 log
+ 20 permit tcp host 10.1.10.6 host 10.1.20.10 eq 8080 log
+ 30 permit tcp any host 10.1.20.10 eq 8080 log
+ 40 permit icmp any 10.1.1.0 255.255.255.0 log
+ 50 permit udp any any eq 53 log
+ 60 permit udp any any eq 123 log
+ 70 deny tcp host 10.1.10.5 any eq 3306 log
+ 80 deny tcp any 10.1.30.0 255.255.255.0 log
+ 90 permit ip any any
+
+! =====================================
+! Example 5: Deny Specific Applications
+! =====================================
+
+ip access-list extended BLOCK_DANGEROUS_APPS
+ 10 deny tcp any any eq 23 log   ! Telnet
+ 20 deny tcp any any eq 21 log   ! FTP
+ 30 deny tcp any any eq 513 log  ! rlogin
+ 40 deny tcp any any eq 514 log  ! rsh
+ 50 deny tcp any any eq 139 log  ! NetBIOS
+ 60 deny tcp any any eq 445 log  ! SMB
+ 70 deny udp any any eq 137 log  ! NetBIOS
+ 80 deny udp any any eq 138 log  ! NetBIOS
+ 90 deny udp any any eq 139 log  ! NetBIOS
+ 100 permit ip any any
+
+! =====================================
+! Example 6: Egress Filtering
+! =====================================
+
+ip access-list extended OUTBOUND_CONTROL
+ 10 permit tcp 10.1.1.0 255.255.255.0 any eq 80 log
+ 20 permit tcp 10.1.1.0 255.255.255.0 any eq 443 log
+ 30 permit tcp 10.1.1.0 255.255.255.0 any eq 53 log
+ 40 permit udp 10.1.1.0 255.255.255.0 any eq 53 log
+ 50 permit udp 10.1.1.0 255.255.255.0 any eq 123 log
+ 60 deny tcp 10.1.1.0 255.255.255.0 any eq 3306 log
+ 70 deny ip 10.1.1.0 255.255.255.0 192.168.0.0 255.255.0.0 log
+ 80 deny ip 10.1.1.0 255.255.255.0 172.16.0.0 255.240.0.0 log
+ 90 permit ip any any
+
+! =====================================
+! Example 7: ICMP Control
+! =====================================
+
+ip access-list extended ICMP_CONTROL
+ 10 permit icmp any any echo log
+ 20 permit icmp any any echo-reply log
+ 30 permit icmp any any unreachable log
+ 40 permit icmp any any time-exceeded log
+ 50 deny icmp any any log
+ 60 permit ip any any
+
+! =====================================
+! Example 8: Guest Network Isolation
+! =====================================
+
+object-group network GUEST_NETWORK
+ network-object 192.168.100.0 255.255.255.0
+
+object-group network INTERNAL_ONLY
+ network-object 10.1.0.0 255.255.0.0
+ network-object 172.16.0.0 255.240.0.0
+
+ip access-list extended GUEST_ISOLATION
+ 10 permit tcp object-group GUEST_NETWORK any eq 80 log
+ 20 permit tcp object-group GUEST_NETWORK any eq 443 log
+ 30 permit udp object-group GUEST_NETWORK any eq 53 log
+ 40 permit tcp object-group GUEST_NETWORK any eq 53 log
+ 50 deny tcp object-group GUEST_NETWORK object-group INTERNAL_ONLY log
+ 60 deny udp object-group GUEST_NETWORK object-group INTERNAL_ONLY log
+ 70 deny ip object-group GUEST_NETWORK object-group INTERNAL_ONLY log
+ 80 permit ip any any
+
+interface Vlan12
+ ip access-group GUEST_ISOLATION in
+
+! =====================================
+! Example 9: Rate-Limited Access
+! =====================================
+
+ip access-list extended RATE_LIMITED
+ 10 permit tcp any host 10.1.50.10 eq 80 log
+ 20 permit tcp any host 10.1.50.10 eq 443 log
+ 30 deny ip any any log
+
+class-map RATE_LIMIT_CLASS
+ match access-list RATE_LIMITED
+
+policy-map RATE_LIMIT_POLICY
+ class RATE_LIMIT_CLASS
+  police rate 1000000 burst 2000000
+
+service-policy RATE_LIMIT_POLICY interface outside
+
+! =====================================
+! Example 10: Named ACL Best Practice
+! =====================================
+
+ip access-list extended COMPREHENSIVE_SECURITY
+ remark ==== CRITICAL DENY ====
+ 10 deny ip any host 127.0.0.1 log  ! Loopback
+ 20 deny ip 10.0.0.0 255.0.0.0 any log  ! Private RFC1918
+ 30 deny ip 172.16.0.0 255.240.0.0 any log
+ 40 deny ip 192.168.0.0 255.255.0.0 any log
+ 50 deny ip 0.0.0.0 255.255.255.255 any log  ! This host
+
+ remark ==== ALLOWED TRAFFIC ====
+ 100 permit tcp any object-group WEB_SERVERS object-group WEB_PORTS log
+ 110 permit tcp object-group ADMIN_SOURCES any object-group SSH_RDP log
+ 120 permit icmp any any echo log
+ 130 permit icmp any any echo-reply log
+
+ remark ==== DEFAULT DENY ====
+ 200 deny ip any any log
+
+! =====================================
+! Example 11: VPN Traffic Exception
+! =====================================
+
+ip access-list extended VPN_EXCEPTION
+ 10 permit udp any any eq 500 log   ! IKE
+ 20 permit udp any any eq 4500 log  ! NAT-T
+ 30 permit esp any any log          ! IPsec
+ 40 permit ahp any any log          ! IPsec AH
+ 50 permit ip any any
+
+! =====================================
+! Example 12: Reflexive ACL (Stateful)
+! =====================================
+
+ip access-list extended OUTBOUND_RULES
+ 10 permit tcp 10.1.1.0 255.255.255.0 any reflect TCP_CONNECTIONS
+ 20 permit udp 10.1.1.0 255.255.255.0 any reflect UDP_CONNECTIONS
+ 30 deny ip any any
+
+ip access-list extended INBOUND_RULES
+ 10 evaluate TCP_CONNECTIONS
+ 10 evaluate UDP_CONNECTIONS
+ 20 deny ip any any
+
+interface GigabitEthernet0/0
+ ip access-group INBOUND_RULES in
+ ip access-group OUTBOUND_RULES out

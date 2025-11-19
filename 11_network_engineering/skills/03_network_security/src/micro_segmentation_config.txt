@@ -1,0 +1,26 @@
+! Microsegmentation Configuration
+! Granular Network Access Control
+
+! Create host-based security zones
+object-group network APP_SERVER_1
+ host 10.1.20.5
+
+object-group network APP_SERVER_2
+ host 10.1.20.6
+
+object-group network DB_SERVER_1
+ host 10.1.30.5
+
+! Create granular rules
+access-list MICROSEG_APP_1 extended permit tcp object-group APP_SERVER_1 object-group DB_SERVER_1 eq 3306
+access-list MICROSEG_APP_1 extended deny ip any any
+
+access-list MICROSEG_APP_2 extended permit tcp object-group APP_SERVER_2 object-group DB_SERVER_1 eq 3306
+access-list MICROSEG_APP_2 extended deny ip any any
+
+! Apply to interfaces
+interface FastEthernet0/10
+ ip access-group MICROSEG_APP_1 in
+
+interface FastEthernet0/11
+ ip access-group MICROSEG_APP_2 in

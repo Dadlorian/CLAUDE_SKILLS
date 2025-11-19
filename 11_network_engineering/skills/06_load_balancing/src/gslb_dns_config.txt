@@ -1,0 +1,249 @@
+# Global Server Load Balancing (GSLB) DNS Configuration
+# AWS Route 53 Example - Multi-Region Geographic Routing
+# Last Updated: 2025-11-19
+
+# HOSTED ZONE: example.com
+# Zone ID: Z1234567890ABC
+
+# ============================================================
+# PRIMARY DOMAIN - Geolocation Routing
+# ============================================================
+
+# Record: www.example.com
+Type: A (IPv4 Address)
+Name: www.example.com
+TTL: 300 (seconds)
+Routing Policy: Geolocation
+
+# Geolocation Rule: United States
+Location: United States
+Set Identifier: US-DC-Primary
+Value: 203.0.113.10 (US East Data Center)
+Health Check: us-east-dc-health-check
+Evaluate Target Health: Yes
+
+# Geolocation Rule: Europe
+Location: Europe
+Set Identifier: EU-DC-Primary
+Value: 192.0.2.20 (EU Central Data Center)
+Health Check: eu-central-dc-health-check
+Evaluate Target Health: Yes
+
+# Geolocation Rule: Asia Pacific
+Location: Asia-Pacific (APAC)
+Set Identifier: APAC-DC-Primary
+Value: 198.51.100.30 (APAC Singapore Data Center)
+Health Check: apac-dc-health-check
+Evaluate Target Health: Yes
+
+# Default Location (Rest of World)
+Location: Default
+Set Identifier: Global-Fallback
+Value: 203.0.113.99 (Global Anycast IP)
+Health Check: global-fallback-health-check
+Evaluate Target Health: Yes
+
+# ============================================================
+# API SUBDOMAIN - Latency-Based Routing
+# ============================================================
+
+# Record: api.example.com
+Type: A (IPv4 Address)
+Name: api.example.com
+TTL: 60 (seconds - shorter for API)
+Routing Policy: Latency-Based
+
+# Latency Rule: US East Region
+Region: us-east-1
+Set Identifier: API-US-East-1
+Value: 203.0.113.50 (US East API Servers)
+Health Check: us-east-api-health
+Evaluate Target Health: Yes
+
+# Latency Rule: EU Central Region
+Region: eu-central-1
+Set Identifier: API-EU-Central-1
+Value: 192.0.2.50 (EU Central API Servers)
+Health Check: eu-central-api-health
+Evaluate Target Health: Yes
+
+# Latency Rule: APAC Singapore
+Region: ap-southeast-1
+Set Identifier: API-APAC-Singapore
+Value: 198.51.100.50 (APAC API Servers)
+Health Check: apac-api-health
+Evaluate Target Health: Yes
+
+# ============================================================
+# ADMIN SUBDOMAIN - Failover Routing (Active-Standby)
+# ============================================================
+
+# Record: admin.example.com
+Type: A (IPv4 Address)
+Name: admin.example.com
+TTL: 300
+Routing Policy: Failover
+
+# Primary (Active)
+Failover Record Type: Primary
+Set Identifier: Admin-Primary
+Value: 203.0.113.100 (Primary Admin Servers)
+Health Check: admin-primary-health
+Evaluate Target Health: Yes
+
+# Secondary (Standby)
+Failover Record Type: Secondary
+Set Identifier: Admin-Secondary
+Value: 203.0.113.101 (Secondary Admin Servers)
+Health Check: admin-secondary-health
+Evaluate Target Health: Yes
+
+# ============================================================
+# WEIGHTED ROUTING - Canary Deployment
+# ============================================================
+
+# Record: canary.example.com
+Type: A (IPv4 Address)
+Name: canary.example.com
+TTL: 60
+Routing Policy: Weighted
+
+# Stable Version (95% traffic)
+Set Identifier: Stable-v1
+Value: 203.0.113.200 (Stable Version Servers)
+Weight: 95
+Health Check: stable-health
+Evaluate Target Health: Yes
+
+# Canary Version (5% traffic)
+Set Identifier: Canary-v2
+Value: 203.0.113.201 (Canary Version Servers)
+Weight: 5
+Health Check: canary-health
+Evaluate Target Health: Yes
+
+# ============================================================
+# HEALTH CHECKS
+# ============================================================
+
+# Health Check: US East DC
+Health Check ID: us-east-dc-health-check
+Type: HTTP
+Protocol: HTTP
+Resource Path: /health-check
+Port: 80
+Request Interval: 30 seconds
+Failure Threshold: 3 consecutive failures
+Measure Latency: Yes
+Health Checker Regions:
+  - US East (N. Virginia)
+  - US West (Oregon)
+  - Europe (Ireland)
+
+# Health Check: EU Central DC
+Health Check ID: eu-central-dc-health-check
+Type: HTTPS
+Protocol: HTTPS
+Resource Path: /health
+Port: 443
+Request Interval: 30 seconds
+Failure Threshold: 3
+Measure Latency: Yes
+Health Checker Regions:
+  - Europe (Ireland)
+  - Europe (Frankfurt)
+  - Asia Pacific (Tokyo)
+
+# Health Check: APAC DC
+Health Check ID: apac-dc-health-check
+Type: HTTP
+Protocol: HTTP
+Resource Path: /api/health-check
+Port: 8080
+Request Interval: 20 seconds
+Failure Threshold: 2
+Measure Latency: Yes
+Health Checker Regions:
+  - Asia Pacific (Tokyo)
+  - Asia Pacific (Singapore)
+  - Asia Pacific (Sydney)
+
+# ============================================================
+# TRAFFIC POLICIES (Advanced Routing)
+# ============================================================
+
+# Traffic Policy: Intelligent Routing
+Policy Name: intelligent-geolocation-with-fallback
+Version: 1
+
+Rules:
+  1. Client Location: North America
+     Check Health: us-east-dc-health-check
+     If Healthy: Return 203.0.113.10 (US East)
+     If Unhealthy: Return 203.0.113.11 (US West Fallback)
+     TTL: 60
+
+  2. Client Location: Europe
+     Check Health: eu-central-dc-health-check
+     If Healthy: Return 192.0.2.20 (EU Central)
+     If Unhealthy: Return 192.0.2.21 (EU Secondary)
+     TTL: 60
+
+  3. Client Location: Asia Pacific
+     Check Health: apac-dc-health-check
+     If Healthy: Return 198.51.100.30 (APAC Singapore)
+     If Unhealthy: Return 198.51.100.31 (APAC Sydney)
+     TTL: 60
+
+  4. Default: Return Global Anycast IP
+     TTL: 300
+
+# ============================================================
+# EXAMPLE DNS QUERIES & RESPONSES
+# ============================================================
+
+# Query 1: Client in New York
+Query: nslookup www.example.com (from 203.0.113.50)
+GeoIP Lookup: United States - New York
+Health Check: US East - HEALTHY
+Response: 203.0.113.10
+TTL: 300 seconds
+
+# Query 2: Client in Frankfurt, Germany
+Query: nslookup www.example.com (from 192.0.2.75)
+GeoIP Lookup: Europe - Frankfurt
+Health Check: EU Central - HEALTHY
+Response: 192.0.2.20
+TTL: 300 seconds
+
+# Query 3: Client in Tokyo, Japan
+Query: nslookup www.example.com (from 198.51.100.125)
+GeoIP Lookup: Asia Pacific - Tokyo
+Health Check: APAC Singapore - HEALTHY
+Response: 198.51.100.30
+TTL: 300 seconds
+
+# Query 4: EU Data Center Down
+Query: nslookup www.example.com (from 192.0.2.75)
+GeoIP Lookup: Europe - Frankfurt
+Health Check: EU Central - DOWN
+Response: 203.0.113.99 (Global Fallback)
+TTL: 300 seconds (short, for faster failover)
+
+# ============================================================
+# MONITORING & ALERTS
+# ============================================================
+
+# CloudWatch Alarms:
+# 1. Alert if any DC health check fails
+# 2. Alert if DC takes > 2 second response time
+# 3. Alert if query rate drops significantly
+# 4. Monitor DNS query distribution by location
+# 5. Track failover events and trigger logs
+
+# Metrics to Monitor:
+# - Health Check Status (each DC)
+# - Query Count by Geolocation
+# - Response Time (latency from each DC)
+# - Failover Events
+# - DNS Resolution Time

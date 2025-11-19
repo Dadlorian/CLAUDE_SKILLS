@@ -1,0 +1,204 @@
+# F5 BIG-IP Virtual Server Configuration
+# Production Load Balancing Configuration
+# Last Updated: 2025-11-19
+
+# HTTP Virtual Server
+create ltm virtual vs_http_prod {
+    destination 203.0.113.10:80
+    pool pool_web_prod
+    ip-protocol tcp
+    mask 255.255.255.255
+    service-port 80
+    type standard
+
+    # Client-side timeouts
+    timeout client 50000
+    timeout connection 5000
+    timeout http-request 20000
+    timeout http-keep-alive 15000
+
+    # Profiles
+    profiles {
+        http {}
+        tcp {
+            context clientside
+        }
+        tcp {
+            context serverside
+        }
+    }
+
+    # Session persistence
+    persistence {
+        cookie-insert {
+            cookie-name JSESSIONID
+            timeout 3600
+        }
+    }
+
+    # Source translation
+    source-address-translation dynamic-pat
+
+    # Virtual address settings
+    address-status enabled
+}
+
+# HTTPS Virtual Server with SSL Termination
+create ltm virtual vs_https_prod {
+    destination 203.0.113.10:443
+    pool pool_web_prod
+    ip-protocol tcp
+    mask 255.255.255.255
+    service-port 443
+    type standard
+
+    # Timeout settings
+    timeout client 50000
+    timeout connection 5000
+
+    # Profiles
+    profiles {
+        http {}
+        clientssl {
+            context clientside
+        }
+        serverssl {
+            context serverside
+        }
+        tcp {
+            context clientside
+        }
+        tcp {
+            context serverside
+        }
+    }
+
+    # SSL profile for client connections
+    client-ssl-profile /Common/clientssl_example_com
+
+    # Session persistence with secure cookie
+    persistence {
+        cookie-insert {
+            cookie-name JSESSIONID
+            cookie-encryption required
+            timeout 3600
+        }
+    }
+
+    # Source translation
+    source-address-translation dynamic-pat
+}
+
+# API Virtual Server (Port 8080)
+create ltm virtual vs_api_prod {
+    destination 203.0.113.11:8080
+    pool pool_api_backend
+    ip-protocol tcp
+    service-port 8080
+    type standard
+
+    profiles {
+        http {}
+        tcp {}
+    }
+
+    # API specific settings
+    max-connections 5000
+    rate-class none
+}
+
+# Database Virtual Server (TCP Load Balancing)
+create ltm virtual vs_mysql_prod {
+    destination 203.0.113.20:3306
+    pool pool_mysql_prod
+    ip-protocol tcp
+    service-port 3306
+    type standard
+    mode tcp
+
+    # TCP profiles for database
+    profiles {
+        tcp {}
+    }
+
+    # Database connection settings
+    timeout client 300000
+    timeout server 300000
+
+    # Connection persistence
+    persistence {
+        source-ip {
+            timeout 3600
+        }
+    }
+}
+
+# Redis Virtual Server (Cache)
+create ltm virtual vs_redis_cache {
+    destination 203.0.113.21:6379
+    pool pool_redis_cache
+    ip-protocol tcp
+    service-port 6379
+    type standard
+    mode tcp
+
+    profiles {
+        tcp {}
+    }
+
+    timeout client 30000
+    timeout server 30000
+}
+
+# CDN/Static Content Virtual Server
+create ltm virtual vs_cdn_prod {
+    destination 203.0.113.30:80
+    pool pool_cdn_backend
+    ip-protocol tcp
+    service-port 80
+    type standard
+
+    profiles {
+        http {}
+        tcp {}
+    }
+
+    # HTTP keep-alive for static content
+    http-keep-alive-timeout 60000
+}
+
+# Admin Panel Virtual Server (restricted access)
+create ltm virtual vs_admin_internal {
+    destination 192.168.100.10:8443
+    pool pool_admin_backend
+    ip-protocol tcp
+    service-port 8443
+    type standard
+
+    profiles {
+        https {}
+        clientssl {}
+    }
+
+    # Restrictive settings for admin panel
+    max-connections 100
+    rate-class admin_rate_limit
+}
+
+# Health Check Virtual Server
+create ltm virtual vs_health_check {
+    destination 203.0.113.100:80
+    pool pool_health_check_backend
+    ip-protocol tcp
+    service-port 80
+    type standard
+
+    profiles {
+        http {}
+    }
+
+    # Lightweight for health checks only
+    timeout client 5000
+    timeout server 5000
+    max-connections 1000
+}

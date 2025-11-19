@@ -1,0 +1,157 @@
+! VLAN and Trunking Configuration
+! Multi-switch campus network with VLANs
+
+hostname Switch-A
+!
+! Global VLAN Configuration
+vlan 10
+  name Management
+vlan 20
+  name Engineering
+vlan 30
+  name Finance
+vlan 40
+  name Marketing
+vlan 50
+  name Guest-WiFi
+vlan 99
+  name Native-VLAN
+!
+! Management SVI (Switched Virtual Interface)
+interface Vlan99
+  description Management Interface
+  ip address 192.168.99.1 255.255.255.0
+  no shutdown
+!
+! Access Port Configurations
+interface GigabitEthernet0/1
+  description User Port - Engineering
+  switchport mode access
+  switchport access vlan 20
+  spanning-tree portfast
+  spanning-tree bpduguard enable
+  switchport port-security
+  switchport port-security maximum 1
+  switchport port-security mac-address sticky
+  switchport port-security violation shutdown
+  no shutdown
+!
+interface GigabitEthernet0/2
+  description User Port - Finance
+  switchport mode access
+  switchport access vlan 30
+  spanning-tree portfast
+  spanning-tree bpduguard enable
+  switchport port-security
+  switchport port-security maximum 1
+  switchport port-security mac-address sticky
+  switchport port-security violation shutdown
+  no shutdown
+!
+interface GigabitEthernet0/3
+  description IP Phone - Voice VLAN
+  switchport mode access
+  switchport access vlan 20              ! Data VLAN
+  switchport voice vlan 50                ! Voice VLAN
+  mls qos trust cos
+  spanning-tree portfast
+  no shutdown
+!
+interface GigabitEthernet0/4
+  description Server Port
+  switchport mode access
+  switchport access vlan 20
+  spanning-tree portfast
+  no shutdown
+!
+! Trunk Ports Configuration
+interface GigabitEthernet0/47
+  description Trunk to Switch-B
+  switchport mode trunk
+  switchport trunk encapsulation dot1q
+  switchport trunk native vlan 99
+  switchport trunk allowed vlan 10,20,30,40,50,99
+  switchport nonegotiate
+  spanning-tree portfast disable
+  no shutdown
+!
+interface GigabitEthernet0/48
+  description Trunk to Switch-C
+  switchport mode trunk
+  switchport trunk encapsulation dot1q
+  switchport trunk native vlan 99
+  switchport trunk allowed vlan 10,20,30,40,50,99
+  switchport nonegotiate
+  spanning-tree portfast disable
+  no shutdown
+!
+! Spanning Tree Configuration
+spanning-tree mode rapid-pvst
+spanning-tree vlan 10,20,30,40,50 priority 8192   ! Secondary root
+spanning-tree vlan 99 priority 8192
+spanning-tree portfast default
+spanning-tree portfast bpduguard default
+!
+! Verify commands:
+! show vlan brief
+! show interfaces trunk
+! show interfaces status
+! show spanning-tree vlan 20
+!
+! ***** Switch-B Configuration (Primary Root) *****
+! hostname Switch-B
+! !
+! vlan 10
+!   name Management
+! vlan 20
+!   name Engineering
+! vlan 30
+!   name Finance
+! vlan 40
+!   name Marketing
+! vlan 50
+!   name Guest-WiFi
+! vlan 99
+!   name Native-VLAN
+! !
+! interface Vlan99
+!   ip address 192.168.99.2 255.255.255.0
+!   no shutdown
+! !
+! interface GigabitEthernet0/47
+!   description Trunk to Switch-A
+!   switchport mode trunk
+!   switchport trunk encapsulation dot1q
+!   switchport trunk native vlan 99
+!   switchport trunk allowed vlan 10,20,30,40,50,99
+!   switchport nonegotiate
+!   no shutdown
+! !
+! interface GigabitEthernet0/48
+!   description Trunk to Switch-C
+!   switchport mode trunk
+!   switchport trunk encapsulation dot1q
+!   switchport trunk native vlan 99
+!   switchport trunk allowed vlan 10,20,30,40,50,99
+!   switchport nonegotiate
+!   no shutdown
+! !
+! spanning-tree mode rapid-pvst
+! spanning-tree vlan 10,20,30,40,50 priority 0   ! Primary root
+! spanning-tree vlan 99 priority 0
+! spanning-tree portfast default
+! spanning-tree portfast bpduguard default
+! !
+! ***** Dynamic VLAN Assignment via 802.1X *****
+! aaa new-model
+! aaa authentication dot1x default group radius
+! dot1x system-auth-control
+! !
+! interface GigabitEthernet0/5
+!   description 802.1X Controlled Port
+!   authentication port-control auto
+!   dot1x pae authenticator
+!   dot1x timeout tx-period 30
+!   dot1x max-reauth-req 2
+!   switchport mode access
+!   no shutdown
