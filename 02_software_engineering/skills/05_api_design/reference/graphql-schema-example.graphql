@@ -1,0 +1,179 @@
+# GraphQL Schema Example - E-Commerce Platform
+# Production-ready schema with best practices
+
+type User {
+  id: ID!
+  email: String!
+  name: String!
+  role: UserRole!
+  posts: [Post!]!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+enum UserRole {
+  USER
+  ADMIN
+  MODERATOR
+}
+
+type Post {
+  id: ID!
+  title: String!
+  content: String
+  published: Boolean!
+  author: User!
+  comments: [Comment!]!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type Comment {
+  id: ID!
+  content: String!
+  author: User!
+  post: Post!
+  createdAt: DateTime!
+}
+
+type Query {
+  # User queries
+  user(id: ID!): User
+  users(
+    first: Int
+    after: String
+    filter: UserFilter
+  ): UserConnection!
+
+  # Post queries
+  post(id: ID!): Post
+  posts(
+    first: Int
+    after: String
+    filter: PostFilter
+  ): PostConnection!
+}
+
+type Mutation {
+  # User mutations
+  createUser(input: CreateUserInput!): CreateUserPayload!
+  updateUser(id: ID!, input: UpdateUserInput!): UpdateUserPayload!
+  deleteUser(id: ID!): DeleteUserPayload!
+
+  # Post mutations
+  createPost(input: CreatePostInput!): CreatePostPayload!
+  updatePost(id: ID!, input: UpdatePostInput!): UpdatePostPayload!
+  deletePost(id: ID!): DeletePostPayload!
+  publishPost(id: ID!): PublishPostPayload!
+}
+
+# Input types
+input CreateUserInput {
+  email: String!
+  name: String!
+  password: String!
+}
+
+input UpdateUserInput {
+  email: String
+  name: String
+}
+
+input CreatePostInput {
+  title: String!
+  content: String
+}
+
+input UpdatePostInput {
+  title: String
+  content: String
+  published: Boolean
+}
+
+# Filter types
+input UserFilter {
+  role: UserRole
+  search: String
+}
+
+input PostFilter {
+  published: Boolean
+  authorId: ID
+  search: String
+}
+
+# Connection types (for pagination)
+type UserConnection {
+  edges: [UserEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type UserEdge {
+  node: User!
+  cursor: String!
+}
+
+type PostConnection {
+  edges: [PostEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type PostEdge {
+  node: Post!
+  cursor: String!
+}
+
+type PageInfo {
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  startCursor: String
+  endCursor: String
+}
+
+# Payload types
+type CreateUserPayload {
+  user: User
+  errors: [Error!]
+}
+
+type UpdateUserPayload {
+  user: User
+  errors: [Error!]
+}
+
+type DeleteUserPayload {
+  success: Boolean!
+  errors: [Error!]
+}
+
+type CreatePostPayload {
+  post: Post
+  errors: [Error!]
+}
+
+type UpdatePostPayload {
+  post: Post
+  errors: [Error!]
+}
+
+type DeletePostPayload {
+  success: Boolean!
+  errors: [Error!]
+}
+
+type PublishPostPayload {
+  post: Post
+  errors: [Error!]
+}
+
+type Error {
+  field: String
+  message: String!
+  code: String
+}
+
+# Custom scalars
+scalar DateTime
+scalar JSON
