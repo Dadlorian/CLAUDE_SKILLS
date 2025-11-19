@@ -1,0 +1,1243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Technical Writing Style Guide Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-color: #0066cc;
+            --primary-dark: #004a99;
+            --success-color: #22a447;
+            --warning-color: #ff9900;
+            --error-color: #dd0000;
+            --light-bg: #f5f7fa;
+            --border-color: #e0e6ed;
+            --text-dark: #1f2937;
+            --text-light: #6b7280;
+            --shadow: 0 1px 3px rgba(0,0,0,0.1);
+            --shadow-lg: 0 10px 25px rgba(0,0,0,0.1);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            color: var(--text-dark);
+            background-color: var(--light-bg);
+            line-height: 1.6;
+        }
+
+        /* Header */
+        header {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+            color: white;
+            padding: 2rem;
+            box-shadow: var(--shadow-lg);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        header h1 {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        header p {
+            opacity: 0.95;
+            font-size: 1.05rem;
+        }
+
+        /* Navigation */
+        nav {
+            background: white;
+            border-bottom: 2px solid var(--border-color);
+            padding: 0;
+            position: sticky;
+            top: 120px;
+            z-index: 99;
+            box-shadow: var(--shadow);
+        }
+
+        nav ul {
+            list-style: none;
+            display: flex;
+            flex-wrap: wrap;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        nav button {
+            background: none;
+            border: none;
+            padding: 1rem 1.5rem;
+            font-size: 1rem;
+            color: var(--text-dark);
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        nav button:hover {
+            background-color: var(--light-bg);
+            color: var(--primary-color);
+        }
+
+        nav button.active {
+            color: var(--primary-color);
+            border-bottom-color: var(--primary-color);
+            font-weight: 600;
+        }
+
+        /* Main Layout */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* Sections */
+        .section {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .section.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Cards */
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: var(--shadow);
+            border-left: 4px solid var(--primary-color);
+        }
+
+        .card h2 {
+            margin-top: 0;
+            margin-bottom: 1rem;
+            color: var(--text-dark);
+            font-size: 1.5rem;
+        }
+
+        .card h3 {
+            margin-top: 1.5rem;
+            margin-bottom: 1rem;
+            color: var(--primary-color);
+            font-size: 1.2rem;
+        }
+
+        .card:first-child {
+            margin-top: 0;
+        }
+
+        /* Examples */
+        .example {
+            margin: 1.5rem 0;
+            padding: 1rem;
+            background-color: var(--light-bg);
+            border-radius: 6px;
+            border-left: 4px solid var(--border-color);
+        }
+
+        .example.good {
+            border-left-color: var(--success-color);
+        }
+
+        .example.bad {
+            border-left-color: var(--error-color);
+        }
+
+        .example-label {
+            font-weight: 600;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.5rem;
+        }
+
+        .example.good .example-label {
+            color: var(--success-color);
+        }
+
+        .example.bad .example-label {
+            color: var(--error-color);
+        }
+
+        .example-text {
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 0.95rem;
+            color: var(--text-dark);
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        /* Rules List */
+        .rules-list {
+            list-style: none;
+        }
+
+        .rules-list li {
+            padding: 1rem;
+            margin-bottom: 1rem;
+            background-color: var(--light-bg);
+            border-radius: 6px;
+            border-left: 4px solid var(--primary-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .rule-name {
+            font-weight: 600;
+            color: var(--text-dark);
+        }
+
+        .rule-description {
+            font-size: 0.9rem;
+            color: var(--text-light);
+            margin-top: 0.25rem;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-left: 0.5rem;
+        }
+
+        .badge.error {
+            background-color: #fee;
+            color: var(--error-color);
+        }
+
+        .badge.warning {
+            background-color: #fef3cd;
+            color: var(--warning-color);
+        }
+
+        .badge.suggestion {
+            background-color: #e3f2fd;
+            color: var(--primary-color);
+        }
+
+        /* Comparison Table */
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+            border-radius: 6px;
+            overflow: hidden;
+            box-shadow: var(--shadow);
+        }
+
+        .comparison-table th {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        .comparison-table td {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .comparison-table tr:nth-child(even) {
+            background-color: var(--light-bg);
+        }
+
+        .comparison-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        /* Interactive Elements */
+        .interactive-box {
+            background: var(--light-bg);
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 1rem 0;
+        }
+
+        textarea {
+            width: 100%;
+            padding: 1rem;
+            font-family: 'Monaco', 'Courier New', monospace;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 0.95rem;
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            font-weight: 600;
+        }
+
+        button:hover {
+            background-color: var(--primary-dark);
+        }
+
+        /* Checklist */
+        .checklist {
+            list-style: none;
+        }
+
+        .checklist li {
+            padding: 0.75rem 0;
+            padding-left: 2rem;
+            position: relative;
+        }
+
+        .checklist li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: var(--success-color);
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+
+        /* Footer */
+        footer {
+            background: white;
+            border-top: 1px solid var(--border-color);
+            padding: 2rem;
+            text-align: center;
+            color: var(--text-light);
+            margin-top: 4rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 1.5rem;
+            }
+
+            .container {
+                padding: 1rem;
+            }
+
+            nav ul {
+                flex-direction: column;
+            }
+
+            nav button {
+                width: 100%;
+                text-align: left;
+                padding: 0.75rem 1.5rem;
+                border-bottom: 1px solid var(--border-color);
+                border-right: 3px solid transparent;
+            }
+
+            nav button.active {
+                border-bottom: 1px solid var(--border-color);
+                border-right: 3px solid var(--primary-color);
+            }
+
+            .comparison-table {
+                font-size: 0.9rem;
+            }
+
+            .comparison-table th,
+            .comparison-table td {
+                padding: 0.75rem;
+            }
+
+            .example {
+                padding: 0.75rem;
+            }
+        }
+
+        /* Print Styles */
+        @media print {
+            nav {
+                display: none;
+            }
+
+            header {
+                position: static;
+            }
+
+            .section {
+                display: block !important;
+                page-break-inside: avoid;
+            }
+        }
+
+        /* Status Indicator */
+        .status {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+        }
+
+        .status.active {
+            background-color: var(--success-color);
+        }
+
+        .status.warning {
+            background-color: var(--warning-color);
+        }
+
+        .status.error {
+            background-color: var(--error-color);
+        }
+
+        /* Highlight */
+        .highlight {
+            background-color: #fff3cd;
+            padding: 0.2rem 0.4rem;
+            border-radius: 3px;
+            font-weight: 500;
+        }
+
+        /* Flex Layout */
+        .flex-row {
+            display: flex;
+            gap: 2rem;
+            margin: 1rem 0;
+        }
+
+        .flex-col {
+            flex: 1;
+        }
+
+        @media (max-width: 768px) {
+            .flex-row {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <h1>Technical Writing Style Guide</h1>
+        <p>Interactive Dashboard for Documentation Standards & Best Practices</p>
+    </header>
+
+    <!-- Navigation -->
+    <nav>
+        <ul>
+            <li><button class="nav-btn active" data-section="overview">Overview</button></li>
+            <li><button class="nav-btn" data-section="rules">Vale Rules</button></li>
+            <li><button class="nav-btn" data-section="voice-tone">Voice & Tone</button></li>
+            <li><button class="nav-btn" data-section="structure">Structure</button></li>
+            <li><button class="nav-btn" data-section="formatting">Formatting</button></li>
+            <li><button class="nav-btn" data-section="common-issues">Common Issues</button></li>
+            <li><button class="nav-btn" data-section="checklist">Checklist</button></li>
+        </ul>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container">
+        <!-- Overview Section -->
+        <section id="overview" class="section active">
+            <div class="card">
+                <h2>Style Guide Overview</h2>
+                <p>This interactive dashboard provides comprehensive guidance on maintaining consistent, high-quality technical documentation. Our style guide emphasizes clarity, accuracy, and accessibility.</p>
+
+                <h3>Core Principles</h3>
+                <ul class="checklist">
+                    <li><strong>Clarity:</strong> Write clearly and concisely for your audience</li>
+                    <li><strong>Consistency:</strong> Use uniform terminology and formatting throughout</li>
+                    <li><strong>Accuracy:</strong> Verify all technical information and examples</li>
+                    <li><strong>Accessibility:</strong> Ensure documentation is usable by all readers</li>
+                    <li><strong>Completeness:</strong> Provide all necessary information without ambiguity</li>
+                </ul>
+
+                <h3>Quick Stats</h3>
+                <div class="flex-row">
+                    <div class="flex-col">
+                        <p><strong>Total Rules:</strong> 12 custom Vale rules</p>
+                        <p><strong>Test Coverage:</strong> 9 test files</p>
+                    </div>
+                    <div class="flex-col">
+                        <p><strong>Automation:</strong> Pre-commit & CI/CD hooks</p>
+                        <p><strong>Version:</strong> 1.0.0</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Getting Started</h2>
+                <p>To use this style guide effectively:</p>
+
+                <h3>For Writers</h3>
+                <ol>
+                    <li>Review the Voice & Tone section for audience-appropriate writing</li>
+                    <li>Use the Formatting section for consistent document structure</li>
+                    <li>Refer to Common Issues for frequently encountered problems</li>
+                    <li>Use the pre-commit checklist before submitting work</li>
+                </ol>
+
+                <h3>For Automation</h3>
+                <ol>
+                    <li>Install Vale for local style checking</li>
+                    <li>Configure pre-commit hooks for automatic validation</li>
+                    <li>Enable GitHub Actions for CI/CD enforcement</li>
+                    <li>Review reports in dashboards after automated checks</li>
+                </ol>
+            </div>
+        </section>
+
+        <!-- Vale Rules Section -->
+        <section id="rules" class="section">
+            <div class="card">
+                <h2>Custom Vale Rules</h2>
+                <p>Our custom Vale rules enforce style standards automatically. Each rule is configurable and can be adjusted based on your project needs.</p>
+
+                <h3>All Available Rules</h3>
+                <ul class="rules-list">
+                    <li>
+                        <div>
+                            <div class="rule-name">TechWriter.Passive</div>
+                            <div class="rule-description">Detects and flags passive voice constructions</div>
+                        </div>
+                        <span class="badge warning">Warning</span>
+                    </li>
+                    <li>
+                        <div>
+                            <div class="rule-name">TechWriter.Jargon</div>
+                            <div class="rule-description">Flags unexplained technical jargon</div>
+                        </div>
+                        <span class="badge warning">Warning</span>
+                    </li>
+                    <li>
+                        <div>
+                            <div class="rule-name">TechWriter.Clichés</div>
+                            <div class="rule-description">Detects weak phrases and common clichés</div>
+                        </div>
+                        <span class="badge warning">Warning</span>
+                    </li>
+                    <li>
+                        <div>
+                            <div class="rule-name">TechWriter.Contractions</div>
+                            <div class="rule-description">Flags contractions in formal writing</div>
+                        </div>
+                        <span class="badge warning">Warning</span>
+                    </li>
+                    <li>
+                        <div>
+                            <div class="rule-name">TechWriter.Consistency</div>
+                            <div class="rule-description">Enforces consistent terminology across documents</div>
+                        </div>
+                        <span class="badge warning">Warning</span>
+                    </li>
+                    <li>
+                        <div>
+                            <div class="rule-name">TechWriter.Acronyms</div>
+                            <div class="rule-description">Ensures acronyms are defined on first use</div>
+                        </div>
+                        <span class="badge error">Error</span>
+                    </li>
+                    <li>
+                        <div>
+                            <div class="rule-name">TechWriter.Headings</div>
+                            <div class="rule-description">Enforces Title Case in all headings</div>
+                        </div>
+                        <span class="badge warning">Warning</span>
+                    </li>
+                    <li>
+                        <div>
+                            <div class="rule-name">TechWriter.CodeFormatting</div>
+                            <div class="rule-description">Ensures proper code element formatting</div>
+                        </div>
+                        <span class="badge warning">Warning</span>
+                    </li>
+                    <li>
+                        <div>
+                            <div class="rule-name">TechWriter.Readability</div>
+                            <div class="rule-description">Flags excessively long sentences</div>
+                        </div>
+                        <span class="badge suggestion">Suggestion</span>
+                    </li>
+                    <li>
+                        <div>
+                            <div class="rule-name">TechWriter.DeprecatedTerms</div>
+                            <div class="rule-description">Alerts to outdated or problematic terminology</div>
+                        </div>
+                        <span class="badge error">Error</span>
+                    </li>
+                    <li>
+                        <div>
+                            <div class="rule-name">TechWriter.Punctuation</div>
+                            <div class="rule-description">Detects punctuation inconsistencies</div>
+                        </div>
+                        <span class="badge warning">Warning</span>
+                    </li>
+                    <li>
+                        <div>
+                            <div class="rule-name">TechWriter.Numbers</div>
+                            <div class="rule-description">Enforces consistent number formatting</div>
+                        </div>
+                        <span class="badge warning">Warning</span>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="card">
+                <h2>Rule Severity Levels</h2>
+                <p>Rules are categorized by severity to help prioritize fixes:</p>
+
+                <table class="comparison-table">
+                    <thead>
+                        <tr>
+                            <th>Severity</th>
+                            <th>Meaning</th>
+                            <th>Action Required</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="status error"></span><strong>Error</strong></td>
+                            <td>Critical issue that violates core standards</td>
+                            <td>Must be fixed before commit</td>
+                        </tr>
+                        <tr>
+                            <td><span class="status warning"></span><strong>Warning</strong></td>
+                            <td>Issue that should be addressed for consistency</td>
+                            <td>Should be fixed when possible</td>
+                        </tr>
+                        <tr>
+                            <td><span class="status"></span><strong>Suggestion</strong></td>
+                            <td>Improvement opportunity for readability</td>
+                            <td>Consider fixing for better quality</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Voice & Tone Section -->
+        <section id="voice-tone" class="section">
+            <div class="card">
+                <h2>Voice & Tone Guidelines</h2>
+                <p>Consistent voice and tone make documentation more readable and professional. Our style emphasizes clarity and directness.</p>
+
+                <h3>Active Voice</h3>
+                <p>Always prefer active voice over passive voice. Active voice is more direct, engaging, and easier to understand.</p>
+
+                <div class="example bad">
+                    <div class="example-label">❌ Passive Voice (Avoid)</div>
+                    <div class="example-text">The configuration is managed by the system administrator.
+The file was deleted by the user.</div>
+                </div>
+
+                <div class="example good">
+                    <div class="example-label">✓ Active Voice (Preferred)</div>
+                    <div class="example-text">The system administrator manages the configuration.
+The user deleted the file.</div>
+                </div>
+
+                <h3>Formal Tone</h3>
+                <p>Maintain a professional, formal tone. Avoid contractions and casual language.</p>
+
+                <div class="example bad">
+                    <div class="example-label">❌ Casual (Avoid)</div>
+                    <div class="example-text">You can't modify this setting, but don't worry—it's not a big deal.
+We've added a bunch of new features that'll make your life easier.</div>
+                </div>
+
+                <div class="example good">
+                    <div class="example-label">✓ Formal (Preferred)</div>
+                    <div class="example-text">You cannot modify this setting. This is expected behavior.
+We have added several new features that improve usability.</div>
+                </div>
+
+                <h3>Second Person Perspective</h3>
+                <p>Address the reader directly using "you" when providing instructions.</p>
+
+                <div class="example good">
+                    <div class="example-label">✓ Second Person (Preferred)</div>
+                    <div class="example-text">To configure the system:
+1. Open the settings menu.
+2. Select your preferences.
+3. Click Save.</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Terminology Consistency</h2>
+                <p>Use consistent terminology throughout your documentation. Pick one term and stick with it.</p>
+
+                <table class="comparison-table">
+                    <thead>
+                        <tr>
+                            <th>Term</th>
+                            <th>Preferred</th>
+                            <th>Avoid</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>User interface</td>
+                            <td>user-facing</td>
+                            <td>user facing, user interface</td>
+                        </tr>
+                        <tr>
+                            <td>Backend</td>
+                            <td>backend</td>
+                            <td>back-end, back end</td>
+                        </tr>
+                        <tr>
+                            <td>Frontend</td>
+                            <td>frontend</td>
+                            <td>front-end, front end</td>
+                        </tr>
+                        <tr>
+                            <td>Email</td>
+                            <td>email</td>
+                            <td>e-mail, E-mail</td>
+                        </tr>
+                        <tr>
+                            <td>API (first use)</td>
+                            <td>API (Application Programming Interface)</td>
+                            <td>API without definition</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Structure Section -->
+        <section id="structure" class="section">
+            <div class="card">
+                <h2>Document Structure</h2>
+                <p>Well-organized documents are easier to read and navigate. Follow this structure for consistency.</p>
+
+                <h3>Heading Hierarchy</h3>
+                <p>Use proper heading levels to create a logical structure. Every document should start with a single H1 heading.</p>
+
+                <div class="example good">
+                    <div class="example-label">✓ Proper Heading Hierarchy</div>
+                    <div class="example-text"># Main Topic (H1)
+
+## Section (H2)
+
+### Subsection (H3)
+
+#### Details (H4)</div>
+                </div>
+
+                <h3>Heading Capitalization</h3>
+                <p>Use Title Case for all headings. Capitalize the first and last words, plus all major words.</p>
+
+                <div class="example bad">
+                    <div class="example-label">❌ Incorrect Capitalization</div>
+                    <div class="example-text">## getting started with configuration
+## installation and setup instructions
+## understanding the api</div>
+                </div>
+
+                <div class="example good">
+                    <div class="example-label">✓ Proper Title Case</div>
+                    <div class="example-text">## Getting Started With Configuration
+## Installation and Setup Instructions
+## Understanding The API</div>
+                </div>
+
+                <h3>Paragraph Length</h3>
+                <p>Keep paragraphs short and focused. Aim for 3-4 sentences per paragraph.</p>
+
+                <div class="example bad">
+                    <div class="example-label">❌ Too Long</div>
+                    <div class="example-text">The configuration system, which was originally designed for simple use cases but has evolved significantly over time, now supports an incredibly wide variety of scenarios including multiple data types, complex validation rules, nested structures, and seamless integration with external systems, all managed through a comprehensive yet user-friendly interface that attempts to balance functionality with ease of use while maintaining backward compatibility with existing configurations.</div>
+                </div>
+
+                <div class="example good">
+                    <div class="example-label">✓ Well-Organized</div>
+                    <div class="example-text">The configuration system is comprehensive and flexible. It supports multiple data types, complex validation rules, and nested structures. It also integrates seamlessly with external systems.
+
+The interface is designed for both power users and beginners. It maintains backward compatibility with existing configurations.</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Lists and Formatting</h2>
+
+                <h3>Bulleted Lists</h3>
+                <p>Use bulleted lists for items without a specific order. Keep list items grammatically parallel.</p>
+
+                <div class="example good">
+                    <div class="example-label">✓ Good List Format</div>
+                    <div class="example-text">Key features include:
+- Easy configuration
+- Flexible data types
+- Comprehensive documentation
+- Excellent performance</div>
+                </div>
+
+                <h3>Numbered Lists</h3>
+                <p>Use numbered lists for procedures or steps that must be followed in order.</p>
+
+                <div class="example good">
+                    <div class="example-label">✓ Proper Procedure Format</div>
+                    <div class="example-text">To install the software:
+1. Download the installer
+2. Run the installation wizard
+3. Follow the on-screen prompts
+4. Restart your system</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Formatting Section -->
+        <section id="formatting" class="section">
+            <div class="card">
+                <h2>Formatting Conventions</h2>
+                <p>Consistent formatting improves readability and professionalism.</p>
+
+                <h3>Code Formatting</h3>
+                <p>Format code references appropriately in text:</p>
+
+                <table class="comparison-table">
+                    <thead>
+                        <tr>
+                            <th>Element</th>
+                            <th>Format</th>
+                            <th>Example</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Inline code</td>
+                            <td>`code`</td>
+                            <td>Use the `npm install` command</td>
+                        </tr>
+                        <tr>
+                            <td>File names</td>
+                            <td>`filename.ext`</td>
+                            <td>Edit the `config.json` file</td>
+                        </tr>
+                        <tr>
+                            <td>Directories</td>
+                            <td>`/path/to/dir`</td>
+                            <td>Navigate to `/src/config`</td>
+                        </tr>
+                        <tr>
+                            <td>Functions</td>
+                            <td>`functionName()`</td>
+                            <td>Call `initialize()`</td>
+                        </tr>
+                        <tr>
+                            <td>Variables</td>
+                            <td>`variableName`</td>
+                            <td>Set `MAX_SIZE` to 1024</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3>Code Blocks</h3>
+                <p>Use fenced code blocks with language specification:</p>
+
+                <div class="example good">
+                    <div class="example-label">✓ Proper Code Block</div>
+                    <div class="example-text">```javascript
+function example() {
+    return "Hello, World!";
+}
+```</div>
+                </div>
+
+                <h3>Emphasis</h3>
+                <p>Use emphasis sparingly for clarity, not style:</p>
+
+                <table class="comparison-table">
+                    <thead>
+                        <tr>
+                            <th>Emphasis Type</th>
+                            <th>Markdown</th>
+                            <th>Use Case</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Bold</td>
+                            <td>**text**</td>
+                            <td>Important terms, warnings</td>
+                        </tr>
+                        <tr>
+                            <td>Italic</td>
+                            <td>*text*</td>
+                            <td>Book titles, emphasis</td>
+                        </tr>
+                        <tr>
+                            <td>Code</td>
+                            <td>`text`</td>
+                            <td>Code references</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3>Numbers and Units</h3>
+                <p>Format numbers consistently throughout documentation:</p>
+
+                <div class="example good">
+                    <div class="example-label">✓ Proper Number Formatting</div>
+                    <div class="example-text">- Use 512 MB minimum
+- Process 100,000+ records
+- Configure 0x1F values
+- Wait 5 seconds (not 5 secs)</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Common Issues Section -->
+        <section id="common-issues" class="section">
+            <div class="card">
+                <h2>Common Writing Issues</h2>
+                <p>These are the most frequently encountered problems in technical documentation.</p>
+
+                <h3>1. Unexplained Jargon</h3>
+                <p>Define technical terms on first use, especially for new readers.</p>
+
+                <div class="example bad">
+                    <div class="example-label">❌ Undefined Jargon</div>
+                    <div class="example-text">The API uses OAuth for authentication.
+The REST endpoint returns JSON data.</div>
+                </div>
+
+                <div class="example good">
+                    <div class="example-label">✓ Defined Terms</div>
+                    <div class="example-text">The API (Application Programming Interface) uses OAuth, an authentication protocol, for security.
+The REST (Representational State Transfer) endpoint returns JSON (JavaScript Object Notation) data.</div>
+                </div>
+
+                <h3>2. Weak Phrases</h3>
+                <p>Replace clichés with specific, direct language:</p>
+
+                <table class="comparison-table">
+                    <thead>
+                        <tr>
+                            <th>Weak</th>
+                            <th>Strong</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>a lot of users</td>
+                            <td>many users</td>
+                        </tr>
+                        <tr>
+                            <td>in order to</td>
+                            <td>to</td>
+                        </tr>
+                        <tr>
+                            <td>take into account</td>
+                            <td>consider</td>
+                        </tr>
+                        <tr>
+                            <td>it goes without saying</td>
+                            <td>[delete or rephrase]</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3>3. Inconsistent Terminology</h3>
+                <p>Don't use different terms for the same concept. Pick one and use it consistently:</p>
+
+                <div class="example bad">
+                    <div class="example-label">❌ Inconsistent</div>
+                    <div class="example-text">The user-facing component displays data.
+The client side validation works well.
+The front end interface is clean.</div>
+                </div>
+
+                <div class="example good">
+                    <div class="example-label">✓ Consistent</div>
+                    <div class="example-text">The user-facing component displays data.
+The client-side validation works well.
+The frontend interface is clean.</div>
+                </div>
+
+                <h3>4. Missing Acronym Definitions</h3>
+                <p>Always define acronyms on first use:</p>
+
+                <div class="example bad">
+                    <div class="example-label">❌ Undefined</div>
+                    <div class="example-text">Configure the API endpoint.
+Enable HTTPS for security.</div>
+                </div>
+
+                <div class="example good">
+                    <div class="example-label">✓ Defined</div>
+                    <div class="example-text">Configure the API (Application Programming Interface) endpoint.
+Enable HTTPS (Hypertext Transfer Protocol Secure) for security.</div>
+                </div>
+
+                <h3>5. Outdated or Problematic Terms</h3>
+                <p>Use modern, inclusive terminology:</p>
+
+                <div class="example bad">
+                    <div class="example-label">❌ Deprecated</div>
+                    <div class="example-text">Add the IP to the whitelist.
+Configure the master database.
+Perform a sanity check.</div>
+                </div>
+
+                <div class="example good">
+                    <div class="example-label">✓ Inclusive</div>
+                    <div class="example-text">Add the IP to the allowlist.
+Configure the primary database.
+Perform a verification check.</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Style Reference Quick Check</h2>
+
+                <h3>Before You Submit</h3>
+                <ul class="checklist">
+                    <li>All sentences use active voice</li>
+                    <li>No contractions in formal writing</li>
+                    <li>All acronyms are defined on first use</li>
+                    <li>Headings use Title Case</li>
+                    <li>Code is formatted with backticks</li>
+                    <li>Lists use consistent formatting</li>
+                    <li>Terminology is consistent throughout</li>
+                    <li>No deprecated or problematic terms</li>
+                    <li>Paragraphs are focused and concise</li>
+                    <li>Links are valid and working</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- Checklist Section -->
+        <section id="checklist" class="section">
+            <div class="card">
+                <h2>Pre-Submission Checklist</h2>
+                <p>Use this checklist before submitting your documentation for review.</p>
+
+                <div class="interactive-box">
+                    <h3>Content Review</h3>
+                    <ul class="checklist">
+                        <li>Information is accurate and current</li>
+                        <li>All examples are tested and correct</li>
+                        <li>Code samples follow coding standards</li>
+                        <li>No broken links or references</li>
+                        <li>All URLs are valid and updated</li>
+                        <li>Images have descriptive alt text</li>
+                    </ul>
+
+                    <h3>Style and Tone</h3>
+                    <ul class="checklist">
+                        <li>Writing uses active voice throughout</li>
+                        <li>No contractions in formal sections</li>
+                        <li>Tone is professional and consistent</li>
+                        <li>Audience is clearly identified</li>
+                        <li>Technical level is appropriate</li>
+                        <li>Jargon is explained adequately</li>
+                    </ul>
+
+                    <h3>Formatting and Structure</h3>
+                    <ul class="checklist">
+                        <li>Document has clear hierarchy with H1 heading</li>
+                        <li>All headings use proper Title Case</li>
+                        <li>Lists are consistent (bullets or numbers)</li>
+                        <li>No trailing whitespace</li>
+                        <li>Code blocks have language specified</li>
+                        <li>Tables are properly formatted</li>
+                    </ul>
+
+                    <h3>Technical Writing</h3>
+                    <ul class="checklist">
+                        <li>Acronyms defined on first use</li>
+                        <li>Terminology is consistent</li>
+                        <li>No deprecated terms used</li>
+                        <li>Numbers formatted consistently</li>
+                        <li>File paths and commands are clear</li>
+                        <li>Procedures are in logical order</li>
+                    </ul>
+
+                    <h3>Automated Checks</h3>
+                    <ul class="checklist">
+                        <li>Vale style check passes (no errors)</li>
+                        <li>Markdown lint passes</li>
+                        <li>Spell check passes</li>
+                        <li>Link validation passes</li>
+                        <li>No console warnings or errors</li>
+                        <li>Pre-commit hooks pass successfully</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Running Automated Checks</h2>
+
+                <h3>Command Line</h3>
+                <div class="example">
+                    <div class="example-label">Run Vale Check</div>
+                    <div class="example-text">vale --config=.vale.ini *.md</div>
+                </div>
+
+                <div class="example">
+                    <div class="example-label">Run All Pre-Commit Hooks</div>
+                    <div class="example-text">bash pre-commit-hooks.sh</div>
+                </div>
+
+                <h3>Git Setup</h3>
+                <p>To automatically run checks before every commit:</p>
+
+                <div class="example">
+                    <div class="example-label">Install Pre-Commit Hook</div>
+                    <div class="example-text">chmod +x pre-commit-hooks.sh
+cp pre-commit-hooks.sh .git/hooks/pre-commit</div>
+                </div>
+
+                <h3>Continuous Integration</h3>
+                <p>Checks run automatically on every push and pull request via GitHub Actions.</p>
+            </div>
+
+            <div class="card">
+                <h2>Common Commands</h2>
+
+                <table class="comparison-table">
+                    <thead>
+                        <tr>
+                            <th>Task</th>
+                            <th>Command</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Check single file</td>
+                            <td><code>vale document.md</code></td>
+                        </tr>
+                        <tr>
+                            <td>Check all markdown files</td>
+                            <td><code>vale *.md</code></td>
+                        </tr>
+                        <tr>
+                            <td>Check specific rule</td>
+                            <td><code>vale --filter TechWriter.Passive *.md</code></td>
+                        </tr>
+                        <tr>
+                            <td>JSON output for parsing</td>
+                            <td><code>vale --output=JSON *.md</code></td>
+                        </tr>
+                        <tr>
+                            <td>Ignore specific rule</td>
+                            <td><code>vale --ignore-glob="*.md"</code></td>
+                        </tr>
+                        <tr>
+                            <td>Show all alerts</td>
+                            <td><code>vale --minAlertLevel=suggestion *.md</code></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+
+    <!-- Footer -->
+    <footer>
+        <p>Technical Writing Style Guide Dashboard | Version 1.0.0 | Last Updated: 2025</p>
+        <p>For questions or suggestions, please contact the Documentation Team</p>
+    </footer>
+
+    <script>
+        // Navigation functionality
+        document.querySelectorAll('.nav-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const sectionId = this.getAttribute('data-section');
+
+                // Update active button
+                document.querySelectorAll('.nav-btn').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                this.classList.add('active');
+
+                // Show active section
+                document.querySelectorAll('.section').forEach(section => {
+                    section.classList.remove('active');
+                });
+                document.getElementById(sectionId).classList.add('active');
+
+                // Scroll to top
+                window.scrollTo(0, 0);
+            });
+        });
+
+        // Keyboard navigation
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'ArrowRight') {
+                const buttons = Array.from(document.querySelectorAll('.nav-btn'));
+                const activeIdx = buttons.findIndex(btn => btn.classList.contains('active'));
+                if (activeIdx < buttons.length - 1) {
+                    buttons[activeIdx + 1].click();
+                }
+            } else if (event.key === 'ArrowLeft') {
+                const buttons = Array.from(document.querySelectorAll('.nav-btn'));
+                const activeIdx = buttons.findIndex(btn => btn.classList.contains('active'));
+                if (activeIdx > 0) {
+                    buttons[activeIdx - 1].click();
+                }
+            }
+        });
+
+        // Smooth scroll for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function(e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            });
+        });
+
+        // Copy to clipboard functionality for code blocks
+        document.querySelectorAll('.example-text').forEach(element => {
+            element.style.cursor = 'pointer';
+            element.title = 'Click to copy';
+            element.addEventListener('click', function() {
+                const text = this.textContent;
+                navigator.clipboard.writeText(text).then(() => {
+                    const originalBg = this.style.backgroundColor;
+                    this.style.backgroundColor = '#d4edda';
+                    setTimeout(() => {
+                        this.style.backgroundColor = originalBg;
+                    }, 1000);
+                });
+            });
+        });
+
+        console.log('Style Guide Dashboard loaded successfully');
+    </script>
+</body>
+</html>

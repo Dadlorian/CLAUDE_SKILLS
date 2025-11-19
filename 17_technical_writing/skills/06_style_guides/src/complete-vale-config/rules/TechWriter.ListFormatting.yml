@@ -1,0 +1,206 @@
+---
+name: List Formatting Standards
+desc: Enforces consistent list structure and formatting
+message: "List formatting should follow these guidelines: '%s'"
+level: warning
+scope: list
+action:
+  name: suggest
+
+extends: existence
+
+# List type requirements
+list_requirements:
+  unordered:
+    marker: '[-*+]'
+    consistency: "use consistent marker throughout document"
+    preferred: '-'
+
+  ordered:
+    marker: '\d+\.'
+    consistency: "start with 1, increment by 1"
+    continuation: "use proper indentation"
+
+  description:
+    marker: ':'
+    format: "Term : Definition"
+
+# Unordered list rules
+unordered_lists:
+  rules:
+    - rule: "Use consistent bullet markers"
+      correct: "- item"
+      incorrect: ["* item", "+ item (mixed)"]
+      severity: warning
+
+    - rule: "Capitalize first word of list item"
+      correct: "- Configure the settings"
+      incorrect: "- configure the settings"
+      severity: suggestion
+
+    - rule: "Use parallel structure"
+      correct: ["- Install the package", "- Configure settings", "- Run tests"]
+      incorrect: ["- Install the package", "- Configure settings", "- Tests running"]
+      severity: warning
+
+    - rule: "Consistent punctuation"
+      correct: ["All items end with period", "Or all items have no period"]
+      incorrect: "Some end with period, some don't"
+      severity: warning
+
+# Ordered list rules
+ordered_lists:
+  rules:
+    - rule: "Start numbering at 1"
+      correct: "1. First step"
+      incorrect: "0. First step"
+      severity: error
+
+    - rule: "Increment by 1"
+      correct: "1. First\n2. Second\n3. Third"
+      incorrect: "1. First\n3. Second\n5. Third"
+      severity: error
+
+    - rule: "Use action verbs"
+      correct: "1. Install the package"
+      incorrect: "1. The package installation"
+      severity: suggestion
+
+    - rule: "Each step independent"
+      message: "Steps should be able to stand alone"
+      severity: suggestion
+
+# Nested list formatting
+nested_lists:
+  rules:
+    - rule: "Consistent indentation (2 or 4 spaces)"
+      correct: "- Parent\n  - Child\n    - Grandchild"
+      severity: warning
+
+    - rule: "Avoid excessive nesting"
+      max_depth: 3
+      message: "Keep nesting to 3 levels maximum"
+      severity: suggestion
+
+    - rule: "Mixed list types allowed"
+      correct: "Unordered parent with ordered children"
+      severity: info
+
+# List item content
+item_content:
+  rules:
+    - rule: "Single sentence preferred"
+      guidance: "Keep items concise"
+      severity: suggestion
+
+    - rule: "Multiple sentences allowed with care"
+      guidance: "If needed, use period after first sentence"
+      example: "Install the package. This will download all dependencies."
+
+    - rule: "Code formatting for commands"
+      correct: "- Use `npm install` to install"
+      incorrect: "- Use npm install to install"
+      severity: warning
+
+    - rule: "Consistent use of articles"
+      correct: ["- The first item", "- The second item"]
+      incorrect: ["- The first item", "- Second item"]
+      severity: suggestion
+
+# Description lists
+description_lists:
+  format: "Term : Definition"
+  rules:
+    - rule: "Use consistent formatting"
+      correct: "API : Application Programming Interface"
+      severity: warning
+
+    - rule: "Define all terms"
+      message: "Avoid assuming reader knowledge"
+      severity: suggestion
+
+    - rule: "No nesting in definitions"
+      severity: warning
+
+# List introduction
+introduction:
+  rules:
+    - rule: "Use introductory text"
+      correct: "You need to install:\n- Package 1\n- Package 2"
+      incorrect: "- Package 1\n- Package 2"
+      severity: suggestion
+
+    - rule: "Introduction ends with colon"
+      correct: "Complete these steps:"
+      incorrect: "Complete these steps"
+      severity: suggestion
+
+    - rule: "Introduction explains list purpose"
+      guidance: "Reader should understand why list exists"
+      severity: suggestion
+
+# Continuation paragraphs
+continuation:
+  rules:
+    - rule: "Use blank line before continuation"
+      format: "- Item 1\n\nFollowing paragraph"
+      severity: suggestion
+
+    - rule: "Indent continuation of multi-paragraph items"
+      format: "- Item\n\n  Continuation paragraph"
+      severity: suggestion
+
+    - rule: "Separate list from following content"
+      format: "- Last item\n\nNew paragraph"
+      severity: suggestion
+
+# Special list types
+task_lists:
+  format: "- [ ] Task\n- [x] Completed task"
+  usage: "GitHub-flavored Markdown"
+  consistency: "Use consistent notation"
+
+  rules:
+    - rule: "Use for actionable items"
+      severity: suggestion
+
+    - rule: "Convert to normal lists in formal docs"
+      severity: warning
+
+footnote_lists:
+  format: "[1]: Reference"
+  numbering: "sequential"
+
+# Examples of correct formatting
+examples:
+  unordered_good: |
+    - Install the package
+    - Configure settings
+    - Run tests
+
+  unordered_bad: |
+    * Install the package
+    - Configure settings
+    + Run tests
+
+  ordered_good: |
+    1. Complete first step
+    2. Complete second step
+    3. Verify results
+
+  ordered_bad: |
+    1. Complete first step
+    3. Complete second step
+    2. Verify results
+
+  nested_good: |
+    1. Main step
+       - Sub-step A
+       - Sub-step B
+    2. Next main step
+
+  nested_bad: |
+    1. Main step
+    - Sub-step A
+    - Sub-step B
+    2. Next main step

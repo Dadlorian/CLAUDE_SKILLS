@@ -1,0 +1,136 @@
+---
+name: Gender Neutrality
+desc: Encourages gender-neutral language in documentation
+message: "Use gender-neutral language: '%s' should be '%s'"
+level: warning
+scope: paragraph
+action:
+  name: replace
+  params:
+    - position: start
+
+extends: substitution
+
+ignorecase: true
+
+swap:
+  # Pronoun replacements
+  'he|she': 'they'
+  'him|her': 'them'
+  'his|hers': 'theirs'
+  'himself|herself': 'themself'
+
+  # Generic pronouns
+  'manpower': 'personnel'
+  'man-hours': 'person-hours'
+  'spaceman': 'space explorer'
+  'fireman': 'firefighter'
+  'policeman': 'police officer'
+  'chairman': 'chair'
+  'spokesman': 'spokesperson'
+  'salesman': 'sales representative'
+
+  # Professional roles
+  'housewife': 'homemaker'
+  'stewardess': 'flight attendant'
+  'actor|actress': 'actor'
+  'waiter|waitress': 'server'
+
+  # Generic terms
+  'businessman': 'business professional'
+  'cameraman': 'camera operator'
+  'draftsman': 'drafter'
+  'foreman': 'supervisor'
+  'workman': 'worker'
+
+  # Compound terms
+  'man-made': 'human-made'
+  'man-hours': 'person-hours'
+  'man-to-man': 'peer-to-peer'
+
+  # Avoid gendered examples
+  'Mrs\. Johnson': 'Jordan'
+  'Mr\. Johnson': 'Jordan'
+
+# Pattern-based replacements
+patterns:
+  - from: '\b(?:the )?(man|woman|guy|girl|boy) (?:who|that)\b'
+    to: 'the person who'
+    message: "Use 'person' instead of gendered terms"
+    severity: warning
+
+  - from: '\b(?:his|her) (?:own|self|work)\b'
+    to: 'their own/work'
+    message: "Use 'their' for gender-neutral reference"
+    severity: warning
+
+# Verb conjugation examples
+verb_examples:
+  - correct: "developers can configure their settings"
+    incorrect: "developers can configure his settings"
+
+  - correct: "when users update their profile"
+    incorrect: "when users update her profile"
+
+  - correct: "each engineer has their assigned tasks"
+    incorrect: "each engineer has his assigned tasks"
+
+# Professional references
+professional_terms:
+  - "developer"
+  - "engineer"
+  - "administrator"
+  - "manager"
+  - "team member"
+  - "staff"
+  - "personnel"
+
+# Avoid gendered assumptions
+assumptions:
+  - pattern: '\b(nurse|teacher|secretary)\b.*\b(she|her|hers)\b'
+    message: "Avoid gendered assumptions about professions"
+    severity: warning
+
+  - pattern: '\b(CEO|president|doctor|lawyer)\b.*\b(he|him|his)\b'
+    message: "Avoid gendered assumptions about leadership"
+    severity: warning
+
+# Best practices
+guidelines:
+  use_they_them: "Always use 'they/them' for singular pronouns"
+  use_person: "Use 'person' instead of 'man' or 'woman' in generic contexts"
+  use_plural: "When possible, use plural nouns to avoid pronouns"
+  use_role_titles: "Refer to people by their role/title rather than gender"
+
+# Examples of neutral language
+examples:
+  - neutral: "The developer can configure their settings"
+    gendered: "The developer can configure his settings"
+
+  - neutral: "Team members should review their code"
+    gendered: "Team members should review his code"
+
+  - neutral: "Users can update their profile information"
+    gendered: "Users can update her profile information"
+
+  - neutral: "The administrator has access to their dashboard"
+    gendered: "The administrator has access to his dashboard"
+
+# Inclusive pronouns
+pronouns:
+  - "they"
+  - "them"
+  - "theirs"
+  - "their"
+
+# Test for compliance
+test_patterns:
+  passing:
+    - "The user can access their dashboard"
+    - "Each developer should review their code"
+    - "Team members can configure their preferences"
+
+  failing:
+    - "The user can access his dashboard"
+    - "Each developer should review her code"
+    - "Team members can configure their preferences"

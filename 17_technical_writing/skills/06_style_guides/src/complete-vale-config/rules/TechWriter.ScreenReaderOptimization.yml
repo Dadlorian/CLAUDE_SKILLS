@@ -1,0 +1,275 @@
+---
+name: Screen Reader Optimization
+desc: Ensures documentation is optimized for screen readers and accessibility
+message: "Accessibility issue: '%s'"
+level: error
+scope: paragraph, heading, code
+action:
+  name: suggest
+
+extends: existence
+
+# Heading structure accessibility
+heading_accessibility:
+  rules:
+    - rule: "Use semantic heading hierarchy"
+      pattern: "^#{1,6}\s"
+      required: true
+      message: "Proper heading levels required for screen reader navigation"
+      severity: error
+
+    - rule: "Don't skip heading levels"
+      example_correct: "# Title → ## Section → ### Subsection"
+      example_incorrect: "# Title → ### Subsection"
+      severity: error
+
+    - rule: "Heading must be descriptive"
+      min_length: 3
+      max_length: 100
+      message: "Headings should be meaningful and concise"
+      severity: warning
+
+    - rule: "No heading repeated consecutively"
+      severity: warning
+
+# Image accessibility
+image_accessibility:
+  rules:
+    - rule: "All images must have alt text"
+      pattern: '!\[(?P<alt>.*?)\]\('
+      message: "Alt text is required for screen reader users"
+      severity: error
+
+    - rule: "Alt text must be descriptive"
+      min_length: 10
+      guidance: "Describe content, not just 'image' or 'screenshot'"
+      message: "Alt text should meaningfully describe the image"
+      severity: warning
+
+    - rule: "Decorative images need empty alt"
+      pattern: '!\[\]\('
+      message: "Decorative images should have empty alt text: ![](url)"
+      severity: warning
+
+# Alt text guidelines
+alt_text_standards:
+  for: "diagrams"
+    example_good: "![Architecture diagram showing client, API server, and database layers](architecture.png)"
+    example_bad: "![diagram](architecture.png)"
+
+  for: "screenshots"
+    example_good: "![Screenshot of the settings panel with theme options highlighted](settings.png)"
+    example_bad: "![screenshot](settings.png)"
+
+  for: "charts"
+    example_good: "![Bar chart showing monthly user growth from Jan-Dec 2023](growth-chart.png)"
+    example_bad: "![chart](growth-chart.png)"
+
+  for: "icons"
+    example_good: "![Checkmark icon indicating successful completion](checkmark.png)"
+    example_bad: "![icon](checkmark.png)"
+
+  for: "decorative"
+    format: "![](decorative.png)"
+    message: "Use empty alt text for purely decorative images"
+
+# Link accessibility
+link_accessibility:
+  rules:
+    - rule: "Link text must be descriptive"
+      pattern: '\[(?P<text>.*?)\]\('
+      avoid: ["click here", "link", "more"]
+      message: "Use descriptive link text instead of generic terms"
+      severity: warning
+
+    - rule: "No ambiguous link text"
+      example_good: "[Read the installation guide](install.md)"
+      example_bad: "[Read more](install.md)"
+      severity: warning
+
+    - rule: "Links should be understandable out of context"
+      guidance: "Screen reader users may list all links separately"
+      severity: warning
+
+    - rule: "URL should not be link text"
+      pattern: '\[https?://.*\]\(.*\)'
+      message: "Use descriptive text instead of URL as link text"
+      severity: suggestion
+
+# Form and input accessibility
+form_accessibility:
+  rules:
+    - rule: "Form fields need labels"
+      pattern: '<input'
+      requires: '<label'
+      message: "All inputs must be associated with labels"
+      severity: error
+
+    - rule: "Labels must have for attribute"
+      pattern: '<label for'
+      message: "Labels should reference input id for accessibility"
+      severity: error
+
+    - rule: "Placeholder not substitute for label"
+      guidance: "Placeholders disappear when typing; use labels"
+      severity: warning
+
+# Table accessibility
+table_accessibility:
+  rules:
+    - rule: "Tables need header row"
+      pattern: '^|.*|'
+      requires: 'header with ^'
+      message: "Tables must have clear header row"
+      severity: error
+
+    - rule: "Table should have summary"
+      guidance: "Use table caption or preceding text"
+      severity: suggestion
+
+    - rule: "Avoid complex nested tables"
+      message: "Keep table structure simple for screen readers"
+      severity: warning
+
+    - rule: "Use th for headers"
+      pattern: '<th'
+      message: "Use <th> elements for table headers"
+      severity: error
+
+# Code block accessibility
+code_accessibility:
+  rules:
+    - rule: "Code blocks must have language"
+      pattern: '^```\w+'
+      message: "Specify language for syntax highlighting"
+      severity: warning
+
+    - rule: "Provide text alternative for code"
+      guidance: "Include explanation before/after code block"
+      severity: suggestion
+
+    - rule: "Avoid relying on color alone"
+      message: "Don't use color as only means to convey information"
+      severity: warning
+
+# List accessibility
+list_accessibility:
+  rules:
+    - rule: "Use semantic list syntax"
+      pattern: '^[-*+]|^\d+\.'
+      message: "Use proper markdown list syntax"
+      severity: warning
+
+    - rule: "Consistent list markers"
+      guidance: "Don't mix - * + in same list"
+      severity: warning
+
+    - rule: "Proper list nesting"
+      guidance: "Maintain hierarchy for screen readers"
+      severity: suggestion
+
+# Color contrast
+contrast_requirements:
+  rule: "Text must have sufficient color contrast"
+  guidelines:
+    - "Normal text: 4.5:1 ratio"
+    - "Large text: 3:1 ratio"
+    - "Graphics/UI: 3:1 ratio"
+  severity: error
+  note: "Especially important for code syntax highlighting"
+
+# Language and readability
+language_accessibility:
+  rules:
+    - rule: "Define abbreviations on first use"
+      pattern: '(?P<abbr>[A-Z]{2,})'
+      guidance: "Expand acronyms: use <abbr> or write out"
+      severity: suggestion
+
+    - rule: "Avoid complex sentences"
+      guidance: "Keep sentences short and clear"
+      severity: suggestion
+
+    - rule: "Use consistent terminology"
+      guidance: "Screen reader users need predictable language"
+      severity: warning
+
+    - rule: "Avoid repeating links"
+      guidance: "Screen reader users often hear link lists"
+      severity: suggestion
+
+# Emphasis and formatting
+formatting_accessibility:
+  rules:
+    - rule: "Don't rely on formatting alone"
+      guidance: "Use semantic elements, not just styling"
+      severity: warning
+
+    - rule: "Use proper emphasis elements"
+      correct: "**bold** or *italic*"
+      incorrect: "font-weight: bold"
+      severity: suggestion
+
+    - rule: "Avoid ALL CAPS"
+      guidance: "Screen readers may spell out letter-by-letter"
+      severity: suggestion
+
+# Keyboard navigation
+keyboard_accessibility:
+  rules:
+    - rule: "All interactive elements keyboard accessible"
+      message: "Don't require mouse-only interaction"
+      severity: error
+
+    - rule: "Visible focus indicators"
+      guidance: "Users must see which element is focused"
+      severity: error
+
+    - rule: "Logical tab order"
+      guidance: "Tab order should follow reading order"
+      severity: warning
+
+# Document language
+document_language:
+  rule: "Specify document language"
+  format: "html lang=\"en\""
+  importance: "Critical for screen reader pronunciation"
+  severity: error
+
+# Accessibility checklist
+accessibility_checklist:
+  structure:
+    - "[ ] Proper heading hierarchy (h1-h6)"
+    - "[ ] No skipped heading levels"
+    - "[ ] Semantic HTML markup"
+
+  images:
+    - "[ ] All images have alt text"
+    - "[ ] Alt text is descriptive"
+    - "[ ] Decorative images have empty alt"
+
+  links:
+    - "[ ] Link text is descriptive"
+    - "[ ] No 'click here' link text"
+    - "[ ] Links understandable out of context"
+
+  forms:
+    - "[ ] All inputs have labels"
+    - "[ ] Labels properly associated"
+    - "[ ] Error messages are clear"
+
+  tables:
+    - "[ ] Tables have header rows"
+    - "[ ] Table structure is simple"
+    - "[ ] Headers marked with <th>"
+
+  code:
+    - "[ ] Code blocks specify language"
+    - "[ ] Code is explained in text"
+    - "[ ] Sufficient color contrast"
+
+  general:
+    - "[ ] Sufficient color contrast"
+    - "[ ] Document language specified"
+    - "[ ] Keyboard navigable"
+    - "[ ] Tested with screen reader"

@@ -1,0 +1,169 @@
+site_name: Project Documentation
+site_description: Comprehensive documentation for Project
+site_author: Organization
+site_url: https://docs.example.com
+
+theme:
+  name: material
+  logo: assets/logo.svg
+  favicon: assets/favicon.ico
+
+  features:
+    - navigation.instant
+    - navigation.instant.prefetch
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.top
+    - navigation.indexes
+    - toc.integrate
+    - search.suggest
+    - search.highlight
+    - search.share
+    - content.action.edit
+    - content.action.view
+    - content.code.annotate
+    - content.code.copy
+    - content.tabs.link
+    - content.tooltips
+    - header.autohide
+
+  palette:
+    - media: '(prefers-color-scheme: light)'
+      scheme: default
+      primary: green
+      accent: lime
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: '(prefers-color-scheme: dark)'
+      scheme: slate
+      primary: green
+      accent: lime
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+  font:
+    text: Roboto
+    code: Roboto Mono
+
+  language: en
+
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+      title: On this page
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_generator: !!python/name:pymdownx.emoji.to_svg
+      emoji_index: !!python/name:pymdownx.emoji.twemoji
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      use_pygments: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.progressbar
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+      combine_header_slug: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+
+plugins:
+  - search:
+      lang: en
+  - minify:
+      minify_html: true
+      minify_css: true
+      minify_js: true
+  - git-revision-date-localized:
+      enable_creation_date: true
+  - tags:
+      tags_file: reference/tags.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/organization/project-docs
+      name: GitHub
+    - icon: fontawesome/brands/twitter
+      link: https://twitter.com/example
+      name: Twitter
+    - icon: fontawesome/brands/linkedin
+      link: https://linkedin.com/company/example
+      name: LinkedIn
+    - icon: fontawesome/brands/discord
+      link: https://discord.gg/example
+      name: Discord
+
+  analytics:
+    provider: google
+    property: UA-XXXXXXXXX-X
+
+  consent:
+    title: Cookie consent
+    description: >-
+      We use cookies to recognize your repeated visits and preferences, as well
+      as to measure the effectiveness of our documentation and whether users
+      find what they're searching for. With your consent, you're helping us to
+      make our documentation better.
+    actions:
+      - accept
+      - reject
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: getting-started/installation.md
+    - Configuration: getting-started/configuration.md
+    - Quick Start: getting-started/quick-start.md
+  - Core Concepts:
+    - Architecture: concepts/architecture.md
+    - Data Model: concepts/data-model.md
+    - Lifecycle: concepts/lifecycle.md
+  - API Reference:
+    - Overview: api/overview.md
+    - Users Endpoint: api/users.md
+    - Projects Endpoint: api/projects.md
+    - Error Codes: api/errors.md
+    - Rate Limits: api/rate-limits.md
+  - Guides:
+    - REST Integration: guides/rest-integration.md
+    - Webhook Setup: guides/webhooks.md
+    - Authentication: guides/authentication.md
+    - Best Practices: guides/best-practices.md
+  - Deployment:
+    - Overview: deployment/overview.md
+    - Docker: deployment/docker.md
+    - Kubernetes: deployment/kubernetes.md
+    - Cloud Providers: deployment/cloud-providers.md
+    - Monitoring: deployment/monitoring.md
+  - Reference:
+    - Changelog: reference/changelog.md
+    - FAQ: reference/faq.md
+    - Glossary: reference/glossary.md
+    - Tags: reference/tags.md
+
+copyright: Copyright &copy; 2024 Organization

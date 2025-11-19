@@ -1,0 +1,455 @@
+# Crowdin Configuration for Technical Writing Localization
+# Production-ready setup with comprehensive source and translation mappings
+
+project_id: null  # Set via environment variable CROWDIN_PROJECT_ID
+api_token: null   # Set via environment variable CROWDIN_TOKEN
+base_path: .
+
+# Base URL for Crowdin API
+api_base_url: "https://api.crowdin.com/api/v2"
+
+# Project settings
+preserve_hierarchy: true
+commit_message: "chore: update translations from Crowdin [skip ci]"
+
+# Source files configuration
+files:
+  # Documentation source files
+  - source: /content/docs/**/*.md
+    translation: /%locale%/docs/%original_file_name%
+    update_option: update_as_unapproved
+    skip_untranslated_strings: false
+    scheme: identifier_hash
+    languages_mapping:
+      es: es
+      fr: fr
+      de: de
+      it: it
+      ja: ja
+      zh: zh-CN
+      zh-TW: zh-TW
+      pt: pt
+      pt-BR: pt-BR
+      ru: ru
+      ar: ar
+      ko: ko
+      tr: tr
+      pl: pl
+      nl: nl
+
+  # Guide files
+  - source: /content/guides/**/*.md
+    translation: /%locale%/guides/%original_file_name%
+    update_option: update_as_unapproved
+    skip_untranslated_strings: false
+
+  # Technical specifications
+  - source: /content/specs/**/*.md
+    translation: /%locale%/specs/%original_file_name%
+    update_option: update_as_unapproved
+
+  # JSON i18n resources
+  - source: /src/locales/en/**/*.json
+    translation: /src/locales/%locale%/%file_name%
+    update_option: update_as_unapproved
+    skip_untranslated_strings: true
+    scheme: key
+
+  # YAML configuration files
+  - source: /src/locales/en/**/*.yml
+    translation: /src/locales/%locale%/%file_name%
+    update_option: update_as_unapproved
+    scheme: key
+
+  # HTML templates
+  - source: /templates/**/*.html
+    translation: /%locale%/templates/%original_file_name%
+    update_option: update_as_unapproved
+    scheme: html_id
+
+# Strings extraction patterns
+extract_strings:
+  enabled: true
+  patterns:
+    - "t('([^']+)')"
+    - 't("([^"]+)")'
+    - "__(\"([^\"]+)\")"
+    - "__('([^']+)')"
+    - "gettext('([^']+)')"
+    - "_('([^']+)')"
+
+# Context instructions for translators
+context:
+  # Add context to difficult terms
+  instructions: |
+    ## Translation Guidelines
+
+    ### General Rules
+    - Maintain technical accuracy
+    - Preserve code formatting and special characters
+    - Keep variable names unchanged
+    - Preserve markdown formatting
+
+    ### Technology Terms
+    - Use standard terminology for your language
+    - Refer to locale-specific glossary
+    - Keep English acronyms (API, REST, JSON, etc.)
+    - Translate UI labels consistently
+
+    ### Code Examples
+    - Do not translate code
+    - Only translate comments in code blocks
+    - Preserve indentation and formatting
+
+    ### Links and References
+    - Update links to locale-specific versions when available
+    - Preserve URL structure
+    - Translate link text only
+
+# Target languages configuration
+languages:
+  - name: Spanish (Spain)
+    code: es
+    rtl: false
+    plural_forms: 2
+    three_letters_code: spa
+
+  - name: French
+    code: fr
+    rtl: false
+    plural_forms: 2
+    three_letters_code: fra
+
+  - name: German
+    code: de
+    rtl: false
+    plural_forms: 2
+    three_letters_code: deu
+
+  - name: Italian
+    code: it
+    rtl: false
+    plural_forms: 2
+    three_letters_code: ita
+
+  - name: Japanese
+    code: ja
+    rtl: false
+    plural_forms: 1
+    three_letters_code: jpn
+
+  - name: Chinese (Simplified)
+    code: zh
+    rtl: false
+    plural_forms: 1
+    three_letters_code: zho
+
+  - name: Chinese (Traditional)
+    code: zh-TW
+    rtl: false
+    plural_forms: 1
+    three_letters_code: zho
+
+  - name: Portuguese
+    code: pt
+    rtl: false
+    plural_forms: 2
+    three_letters_code: por
+
+  - name: Portuguese (Brazil)
+    code: pt-BR
+    rtl: false
+    plural_forms: 2
+    three_letters_code: por
+
+  - name: Russian
+    code: ru
+    rtl: false
+    plural_forms: 3
+    three_letters_code: rus
+
+  - name: Arabic
+    code: ar
+    rtl: true
+    plural_forms: 6
+    three_letters_code: ara
+
+  - name: Korean
+    code: ko
+    rtl: false
+    plural_forms: 1
+    three_letters_code: kor
+
+  - name: Turkish
+    code: tr
+    rtl: false
+    plural_forms: 1
+    three_letters_code: tur
+
+  - name: Polish
+    code: pl
+    rtl: false
+    plural_forms: 3
+    three_letters_code: pol
+
+  - name: Dutch
+    code: nl
+    rtl: false
+    plural_forms: 2
+    three_letters_code: nld
+
+# Approval workflow
+approval_settings:
+  # Require approval for translated strings
+  auto_approve_imported: false
+  # Mark strings as approved after reaching 100%
+  approve_on_completion: true
+
+# QA checks
+qa_checks:
+  - type: "empty_translations"
+    enabled: true
+  - type: "fuzzy_translations"
+    enabled: true
+  - type: "unchanged_translations"
+    enabled: true
+  - type: "spelled_numbers"
+    enabled: false
+  - type: "multiple_spaces"
+    enabled: true
+  - type: "special_placeholders"
+    enabled: true
+  - type: "tags"
+    enabled: true
+  - type: "brackets"
+    enabled: true
+  - type: "punctuation"
+    enabled: true
+  - type: "leading_trailing_spaces"
+    enabled: true
+
+# Translation memory
+translation_memory:
+  # Enable TM matching
+  enabled: true
+  # Suggest matches above this confidence level
+  min_confidence: 0.75
+  # Penalize matches above this distance
+  penalty_threshold: 0.1
+
+# Machine translation
+machine_translation:
+  # Enable MT suggestions
+  enabled: false
+  # Use specific provider
+  provider: "google"
+  # Require human review
+  require_review: true
+
+# Notification settings
+notifications:
+  # Notify when strings are added
+  new_strings: true
+  # Notify when translations are completed
+  translation_complete: true
+  # Notify on QA failures
+  qa_issues: true
+  # Slack webhook for notifications
+  slack_webhook: null  # Set via CROWDIN_SLACK_WEBHOOK
+
+# Build settings
+build:
+  # Export approved translations only
+  export_approved_only: true
+  # Skip untranslated strings in export
+  skip_untranslated: false
+  # Include source language in build
+  include_source: false
+  # Export as single file
+  bundle_mode: false
+
+# Version control integration
+vcs:
+  type: github
+  # Create PR for new translations
+  create_pull_requests: true
+  # Labels for translation PRs
+  pull_request_labels: ["translations", "automated"]
+  # Assign to translators
+  pull_request_assignees: null
+  # Auto-merge translations
+  auto_merge: false
+  # Commit message template
+  commit_message_template: "chore: update translations from Crowdin [skip ci]"
+  # Add co-authors
+  add_co_authors: true
+
+# Uploading
+uploading:
+  # Update source strings
+  update_strings: true
+  # Cleanup files on upload
+  cleanup: false
+  # Auto-detect language
+  auto_detect_language: false
+
+# Downloading
+downloading:
+  # Format for downloading
+  export_as_multilingual: false
+  # Include references
+  include_references: false
+  # Branch to download
+  branch: null
+
+# Branches configuration
+branches:
+  # Production branch
+  - name: main
+    title: "Production"
+    pull_requests: false
+
+  # Development branch
+  - name: develop
+    title: "Development"
+    pull_requests: true
+    pull_request_base: develop
+
+# Custom fields for context
+custom_fields:
+  - name: "difficulty"
+    description: "Translation difficulty level"
+    type: "select"
+    options: ["easy", "medium", "hard"]
+
+  - name: "domain"
+    description: "Technical domain"
+    type: "select"
+    options: ["api", "ui", "docs", "marketing"]
+
+  - name: "deadline"
+    description: "Translation deadline"
+    type: "date"
+
+# Glossary settings
+glossary:
+  # Enable glossary usage
+  enabled: true
+  # Glossary identifier
+  glossary_id: null
+  # Enforce glossary terms
+  enforce: false
+  # Suggest glossary terms
+  suggest: true
+
+# Cost estimation
+cost_estimation:
+  # Enable cost tracking
+  enabled: false
+  # Currency
+  currency: "USD"
+  # Rate per word
+  rate_per_word: 0.10
+
+# Reports and analytics
+reports:
+  # Enable detailed reports
+  detailed_reports: true
+  # Report types
+  types:
+    - "translation_cost"
+    - "completion_status"
+    - "proofreading_progress"
+    - "qa_issues"
+  # Export format
+  export_format: "json"
+
+# Workflow automation
+workflow:
+  # Stages in translation workflow
+  stages:
+    - name: "Translation"
+      description: "Initial translation"
+      order: 1
+
+    - name: "Proofreading"
+      description: "Proofreading and QA"
+      order: 2
+
+    - name: "Final Review"
+      description: "Final review and approval"
+      order: 3
+
+# Locale mapping (for special cases)
+locale_mapping:
+  # Map source locale codes to Crowdin codes
+  en: "en"
+  en-US: "en"
+  en-GB: "en"
+  # Target language mappings
+  zh-Hans: "zh"
+  zh-Hant: "zh-TW"
+  pt-BR: "pt-BR"
+  pt-PT: "pt"
+
+# Integrations
+integrations:
+  # Slack integration
+  slack:
+    enabled: false
+    webhook_url: null
+
+  # GitHub integration
+  github:
+    enabled: true
+    # Token managed via GitHub secrets
+    token_env: GITHUB_TOKEN
+
+  # Email notifications
+  email:
+    enabled: true
+    recipients: []
+
+# Performance settings
+performance:
+  # Batch upload size (strings)
+  batch_size: 1000
+  # Maximum concurrent uploads
+  max_concurrent_uploads: 5
+  # Timeout for API calls (seconds)
+  api_timeout: 60
+  # Retry failed requests
+  retry_failed_requests: true
+  # Number of retries
+  max_retries: 3
+  # Backoff multiplier
+  retry_backoff: 2
+
+# Cache settings
+cache:
+  # Enable caching
+  enabled: true
+  # Cache directory
+  directory: .crowdin-cache
+  # Cache TTL (seconds)
+  ttl: 86400
+
+# Security settings
+security:
+  # Validate SSL certificates
+  verify_ssl: true
+  # Custom CA certificates
+  ca_cert_path: null
+  # Encryption for sensitive data
+  encrypt_passwords: true
+
+# Logging
+logging:
+  # Log level
+  level: "INFO"
+  # Log file
+  file: ".crowdin.log"
+  # Enable verbose logging
+  verbose: false
+  # Log format
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"

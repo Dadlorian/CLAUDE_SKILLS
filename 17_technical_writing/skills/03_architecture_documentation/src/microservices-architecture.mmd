@@ -1,0 +1,202 @@
+%% Complete Microservices Architecture Diagram
+%% Shows service communication patterns, inter-service dependencies, and orchestration
+
+graph TB
+    %% Client Layer
+    subgraph Clients["Client Applications"]
+        WebClient["🌐 Web Client<br/>React/Next.js<br/>SPA"]
+        MobileClient["📱 Mobile App<br/>iOS/Android<br/>Native"]
+        ThirdParty["🔗 Third-party APIs<br/>Webhooks<br/>Integrations"]
+    end
+
+    %% API Gateway & Load Balancing
+    subgraph Gateway["API Gateway & Routing"]
+        APIGateway["🔌 API Gateway<br/>Kong/AWS API Gateway<br/>Rate limiting<br/>Auth delegation"]
+        ServiceMesh["🕸️ Service Mesh<br/>Istio/Linkerd<br/>Traffic control"]
+    end
+
+    %% Microservices Layer
+    subgraph Services["Microservices Domain"]
+        subgraph UserService["User Service"]
+            UserAPI["📋 User API<br/>gRPC/REST<br/>v1.2.0"]
+            UserDB["🗄️ User DB<br/>PostgreSQL"]
+            UserCache["⚡ Cache<br/>Redis"]
+        end
+
+        subgraph AuthService["Authentication Service"]
+            AuthAPI["🔐 Auth API<br/>OAuth 2.0/JWT<br/>OpenID Connect"]
+            AuthDB["🗄️ Auth DB<br/>PostgreSQL"]
+            TokenService["🎫 Token Service<br/>JWT/Session"]
+        end
+
+        subgraph OrderService["Order Service"]
+            OrderAPI["🛒 Order API<br/>gRPC/REST<br/>CQRS pattern"]
+            OrderDB["🗄️ Order DB<br/>PostgreSQL"]
+            OrderEventStore["📝 Event Store<br/>Event Sourcing"]
+        end
+
+        subgraph PaymentService["Payment Service"]
+            PaymentAPI["💳 Payment API<br/>Async processing<br/>Idempotent"]
+            PaymentDB["🗄️ Payment DB<br/>PostgreSQL"]
+            PaymentQueue["📤 Job Queue<br/>RabbitMQ/Kafka"]
+        end
+
+        subgraph NotificationService["Notification Service"]
+            NotificationAPI["📧 Notification API<br/>Async workers<br/>Multiple channels"]
+            NotificationDB["🗄️ Notification DB<br/>MongoDB"]
+        end
+
+        subgraph RecommendationService["Recommendation Service"]
+            RecAPI["🤖 ML Service API<br/>Batch processing<br/>Real-time scoring"]
+            RecDB["🗄️ Feature Store<br/>TimescaleDB"]
+        end
+
+        subgraph AnalyticsService["Analytics Service"]
+            AnalyticsAPI["📊 Analytics API<br/>Event aggregation<br/>Real-time dashboards"]
+            AnalyticsDB["📊 Analytics DB<br/>ClickHouse"]
+        end
+    end
+
+    %% Message Bus & Event Streaming
+    subgraph Messaging["Event Bus & Messaging"]
+        EventBus["🚌 Event Bus<br/>Apache Kafka<br/>6 brokers<br/>3 partitions"]
+        ServiceBus["📬 Service Bus<br/>RabbitMQ<br/>Dead letter queues"]
+    end
+
+    %% Data Layer
+    subgraph DataLayer["Data Persistence"]
+        RDBMS["🗄️ PostgreSQL Cluster<br/>Primary + 2 Replicas<br/>Logical replication"]
+        NoSQL["🍃 MongoDB Replica Set<br/>3 nodes<br/>Sharded collections"]
+        CacheLayer["⚡ Redis Cluster<br/>6 nodes<br/>Sentinel monitoring"]
+        StorageService["🗃️ Object Storage<br/>S3/MinIO<br/>Multi-region"]
+    end
+
+    %% External Services & Integrations
+    subgraph External["External Integrations"]
+        StripeAPI["💳 Stripe API<br/>Payment processing"]
+        SendGrid["📧 SendGrid<br/>Email delivery"]
+        TwilioAPI["📱 Twilio<br/>SMS/Voice"]
+        AwsS3["☁️ AWS S3<br/>Document storage"]
+    end
+
+    %% Observability & Monitoring
+    subgraph Observability["Observability Stack"]
+        Prometheus["📊 Prometheus<br/>Metrics collection<br/>15s scrape interval"]
+        ELK["🔍 ELK Stack<br/>Elasticsearch<br/>Logstash<br/>Kibana"]
+        Jaeger["🔭 Jaeger<br/>Distributed tracing<br/>Sampled 5%"]
+        Sentry["🐛 Sentry<br/>Error tracking<br/>Release mapping"]
+        Grafana["📈 Grafana<br/>Dashboards<br/>Alerting"]
+    end
+
+    %% Deployment & Infrastructure
+    subgraph Infrastructure["Container Orchestration"]
+        K8s["☸️ Kubernetes Cluster<br/>4 zones<br/>Auto-scaling"]
+        CI_CD["🚀 CI/CD Pipeline<br/>GitLab CI<br/>ArgoCD"]
+    end
+
+    %% Client to Gateway
+    WebClient -->|HTTPS| APIGateway
+    MobileClient -->|HTTPS| APIGateway
+    ThirdParty -->|HTTPS| APIGateway
+
+    %% Gateway to Services
+    APIGateway -->|Route| ServiceMesh
+    ServiceMesh -->|Load balance| UserAPI
+    ServiceMesh -->|Load balance| AuthAPI
+    ServiceMesh -->|Load balance| OrderAPI
+    ServiceMesh -->|Load balance| PaymentAPI
+    ServiceMesh -->|Load balance| NotificationAPI
+    ServiceMesh -->|Load balance| RecAPI
+    ServiceMesh -->|Load balance| AnalyticsAPI
+
+    %% Service Internal Communication
+    UserAPI -->|gRPC| UserDB
+    UserAPI -->|Cache| UserCache
+    AuthAPI -->|Verify| UserAPI
+    AuthAPI -->|Store| AuthDB
+    AuthAPI -->|Generate| TokenService
+    OrderAPI -->|gRPC| UserAPI
+    OrderAPI -->|Write| OrderDB
+    OrderAPI -->|Append| OrderEventStore
+    PaymentAPI -->|gRPC| OrderAPI
+    PaymentAPI -->|Persist| PaymentDB
+    PaymentAPI -->|Queue| PaymentQueue
+    NotificationAPI -->|Subscribe| EventBus
+    NotificationAPI -->|Store| NotificationDB
+    RecAPI -->|Query| RecDB
+    AnalyticsAPI -->|Subscribe| EventBus
+    AnalyticsAPI -->|Store| AnalyticsDB
+
+    %% Service to Message Bus
+    OrderAPI -->|Publish Events| EventBus
+    PaymentAPI -->|Publish Events| EventBus
+    NotificationAPI -->|Publish Events| EventBus
+    AnalyticsService -->|Publish Events| EventBus
+
+    %% Message Bus to Services
+    EventBus -->|Order.Created| PaymentAPI
+    EventBus -->|Payment.Completed| NotificationAPI
+    EventBus -->|Order.Updated| AnalyticsAPI
+    EventBus -->|User.Created| RecAPI
+
+    %% Service to External APIs
+    PaymentAPI -->|Charge card| StripeAPI
+    NotificationAPI -->|Send email| SendGrid
+    NotificationAPI -->|Send SMS| TwilioAPI
+    OrderAPI -->|Upload docs| AwsS3
+
+    %% Data Persistence
+    UserDB -.->|Replicate| RDBMS
+    AuthDB -.->|Replicate| RDBMS
+    OrderDB -.->|Replicate| RDBMS
+    PaymentDB -.->|Replicate| RDBMS
+    NotificationDB -.->|Replicate| NoSQL
+    RecDB -.->|Replicate| RDBMS
+
+    UserCache -.->|Backed by| CacheLayer
+    OrderAPI -.->|Upload| StorageService
+
+    %% Observability
+    UserAPI -.->|Metrics| Prometheus
+    AuthAPI -.->|Metrics| Prometheus
+    OrderAPI -.->|Metrics| Prometheus
+    PaymentAPI -.->|Metrics| Prometheus
+    NotificationAPI -.->|Metrics| Prometheus
+    RecAPI -.->|Metrics| Prometheus
+    AnalyticsAPI -.->|Metrics| Prometheus
+
+    UserAPI -.->|Logs| ELK
+    OrderAPI -.->|Logs| ELK
+    PaymentAPI -.->|Logs| ELK
+
+    ServiceMesh -.->|Traces| Jaeger
+    UserAPI -.->|Errors| Sentry
+    OrderAPI -.->|Errors| Sentry
+    PaymentAPI -.->|Errors| Sentry
+
+    Prometheus -->|Visualize| Grafana
+
+    %% CI/CD & Infrastructure
+    CI_CD -->|Deploy| K8s
+    K8s -->|Hosts| Services
+    K8s -->|Hosts| Messaging
+    K8s -->|Hosts| Observability
+
+    %% Styling
+    classDef client fill:#FF6B6B,stroke:#C92A2A,color:#fff,stroke-width:2px
+    classDef gateway fill:#4ECDC4,stroke:#0B7285,color:#fff,stroke-width:2px
+    classDef service fill:#45B7D1,stroke:#0C5F7E,color:#fff,stroke-width:2px
+    classDef database fill:#96CEB4,stroke:#47624F,color:#fff,stroke-width:2px
+    classDef messaging fill:#F9A825,stroke:#D68910,color:#fff,stroke-width:2px
+    classDef external fill:#DDA15E,stroke:#AD6828,color:#fff,stroke-width:2px
+    classDef observability fill:#FFEAA7,stroke:#D68910,color:#333,stroke-width:2px
+    classDef infra fill:#B8860B,stroke:#6B4423,color:#fff,stroke-width:2px
+
+    class WebClient,MobileClient,ThirdParty client
+    class APIGateway,ServiceMesh gateway
+    class UserAPI,AuthAPI,OrderAPI,PaymentAPI,NotificationAPI,RecAPI,AnalyticsAPI service
+    class UserDB,AuthDB,OrderDB,PaymentDB,NotificationDB,RecDB,RDBMS,NoSQL,CacheLayer,StorageService database
+    class EventBus,ServiceBus,PaymentQueue messaging
+    class StripeAPI,SendGrid,TwilioAPI,AwsS3 external
+    class Prometheus,ELK,Jaeger,Sentry,Grafana observability
+    class K8s,CI_CD infra

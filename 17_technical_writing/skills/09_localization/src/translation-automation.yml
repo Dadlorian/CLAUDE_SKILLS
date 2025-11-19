@@ -1,0 +1,446 @@
+name: Translation Automation Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'content/**/*.md'
+      - 'docs/**/*.md'
+      - 'src/locales/**'
+      - '.github/workflows/translation-automation.yml'
+  pull_request:
+    branches:
+      - main
+      - develop
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Translation action'
+        required: true
+        default: 'sync-translations'
+        type: choice
+        options:
+          - sync-translations
+          - build-memory
+          - validate-locales
+          - generate-reports
+          - full-pipeline
+
+env:
+  CROWDIN_API_BASE: https://api.crowdin.com/api/v2
+  LOCALE_STAGING_DIR: .locale-staging
+  TMX_OUTPUT_DIR: translation-memory
+
+jobs:
+  detect-changes:
+    name: Detect Content Changes
+    runs-on: ubuntu-latest
+    outputs:
+      source-changed: ${{ steps.detect.outputs.source-changed }}
+      locales-changed: ${{ steps.detect.outputs.locales-changed }}
+      config-changed: ${{ steps.detect.outputs.config-changed }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changes
+        id: detect
+        run: |
+          if git diff --name-only HEAD~1 | grep -qE '(content|docs)/[^/]+\.md'; then
+            echo "source-changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "source-changed=false" >> $GITHUB_OUTPUT
+          fi
+
+          if git diff --name-only HEAD~1 | grep -qE 'src/locales/'; then
+            echo "locales-changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "locales-changed=false" >> $GITHUB_OUTPUT
+          fi
+
+          if git diff --name-only HEAD~1 | grep -qE 'crowdin|i18n-config'; then
+            echo "config-changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "config-changed=false" >> $GITHUB_OUTPUT
+          fi
+
+  extract-source-strings:
+    name: Extract Source Strings
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.source-changed == 'true' || github.event_name == 'schedule'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyyaml ruamel.yaml jinja2 babel lxml
+
+      - name: Extract strings
+        run: |
+          python scripts/extract-strings.py \
+            --source-dir content,docs \
+            --output src/locales/en/messages.pot \
+            --config i18n-config.json
+
+      - name: Validate extracted strings
+        run: |
+          python scripts/validate-pot.py src/locales/en/messages.pot
+
+      - name: Upload extraction results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: extraction-report
+          path: reports/extraction-*.json
+
+      - name: Create PR for new strings
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: peter-evans/create-pull-request@v5
+        with:
+          commit-message: 'chore: update source strings extraction'
+          title: 'chore: sync extracted source strings'
+          body: |
+            ## Changes
+            - Source strings extracted from content/docs
+            - Comparison: [View extraction report](artifacts)
+
+            ## Checklist
+            - [ ] Review extracted strings
+            - [ ] Verify context is correct
+            - [ ] No breaking changes to existing translations
+          branch: auto/extract-source-strings
+          delete-branch: true
+
+  sync-crowdin:
+    name: Sync with Crowdin
+    runs-on: ubuntu-latest
+    needs: extract-source-strings
+    if: |
+      (needs.extract-source-strings.result == 'success' || github.event_name == 'schedule') &&
+      github.event_name != 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install Crowdin CLI
+        run: |
+          npm install -g @crowdin/cli
+
+      - name: Validate Crowdin config
+        run: |
+          crowdin validate
+
+      - name: Upload sources to Crowdin
+        env:
+          CROWDIN_TOKEN: ${{ secrets.CROWDIN_TOKEN }}
+          CROWDIN_PROJECT_ID: ${{ secrets.CROWDIN_PROJECT_ID }}
+        run: |
+          crowdin upload sources \
+            --config crowdin-config.yml \
+            --verbose
+
+      - name: Build Crowdin project
+        env:
+          CROWDIN_TOKEN: ${{ secrets.CROWDIN_TOKEN }}
+          CROWDIN_PROJECT_ID: ${{ secrets.CROWDIN_PROJECT_ID }}
+        run: |
+          crowdin build \
+            --config crowdin-config.yml \
+            --all
+
+      - name: Download translations
+        env:
+          CROWDIN_TOKEN: ${{ secrets.CROWDIN_TOKEN }}
+          CROWDIN_PROJECT_ID: ${{ secrets.CROWDIN_PROJECT_ID }}
+        run: |
+          mkdir -p $LOCALE_STAGING_DIR
+          crowdin download \
+            --config crowdin-config.yml \
+            --output $LOCALE_STAGING_DIR
+
+      - name: Validate downloaded translations
+        run: |
+          python scripts/validate-translations.py $LOCALE_STAGING_DIR
+
+      - name: Generate translation statistics
+        env:
+          CROWDIN_TOKEN: ${{ secrets.CROWDIN_TOKEN }}
+          CROWDIN_PROJECT_ID: ${{ secrets.CROWDIN_PROJECT_ID }}
+        run: |
+          python scripts/generate-stats.py \
+            --project-id $CROWDIN_PROJECT_ID \
+            --output reports/crowdin-stats.json
+
+      - name: Upload Crowdin stats
+        uses: actions/upload-artifact@v3
+        with:
+          name: crowdin-stats
+          path: reports/crowdin-stats.json
+
+  build-translation-memory:
+    name: Build Translation Memory
+    runs-on: ubuntu-latest
+    needs: sync-crowdin
+    if: success() || github.event_name == 'schedule'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install pyyaml lxml babel
+
+      - name: Build translation memory
+        run: |
+          mkdir -p $TMX_OUTPUT_DIR
+          python translation-memory-builder.py \
+            --source-dir src/locales \
+            --output $TMX_OUTPUT_DIR/translation-memory.tmx \
+            --format tmx
+
+      - name: Generate TM statistics
+        run: |
+          python scripts/analyze-tmx.py \
+            $TMX_OUTPUT_DIR/translation-memory.tmx \
+            --output reports/tmx-stats.json
+
+      - name: Upload translation memory
+        uses: actions/upload-artifact@v3
+        with:
+          name: translation-memory
+          path: ${{ env.TMX_OUTPUT_DIR }}
+
+  validate-translations:
+    name: Validate Localized Content
+    runs-on: ubuntu-latest
+    needs: [sync-crowdin, build-translation-memory]
+    if: success()
+    strategy:
+      matrix:
+        locale: [es, fr, de, it, ja, zh, pt, ru, ar, ko]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Run locale testing suite
+        run: |
+          python -m locale-testing-suite.validator \
+            --locale ${{ matrix.locale }} \
+            --source-dir $LOCALE_STAGING_DIR/${{ matrix.locale }} \
+            --strict
+
+      - name: Test locale rendering
+        run: |
+          python -m locale-testing-suite.renderer \
+            --locale ${{ matrix.locale }} \
+            --output reports/render-${{ matrix.locale }}.html
+
+      - name: Validate character encoding
+        run: |
+          python -m locale-testing-suite.encoding \
+            --locale ${{ matrix.locale }} \
+            --source-dir $LOCALE_STAGING_DIR/${{ matrix.locale }}
+
+      - name: Test RTL support
+        if: contains('ar,he,ur,fa', matrix.locale)
+        run: |
+          python -m locale-testing-suite.rtl \
+            --locale ${{ matrix.locale }} \
+            --source-dir $LOCALE_STAGING_DIR/${{ matrix.locale }}
+
+      - name: Upload validation report
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: locale-validation-${{ matrix.locale }}
+          path: reports/validate-${{ matrix.locale }}.json
+
+  generate-reports:
+    name: Generate Comprehensive Reports
+    runs-on: ubuntu-latest
+    needs: validate-translations
+    if: always()
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: artifacts
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Aggregate reports
+        run: |
+          python scripts/aggregate-reports.py \
+            --artifacts-dir artifacts \
+            --output reports/summary.json
+
+      - name: Generate HTML report
+        run: |
+          python scripts/generate-report.py \
+            --summary reports/summary.json \
+            --output reports/index.html \
+            --template scripts/report-template.html
+
+      - name: Create GitHub Pages report
+        uses: peaceiris/actions-gh-pages@v3
+        if: github.ref == 'refs/heads/main'
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: reports
+          cname: translations.example.com
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const summary = JSON.parse(
+              fs.readFileSync('reports/summary.json', 'utf8')
+            );
+
+            const comment = `## Translation Validation Report
+            - Source Strings: ${summary.source_strings}
+            - Translated Locales: ${summary.translated_locales}
+            - Average Coverage: ${summary.avg_coverage}%
+            - Critical Issues: ${summary.critical_issues}
+
+            [View Full Report](...)`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+  deploy-translations:
+    name: Deploy Translations
+    runs-on: ubuntu-latest
+    needs: generate-reports
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download validated translations
+        uses: actions/download-artifact@v3
+        with:
+          name: validated-translations
+          path: src/locales
+
+      - name: Commit and push translations
+        run: |
+          git config --local user.email "translation-bot@example.com"
+          git config --local user.name "Translation Bot"
+          git add src/locales/
+          git commit -m "chore: deploy validated translations [skip ci]" || true
+          git push
+
+      - name: Deploy to CDN
+        env:
+          CDN_API_KEY: ${{ secrets.CDN_API_KEY }}
+          CDN_BUCKET: translations
+        run: |
+          python scripts/deploy-to-cdn.py \
+            --source src/locales \
+            --bucket $CDN_BUCKET
+
+      - name: Invalidate cache
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
+        run: |
+          python scripts/invalidate-cloudflare.py \
+            --zone-id $CLOUDFLARE_ZONE_ID
+
+      - name: Send deployment notification
+        if: always()
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: 1,
+              body: `Translations deployed to production at ${new Date().toISOString()}`
+            });
+
+  notify-completion:
+    name: Notify Completion
+    runs-on: ubuntu-latest
+    needs: [detect-changes, extract-source-strings, sync-crowdin, build-translation-memory, validate-translations, generate-reports, deploy-translations]
+    if: always()
+    steps:
+      - name: Determine status
+        run: |
+          if [ "${{ needs.deploy-translations.result }}" == "success" ]; then
+            echo "status=success" >> $GITHUB_ENV
+            echo "message=All translation jobs completed successfully" >> $GITHUB_ENV
+          else
+            echo "status=failure" >> $GITHUB_ENV
+            echo "message=Some translation jobs failed - check logs" >> $GITHUB_ENV
+          fi
+
+      - name: Send Slack notification
+        if: vars.SLACK_WEBHOOK_URL != ''
+        uses: slackapi/slack-github-action@v1
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          payload: |
+            {
+              "text": "Translation Pipeline: ${{ env.status }}",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Translation Pipeline Status*\n${{ env.message }}"
+                  }
+                }
+              ]
+            }
+
+      - name: Create issue on failure
+        if: failure()
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: 'Translation Pipeline Failed',
+              body: `The translation automation pipeline failed. Check the [workflow run](${context.server_url}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}) for details.`,
+              labels: ['translation', 'automated', 'urgent']
+            });

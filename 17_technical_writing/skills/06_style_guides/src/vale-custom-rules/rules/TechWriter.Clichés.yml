@@ -1,0 +1,20 @@
+# Vale Rule: Detect clichés and weak phrases
+# Description: Flags common clichés that weaken technical writing
+# Severity: warning
+
+extends: substitution
+message: "Consider replacing '%s' with more specific language"
+level: warning
+ignorecase: true
+swap:
+  'a lot of': 'many'
+  'a bit': 'slightly'
+  'quite a few': 'several'
+  'in order to': 'to'
+  'at the end of the day': ''
+  'for all intents and purposes': ''
+  'needless to say': ''
+  'it goes without saying': ''
+  'take into account': 'consider'
+  'with the exception of': 'except'
+  'due to the fact that': 'because'

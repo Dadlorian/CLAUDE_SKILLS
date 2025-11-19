@@ -1,0 +1,10 @@
+# Vale Rule: Check acronym usage
+# Description: Ensures acronyms are defined on first use
+# Severity: error
+
+extends: existence
+message: "Acronym '%s' should be defined on first use"
+level: error
+ignorecase: false
+tokens:
+  - '[A-Z]{2,}(?![a-z])'

@@ -1,0 +1,417 @@
+################################################################################
+# GitHub Actions Workflow: Style Guide Enforcement
+#
+# Description: Comprehensive style checking workflow for documentation
+# Author: Technical Writing Automation Team
+# Version: 1.0.0
+#
+# This workflow:
+#   - Runs on push and pull request events
+#   - Validates all documentation against style guide rules
+#   - Generates detailed reports
+#   - Blocks PRs with style violations
+#   - Comments on PRs with found issues
+################################################################################
+
+name: Style Guide Enforcement
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - master
+    paths:
+      - '**.md'
+      - '**.rst'
+      - '.github/workflows/ci-style-check.yml'
+      - '.vale.ini'
+      - 'vale-custom-rules/**'
+
+  pull_request:
+    branches:
+      - main
+      - develop
+      - master
+    paths:
+      - '**.md'
+      - '**.rst'
+      - '.github/workflows/ci-style-check.yml'
+      - '.vale.ini'
+      - 'vale-custom-rules/**'
+
+  # Allow manual trigger
+  workflow_dispatch:
+
+jobs:
+  style-check:
+    name: Validate Documentation Style
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
+
+    steps:
+      ################################################################################
+      # Setup
+      ################################################################################
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for proper diff comparison
+
+      - name: Set up environment
+        run: |
+          echo "GITHUB_WORKFLOW_TIMESTAMP=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_ENV
+          echo "REPORT_DIR=.github/reports" >> $GITHUB_ENV
+          mkdir -p .github/reports
+
+      ################################################################################
+      # Install Dependencies
+      ################################################################################
+
+      - name: Install Vale
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y vale
+          vale --version
+
+      - name: Install additional tools
+        run: |
+          # Install markdownlint
+          npm install -g markdownlint-cli
+          markdownlint --version
+
+          # Install markdown-link-check
+          npm install -g markdown-link-check
+          markdown-link-check --version
+
+      ################################################################################
+      # Determine changed files
+      ################################################################################
+
+      - name: Get changed documentation files
+        id: changed-files
+        run: |
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            # For PR: compare against target branch
+            FILES=$(git diff --name-only --diff-filter=ACM origin/${{ github.base_ref }}...HEAD | \
+                    grep -E '\.(md|rst|txt)$' || true)
+          else
+            # For push: compare against previous commit
+            if [ "${{ github.event.before }}" == "0000000000000000000000000000000000000000" ]; then
+              # Initial commit
+              FILES=$(git ls-files | grep -E '\.(md|rst|txt)$' || true)
+            else
+              FILES=$(git diff --name-only --diff-filter=ACM ${{ github.event.before }}..${{ github.event.after }} | \
+                      grep -E '\.(md|rst|txt)$' || true)
+            fi
+          fi
+
+          echo "changed_files<<EOF" >> $GITHUB_OUTPUT
+          echo "$FILES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+          echo "Number of documentation files changed: $(echo "$FILES" | wc -w)"
+
+      ################################################################################
+      # Vale Style Checking
+      ################################################################################
+
+      - name: Run Vale style checks
+        id: vale
+        continue-on-error: true
+        run: |
+          echo "Running Vale style checks..."
+
+          FILES="${{ steps.changed-files.outputs.changed_files }}"
+
+          if [ -z "$FILES" ]; then
+            echo "No documentation files changed"
+            exit 0
+          fi
+
+          # Create Vale output report
+          vale --output=JSON $FILES > ${{ env.REPORT_DIR }}/vale-report.json 2>&1 || true
+
+          # Also generate human-readable output
+          vale $FILES | tee ${{ env.REPORT_DIR }}/vale-output.txt || true
+
+          # Count issues
+          ERROR_COUNT=$(jq '[.[] | select(.severity == "error")] | length' ${{ env.REPORT_DIR }}/vale-report.json 2>/dev/null || echo 0)
+          WARNING_COUNT=$(jq '[.[] | select(.severity == "warning")] | length' ${{ env.REPORT_DIR }}/vale-report.json 2>/dev/null || echo 0)
+
+          echo "errors=$ERROR_COUNT" >> $GITHUB_OUTPUT
+          echo "warnings=$WARNING_COUNT" >> $GITHUB_OUTPUT
+
+          if [ "$ERROR_COUNT" -gt 0 ]; then
+            exit 1
+          fi
+
+      ################################################################################
+      # Markdown Linting
+      ################################################################################
+
+      - name: Run markdownlint
+        id: markdownlint
+        continue-on-error: true
+        run: |
+          echo "Running markdownlint checks..."
+
+          FILES="${{ steps.changed-files.outputs.changed_files }}"
+
+          if [ -z "$FILES" ]; then
+            echo "No markdown files to check"
+            exit 0
+          fi
+
+          # Filter to .md files only
+          MD_FILES=$(echo "$FILES" | tr ' ' '\n' | grep '\.md$' || true)
+
+          if [ -z "$MD_FILES" ]; then
+            echo "No markdown files changed"
+            exit 0
+          fi
+
+          markdownlint $MD_FILES | tee ${{ env.REPORT_DIR }}/markdownlint-output.txt || true
+
+      ################################################################################
+      # Link Validation
+      ################################################################################
+
+      - name: Validate markdown links
+        id: linkcheck
+        continue-on-error: true
+        run: |
+          echo "Validating markdown links..."
+
+          FILES="${{ steps.changed-files.outputs.changed_files }}"
+
+          if [ -z "$FILES" ]; then
+            echo "No files to check"
+            exit 0
+          fi
+
+          # Filter to .md files only
+          MD_FILES=$(echo "$FILES" | tr ' ' '\n' | grep '\.md$' || true)
+
+          for file in $MD_FILES; do
+            if [ -f "$file" ]; then
+              echo "Checking links in $file..."
+              markdown-link-check --config .github/linkcheck-config.json "$file" || true
+            fi
+          done
+
+      ################################################################################
+      # Generate Report Summary
+      ################################################################################
+
+      - name: Generate style report
+        id: report
+        if: always()
+        run: |
+          cat > ${{ env.REPORT_DIR }}/summary.md << 'EOF'
+          # Style Guide Check Report
+
+          ## Summary
+
+          **Timestamp:** ${{ env.GITHUB_WORKFLOW_TIMESTAMP }}
+          **Event:** ${{ github.event_name }}
+          **Branch:** ${{ github.ref_name }}
+          **Commit:** ${{ github.sha }}
+
+          ### Vale Results
+
+          - **Errors:** ${{ steps.vale.outputs.errors || 0 }}
+          - **Warnings:** ${{ steps.vale.outputs.warnings || 0 }}
+
+          ### Files Checked
+
+          ${{ steps.changed-files.outputs.changed_files || 'No documentation files changed' }}
+
+          EOF
+
+          cat ${{ env.REPORT_DIR }}/summary.md
+
+      ################################################################################
+      # Comment on Pull Request
+      ################################################################################
+
+      - name: Comment on PR with results
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+
+            const errors = ${{ steps.vale.outputs.errors || 0 }};
+            const warnings = ${{ steps.vale.outputs.warnings || 0 }};
+
+            let comment = '## Style Guide Check Results\n\n';
+
+            if (errors === 0 && warnings === 0) {
+              comment += '✅ All style checks passed!\n';
+            } else {
+              comment += '❌ Style issues found:\n\n';
+              comment += `- **Errors:** ${errors}\n`;
+              comment += `- **Warnings:** ${warnings}\n\n`;
+              comment += 'Please review and fix the issues before merging.\n';
+            }
+
+            // Add Vale report details if available
+            const valeReportPath = '.github/reports/vale-report.json';
+            if (fs.existsSync(valeReportPath)) {
+              const valeReport = JSON.parse(fs.readFileSync(valeReportPath, 'utf8'));
+
+              if (Array.isArray(valeReport) && valeReport.length > 0) {
+                comment += '\n### Detailed Issues\n\n';
+
+                const errorIssues = valeReport.filter(i => i.severity === 'error').slice(0, 10);
+                if (errorIssues.length > 0) {
+                  comment += '**Errors:**\n';
+                  errorIssues.forEach(issue => {
+                    comment += `- ${issue.filename}:${issue.line}: ${issue.message}\n`;
+                  });
+                  comment += '\n';
+                }
+
+                const warningIssues = valeReport.filter(i => i.severity === 'warning').slice(0, 10);
+                if (warningIssues.length > 0) {
+                  comment += '**Warnings:**\n';
+                  warningIssues.forEach(issue => {
+                    comment += `- ${issue.filename}:${issue.line}: ${issue.message}\n`;
+                  });
+                }
+              }
+            }
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+      ################################################################################
+      # Upload Reports as Artifacts
+      ################################################################################
+
+      - name: Upload style reports
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: style-reports
+          path: ${{ env.REPORT_DIR }}/
+          retention-days: 30
+
+      ################################################################################
+      # Set Job Status
+      ################################################################################
+
+      - name: Determine job status
+        if: always()
+        run: |
+          ERROR_COUNT=${{ steps.vale.outputs.errors || 0 }}
+
+          if [ "$ERROR_COUNT" -gt 0 ]; then
+            echo "Style check failed with $ERROR_COUNT error(s)"
+            exit 1
+          fi
+
+          echo "Style check passed!"
+          exit 0
+
+  ################################################################################
+  # Spell Check Job
+  ################################################################################
+
+  spell-check:
+    name: Check Spelling
+    runs-on: ubuntu-latest
+
+    continue-on-error: true
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install aspell
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y aspell aspell-en
+
+      - name: Run spell check
+        run: |
+          echo "Running spell check..."
+
+          # Find all markdown files
+          find . -name "*.md" -not -path "./node_modules/*" -not -path "./.git/*" | while read file; do
+            echo "Checking: $file"
+            aspell --lang=en --encoding=utf-8 list < "$file" | sort | uniq || true
+          done
+
+  ################################################################################
+  # Security Check Job
+  ################################################################################
+
+  security-scan:
+    name: Security Scanning
+    runs-on: ubuntu-latest
+
+    continue-on-error: true
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for secrets
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+          extra_args: --debug
+
+      - name: Check for sensitive patterns
+        run: |
+          echo "Scanning for sensitive patterns..."
+
+          # Check for API keys, passwords, tokens
+          grep -r "api[_-]?key\s*=" . --include="*.md" || true
+          grep -r "password\s*=" . --include="*.md" || true
+          grep -r "secret\s*=" . --include="*.md" || true
+
+  ################################################################################
+  # Summary Job
+  ################################################################################
+
+  summary:
+    name: Check Summary
+    runs-on: ubuntu-latest
+    needs: [style-check]
+    if: always()
+
+    steps:
+      - name: Download reports
+        uses: actions/download-artifact@v3
+        with:
+          name: style-reports
+          path: reports
+
+      - name: Display summary
+        run: |
+          echo "=== Style Check Summary ==="
+          if [ -f reports/summary.md ]; then
+            cat reports/summary.md
+          fi
+
+      - name: Set job status
+        run: |
+          if [ "${{ needs.style-check.result }}" != "success" ]; then
+            echo "Style checks did not pass"
+            exit 1
+          fi
+          echo "All style checks passed!"

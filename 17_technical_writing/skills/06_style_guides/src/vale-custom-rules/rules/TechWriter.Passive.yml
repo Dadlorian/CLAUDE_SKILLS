@@ -1,0 +1,16 @@
+# Vale Rule: Detect passive voice in technical writing
+# Description: Flags passive voice constructions to promote active voice
+# Severity: warning
+
+extends: existence
+message: "Consider using active voice instead of passive voice: '%s'"
+level: warning
+ignorecase: false
+tokens:
+  - 'is\s+\w+ed(?:\s|$)'
+  - 'are\s+\w+ed(?:\s|$)'
+  - 'was\s+\w+ed(?:\s|$)'
+  - 'were\s+\w+ed(?:\s|$)'
+  - 'be\s+\w+ed(?:\s|$)'
+  - 'been\s+\w+ed(?:\s|$)'
+  - 'being\s+\w+ed(?:\s|$)'

@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Management App - Tutorial Project</title>
+    <style>
+        /* CSS Variables for easy theming */
+        :root {
+            --primary-color: #4f46e5;
+            --primary-dark: #4338ca;
+            --success-color: #10b981;
+            --danger-color: #ef4444;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-400: #9ca3af;
+            --gray-600: #4b5563;
+            --gray-900: #111827;
+            --border-radius: 0.5rem;
+            --transition: all 0.2s ease;
+        }
+
+        /* Reset and base styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 2rem 1rem;
+            color: var(--gray-900);
+        }
+
+        /* Main container */
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: calc(var(--border-radius) * 2);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        /* Header section */
+        .header {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+            color: white;
+            padding: 2rem;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            font-weight: 700;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 0.95rem;
+        }
+
+        /* Main content area */
+        .main {
+            padding: 2rem;
+        }
+
+        /* Form styles */
+        .input-group {
+            display: flex;
+            gap: 0.75rem;
+            margin-bottom: 2rem;
+        }
+
+        .input-group input {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            border: 2px solid var(--gray-200);
+            border-radius: var(--border-radius);
+            font-size: 1rem;
+            transition: var(--transition);
+            font-family: inherit;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+
+        .input-group input::placeholder {
+            color: var(--gray-400);
+        }
+
+        /* Button styles */
+        button {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: var(--border-radius);
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            font-family: inherit;
+        }
+
+        .btn-add {
+            background-color: var(--primary-color);
+            color: white;
+            white-space: nowrap;
+        }
+
+        .btn-add:hover {
+            background-color: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.3);
+        }
+
+        .btn-add:active {
+            transform: translateY(0);
+        }
+
+        /* Task list styles */
+        .task-list {
+            list-style: none;
+            margin-bottom: 2rem;
+        }
+
+        .task-list li {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem;
+            border-bottom: 1px solid var(--gray-200);
+            transition: var(--transition);
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .task-list li:last-child {
+            border-bottom: none;
+        }
+
+        .task-list li:hover {
+            background-color: var(--gray-100);
+        }
+
+        /* Checkbox styles */
+        .task-list input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            accent-color: var(--primary-color);
+        }
+
+        .task-list input[type="checkbox"]:focus {
+            outline: 2px solid var(--primary-color);
+            outline-offset: 2px;
+        }
+
+        /* Task text styles */
+        .task-text {
+            flex: 1;
+            font-size: 1rem;
+            word-break: break-word;
+            transition: var(--transition);
+        }
+
+        .task-list li input[type="checkbox"]:checked ~ .task-text {
+            color: var(--gray-400);
+            text-decoration: line-through;
+        }
+
+        /* Delete button in list */
+        .btn-delete {
+            background-color: var(--danger-color);
+            color: white;
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+        }
+
+        .btn-delete:hover {
+            background-color: #dc2626;
+        }
+
+        /* Empty state message */
+        .empty-state {
+            text-align: center;
+            padding: 2rem;
+            color: var(--gray-400);
+        }
+
+        .empty-state p {
+            font-size: 1rem;
+        }
+
+        /* Stats section */
+        .stats {
+            background-color: var(--gray-100);
+            padding: 1rem;
+            border-radius: var(--border-radius);
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary-color);
+        }
+
+        .stat-label {
+            font-size: 0.875rem;
+            color: var(--gray-600);
+            margin-top: 0.25rem;
+        }
+
+        /* Footer section */
+        .footer {
+            background-color: var(--gray-100);
+            padding: 1.5rem;
+            text-align: center;
+            font-size: 0.875rem;
+            color: var(--gray-600);
+            border-top: 1px solid var(--gray-200);
+        }
+
+        /* Responsive design */
+        @media (max-width: 600px) {
+            body {
+                padding: 1rem;
+            }
+
+            .header {
+                padding: 1.5rem;
+            }
+
+            .header h1 {
+                font-size: 1.5rem;
+            }
+
+            .main {
+                padding: 1.5rem;
+            }
+
+            .input-group {
+                flex-direction: column;
+            }
+
+            .input-group input,
+            .btn-add {
+                width: 100%;
+            }
+
+            .stats {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        /* Accessibility improvements */
+        @media (prefers-reduced-motion: reduce) {
+            * {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+
+        /* Dark mode support */
+        @media (prefers-color-scheme: dark) {
+            body {
+                background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+            }
+
+            .container {
+                background-color: #1f2937;
+                color: #f3f4f6;
+            }
+
+            .input-group input {
+                background-color: #374151;
+                border-color: #4b5563;
+                color: #f3f4f6;
+            }
+
+            .input-group input:focus {
+                border-color: var(--primary-color);
+            }
+
+            .task-list li:hover {
+                background-color: #374151;
+            }
+
+            .stats {
+                background-color: #374151;
+            }
+
+            .task-text {
+                color: #f3f4f6;
+            }
+
+            .empty-state {
+                color: var(--gray-400);
+            }
+
+            .footer {
+                background-color: #374151;
+                border-top-color: #4b5563;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>Task Manager</h1>
+            <p>Stay organized and productive</p>
+        </div>
+
+        <!-- Main content -->
+        <div class="main">
+            <!-- Input form -->
+            <div class="input-group">
+                <input
+                    type="text"
+                    id="taskInput"
+                    placeholder="What needs to be done?"
+                    aria-label="Enter a new task"
+                >
+                <button id="addBtn" class="btn-add" aria-label="Add new task">
+                    Add Task
+                </button>
+            </div>
+
+            <!-- Statistics -->
+            <div class="stats">
+                <div class="stat">
+                    <div class="stat-value" id="totalCount">0</div>
+                    <div class="stat-label">Total</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value" id="completedCount">0</div>
+                    <div class="stat-label">Completed</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value" id="remainingCount">0</div>
+                    <div class="stat-label">Remaining</div>
+                </div>
+            </div>
+
+            <!-- Task list -->
+            <ul class="task-list" id="taskList" aria-label="List of tasks"></ul>
+
+            <!-- Empty state -->
+            <div class="empty-state" id="emptyState" hidden>
+                <p>No tasks yet. Add one to get started!</p>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p>Tasks are saved automatically to your browser</p>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // Task Class - Represents a single task
+        // ==========================================
+        class Task {
+            constructor(text, id = Date.now()) {
+                this.id = id;
+                this.text = text;
+                this.completed = false;
+                this.createdAt = new Date();
+            }
+
+            toggle() {
+                this.completed = !this.completed;
+            }
+        }
+
+        // ==========================================
+        // TaskManager Class - Manages all tasks
+        // ==========================================
+        class TaskManager {
+            constructor(storageKey = 'tasks') {
+                this.tasks = [];
+                this.storageKey = storageKey;
+                this.loadTasks();
+            }
+
+            // Add a new task
+            addTask(taskText) {
+                const task = new Task(taskText);
+                this.tasks.push(task);
+                this.saveTasks();
+                return task;
+            }
+
+            // Remove a task by ID
+            removeTask(taskId) {
+                this.tasks = this.tasks.filter(task => task.id !== taskId);
+                this.saveTasks();
+            }
+
+            // Toggle task completion status
+            toggleTask(taskId) {
+                const task = this.tasks.find(t => t.id === taskId);
+                if (task) {
+                    task.toggle();
+                    this.saveTasks();
+                }
+            }
+
+            // Get statistics
+            getStats() {
+                return {
+                    total: this.tasks.length,
+                    completed: this.tasks.filter(t => t.completed).length,
+                    remaining: this.tasks.filter(t => !t.completed).length
+                };
+            }
+
+            // Save tasks to localStorage
+            saveTasks() {
+                try {
+                    const json = JSON.stringify(this.tasks);
+                    localStorage.setItem(this.storageKey, json);
+                } catch (error) {
+                    console.error('Error saving tasks:', error);
+                }
+            }
+
+            // Load tasks from localStorage
+            loadTasks() {
+                try {
+                    const json = localStorage.getItem(this.storageKey);
+                    if (json) {
+                        const data = JSON.parse(json);
+                        // Reconstruct Task objects
+                        this.tasks = data.map(item =>
+                            new Task(item.text, item.id)
+                        );
+                        // Restore completion status
+                        data.forEach((item, index) => {
+                            this.tasks[index].completed = item.completed;
+                        });
+                    }
+                } catch (error) {
+                    console.error('Error loading tasks:', error);
+                    this.tasks = [];
+                }
+            }
+
+            // Clear all tasks
+            clearAll() {
+                this.tasks = [];
+                this.saveTasks();
+            }
+
+            // Clear completed tasks
+            clearCompleted() {
+                this.tasks = this.tasks.filter(t => !t.completed);
+                this.saveTasks();
+            }
+        }
+
+        // ==========================================
+        // DOM Management and Event Listeners
+        // ==========================================
+
+        // Initialize the application
+        let taskManager = new TaskManager();
+
+        // Get DOM elements
+        const taskInput = document.getElementById('taskInput');
+        const addBtn = document.getElementById('addBtn');
+        const taskList = document.getElementById('taskList');
+        const emptyState = document.getElementById('emptyState');
+        const totalCount = document.getElementById('totalCount');
+        const completedCount = document.getElementById('completedCount');
+        const remainingCount = document.getElementById('remainingCount');
+
+        // ==========================================
+        // Rendering Functions
+        // ==========================================
+
+        // Render the complete task list
+        function renderTasks() {
+            // Clear the list
+            taskList.innerHTML = '';
+
+            // Show empty state if no tasks
+            if (taskManager.tasks.length === 0) {
+                emptyState.hidden = false;
+                return;
+            }
+
+            emptyState.hidden = true;
+
+            // Render each task
+            taskManager.tasks.forEach(task => {
+                const li = document.createElement('li');
+
+                // Create checkbox
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.checked = task.completed;
+                checkbox.setAttribute('aria-label', `Mark "${task.text}" complete`);
+                checkbox.addEventListener('change', () => {
+                    taskManager.toggleTask(task.id);
+                    renderTasks();
+                    updateStats();
+                });
+
+                // Create task text span
+                const span = document.createElement('span');
+                span.className = 'task-text';
+                span.textContent = task.text;
+
+                // Create delete button
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'btn-delete';
+                deleteBtn.textContent = 'Delete';
+                deleteBtn.setAttribute('aria-label', `Delete "${task.text}"`);
+                deleteBtn.addEventListener('click', () => {
+                    taskManager.removeTask(task.id);
+                    renderTasks();
+                    updateStats();
+                });
+
+                // Assemble the list item
+                li.appendChild(checkbox);
+                li.appendChild(span);
+                li.appendChild(deleteBtn);
+
+                taskList.appendChild(li);
+            });
+        }
+
+        // Update statistics display
+        function updateStats() {
+            const stats = taskManager.getStats();
+            totalCount.textContent = stats.total;
+            completedCount.textContent = stats.completed;
+            remainingCount.textContent = stats.remaining;
+        }
+
+        // Add a task when button is clicked
+        function handleAddTask() {
+            const text = taskInput.value.trim();
+
+            // Validate input
+            if (!text) {
+                taskInput.focus();
+                return;
+            }
+
+            // Add the task
+            taskManager.addTask(text);
+
+            // Clear input and re-render
+            taskInput.value = '';
+            taskInput.focus();
+            renderTasks();
+            updateStats();
+        }
+
+        // ==========================================
+        // Event Listeners
+        // ==========================================
+
+        // Add task on button click
+        addBtn.addEventListener('click', handleAddTask);
+
+        // Add task on Enter key
+        taskInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                handleAddTask();
+            }
+        });
+
+        // ==========================================
+        // Initialization
+        // ==========================================
+
+        // Render initial state
+        renderTasks();
+        updateStats();
+
+        // Log to help with debugging
+        console.log('Task Manager initialized');
+        console.log('Loaded tasks:', taskManager.tasks);
+    </script>
+</body>
+</html>

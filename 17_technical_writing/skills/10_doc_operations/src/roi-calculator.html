@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Technical Documentation ROI Calculator</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .calculator-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .header h1 {
+            color: #333;
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 16px;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .panel {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .panel h2 {
+            color: #333;
+            font-size: 20px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #f0f0f0;
+            padding-bottom: 10px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .input-with-unit {
+            display: flex;
+            gap: 10px;
+        }
+
+        .input-with-unit input {
+            flex: 1;
+        }
+
+        .unit {
+            background: #f5f5f5;
+            padding: 10px 12px;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            font-weight: 600;
+            color: #666;
+            min-width: 60px;
+            justify-content: center;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 5px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+
+        .calculate-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .calculate-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .reset-btn {
+            background: #f5f5f5;
+            color: #666;
+        }
+
+        .reset-btn:hover {
+            background: #e0e0e0;
+        }
+
+        .results-panel {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            grid-column: 1 / -1;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .result-card {
+            text-align: center;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .result-value {
+            font-size: 36px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .result-label {
+            font-size: 14px;
+            opacity: 0.9;
+            margin-bottom: 5px;
+        }
+
+        .result-description {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+
+        .roi-percentage {
+            color: #4ade80;
+            font-size: 28px;
+            margin-top: 10px;
+        }
+
+        .negative {
+            color: #ff6b6b;
+        }
+
+        .charts-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 30px;
+            margin-top: 30px;
+        }
+
+        .chart-container {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .chart-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        .metrics-table {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-top: 30px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            background: #f5f5f5;
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            color: #333;
+            border-bottom: 2px solid #ddd;
+        }
+
+        td {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+        }
+
+        tr:hover {
+            background: #f9f9f9;
+        }
+
+        .highlight {
+            background: #fffacd;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            color: #1565c0;
+            font-size: 14px;
+        }
+
+        @media (max-width: 768px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .charts-section {
+                grid-template-columns: 1fr;
+            }
+
+            .results-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="calculator-container">
+        <div class="header">
+            <h1>Documentation ROI Calculator</h1>
+            <p>Calculate the return on investment for your technical documentation</p>
+        </div>
+
+        <div class="main-grid">
+            <!-- Input Panel -->
+            <div class="panel">
+                <h2>Investment Costs</h2>
+
+                <div class="info-box">
+                    Enter your documentation program costs and metrics
+                </div>
+
+                <div class="input-group">
+                    <label>Number of Technical Writers</label>
+                    <input type="number" id="writers" value="3" min="1">
+                </div>
+
+                <div class="input-group">
+                    <label>Average Annual Salary per Writer</label>
+                    <div class="input-with-unit">
+                        <input type="number" id="salary" value="85000" min="0">
+                        <span class="unit">$</span>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>Tools & Platform Costs (Annual)</label>
+                    <div class="input-with-unit">
+                        <input type="number" id="toolCosts" value="15000" min="0">
+                        <span class="unit">$</span>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>Maintenance & Updates (Annual)</label>
+                    <div class="input-with-unit">
+                        <input type="number" id="maintenance" value="10000" min="0">
+                        <span class="unit">$</span>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>Training & Development</label>
+                    <div class="input-with-unit">
+                        <input type="number" id="training" value="5000" min="0">
+                        <span class="unit">$</span>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>Analysis Period (Years)</label>
+                    <input type="number" id="years" value="3" min="1" max="10">
+                </div>
+
+                <div class="button-group">
+                    <button class="calculate-btn" onclick="calculateROI()">Calculate ROI</button>
+                    <button class="reset-btn" onclick="resetCalculator()">Reset</button>
+                </div>
+            </div>
+
+            <!-- Benefits Panel -->
+            <div class="panel">
+                <h2>Benefits & Savings</h2>
+
+                <div class="info-box">
+                    Quantifiable benefits from documentation
+                </div>
+
+                <div class="input-group">
+                    <label>Monthly Support Tickets</label>
+                    <input type="number" id="monthlyTickets" value="250" min="0">
+                </div>
+
+                <div class="input-group">
+                    <label>Reduction from Documentation (%)</label>
+                    <div class="input-with-unit">
+                        <input type="number" id="ticketReduction" value="35" min="0" max="100">
+                        <span class="unit">%</span>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>Cost per Support Ticket</label>
+                    <div class="input-with-unit">
+                        <input type="number" id="ticketCost" value="45" min="0">
+                        <span class="unit">$</span>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>Faster Onboarding Savings</label>
+                    <div class="input-with-unit">
+                        <input type="number" id="onboardingSavings" value="20000" min="0">
+                        <span class="unit">$</span>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>Productivity Improvement (%)</label>
+                    <div class="input-with-unit">
+                        <input type="number" id="productivity" value="15" min="0" max="100">
+                        <span class="unit">%</span>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>Annual Team Payroll</label>
+                    <div class="input-with-unit">
+                        <input type="number" id="teamPayroll" value="2000000" min="0">
+                        <span class="unit">$</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Panel -->
+        <div class="results-panel" id="resultsPanel" style="display: none;">
+            <div class="results-grid" id="resultsGrid">
+            </div>
+        </div>
+
+        <!-- Charts Section -->
+        <div class="charts-section">
+            <div class="chart-container">
+                <div class="chart-title">Investment vs. Benefits (Annual)</div>
+                <canvas id="investmentChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <div class="chart-title">ROI Growth Over Time</div>
+                <canvas id="roiChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <div class="chart-title">Benefit Breakdown</div>
+                <canvas id="benefitsChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <div class="chart-title">Payback Period</div>
+                <canvas id="paybackChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Metrics Table -->
+        <div class="metrics-table" id="metricsTable" style="display: none;">
+            <h2>Detailed Financial Analysis</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Year</th>
+                        <th>Total Investment</th>
+                        <th>Benefits Generated</th>
+                        <th>Net Benefit</th>
+                        <th>ROI (%)</th>
+                        <th>Cumulative ROI</th>
+                    </tr>
+                </thead>
+                <tbody id="metricsBody">
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let charts = {
+            investment: null,
+            roi: null,
+            benefits: null,
+            payback: null
+        };
+
+        function calculateROI() {
+            // Gather inputs
+            const writers = parseInt(document.getElementById('writers').value);
+            const salary = parseFloat(document.getElementById('salary').value);
+            const toolCosts = parseFloat(document.getElementById('toolCosts').value);
+            const maintenance = parseFloat(document.getElementById('maintenance').value);
+            const training = parseFloat(document.getElementById('training').value);
+            const years = parseInt(document.getElementById('years').value);
+
+            const monthlyTickets = parseFloat(document.getElementById('monthlyTickets').value);
+            const ticketReduction = parseFloat(document.getElementById('ticketReduction').value);
+            const ticketCost = parseFloat(document.getElementById('ticketCost').value);
+            const onboardingSavings = parseFloat(document.getElementById('onboardingSavings').value);
+            const productivity = parseFloat(document.getElementById('productivity').value);
+            const teamPayroll = parseFloat(document.getElementById('teamPayroll').value);
+
+            // Calculate annual costs
+            const annualWriterCost = writers * salary;
+            const annualCost = annualWriterCost + toolCosts + maintenance + training;
+
+            // Calculate annual benefits
+            const monthlyTicketSavings = (monthlyTickets * (ticketReduction / 100)) * ticketCost;
+            const annualTicketSavings = monthlyTicketSavings * 12;
+            const annualProductivityGain = teamPayroll * (productivity / 100);
+            const annualBenefits = annualTicketSavings + onboardingSavings + annualProductivityGain;
+
+            // Calculate metrics over years
+            const yearlyData = [];
+            let cumulativeInvestment = 0;
+            let cumulativeBenefits = 0;
+            let paybackYear = null;
+
+            for (let i = 1; i <= years; i++) {
+                cumulativeInvestment += annualCost;
+                cumulativeBenefits += annualBenefits;
+                const netBenefit = cumulativeBenefits - cumulativeInvestment;
+                const roi = (netBenefit / cumulativeInvestment) * 100;
+
+                if (paybackYear === null && netBenefit > 0) {
+                    paybackYear = i;
+                }
+
+                yearlyData.push({
+                    year: i,
+                    investment: cumulativeInvestment,
+                    benefits: cumulativeBenefits,
+                    netBenefit: netBenefit,
+                    roi: roi
+                });
+            }
+
+            // Display results
+            displayResults(
+                annualCost,
+                annualBenefits,
+                yearlyData,
+                paybackYear,
+                annualTicketSavings,
+                annualProductivityGain,
+                onboardingSavings
+            );
+
+            // Create charts
+            createCharts(yearlyData, annualCost, annualBenefits, annualTicketSavings, annualProductivityGain);
+
+            // Populate metrics table
+            populateMetricsTable(yearlyData);
+        }
+
+        function displayResults(annualCost, annualBenefits, yearlyData, paybackYear, ticketSavings, productivityGain, onboardingSavings) {
+            const finalYear = yearlyData[yearlyData.length - 1];
+            const resultsGrid = document.getElementById('resultsGrid');
+            const resultsPanel = document.getElementById('resultsPanel');
+
+            const roi = finalYear.roi;
+            const totalBenefit = finalYear.netBenefit;
+
+            resultsGrid.innerHTML = `
+                <div class="result-card">
+                    <div class="result-label">Total Investment (${yearlyData.length} years)</div>
+                    <div class="result-value">$${(finalYear.investment / 1000).toFixed(0)}K</div>
+                    <div class="result-description">Annual cost: $${(annualCost / 1000).toFixed(0)}K</div>
+                </div>
+                <div class="result-card">
+                    <div class="result-label">Total Benefits Generated</div>
+                    <div class="result-value">$${(finalYear.benefits / 1000).toFixed(0)}K</div>
+                    <div class="result-description">Annual benefit: $${(annualBenefits / 1000).toFixed(0)}K</div>
+                </div>
+                <div class="result-card">
+                    <div class="result-label">Net Benefit</div>
+                    <div class="result-value">$${(totalBenefit / 1000).toFixed(0)}K</div>
+                    <div class="result-description">${totalBenefit > 0 ? 'Profit' : 'Loss'}</div>
+                </div>
+                <div class="result-card">
+                    <div class="result-label">Return on Investment</div>
+                    <div class="roi-percentage ${roi >= 0 ? '' : 'negative'}">${roi.toFixed(1)}%</div>
+                    <div class="result-description">Over ${yearlyData.length} years</div>
+                </div>
+                <div class="result-card">
+                    <div class="result-label">Payback Period</div>
+                    <div class="result-value">${paybackYear || '> ' + yearlyData.length} yrs</div>
+                    <div class="result-description">When benefits exceed investment</div>
+                </div>
+                <div class="result-card">
+                    <div class="result-label">Annual Support Savings</div>
+                    <div class="result-value">$${(ticketSavings / 1000).toFixed(0)}K</div>
+                    <div class="result-description">From reduced support tickets</div>
+                </div>
+            `;
+
+            resultsPanel.style.display = 'block';
+        }
+
+        function createCharts(yearlyData, annualCost, annualBenefits, ticketSavings, productivityGain) {
+            const years = yearlyData.map(y => 'Year ' + y.year);
+            const investments = yearlyData.map(y => y.investment);
+            const benefits = yearlyData.map(y => y.benefits);
+            const rois = yearlyData.map(y => y.roi);
+
+            // Investment vs Benefits Chart
+            const investCtx = document.getElementById('investmentChart').getContext('2d');
+            if (charts.investment) charts.investment.destroy();
+            charts.investment = new Chart(investCtx, {
+                type: 'bar',
+                data: {
+                    labels: years,
+                    datasets: [
+                        {
+                            label: 'Total Investment',
+                            data: investments,
+                            backgroundColor: 'rgba(102, 126, 234, 0.8)',
+                            borderColor: '#667eea',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Benefits Generated',
+                            data: benefits,
+                            backgroundColor: 'rgba(76, 175, 80, 0.8)',
+                            borderColor: '#4caf50',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    scales: {
+                        y: {
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + (value / 1000).toFixed(0) + 'K';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // ROI Growth Chart
+            const roiCtx = document.getElementById('roiChart').getContext('2d');
+            if (charts.roi) charts.roi.destroy();
+            charts.roi = new Chart(roiCtx, {
+                type: 'line',
+                data: {
+                    labels: years,
+                    datasets: [{
+                        label: 'ROI (%)',
+                        data: rois,
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        pointBackgroundColor: '#667eea',
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2,
+                        pointRadius: 5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true
+                }
+            });
+
+            // Benefits Breakdown
+            const benefitsCtx = document.getElementById('benefitsChart').getContext('2d');
+            if (charts.benefits) charts.benefits.destroy();
+            charts.benefits = new Chart(benefitsCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Support Reduction', 'Productivity Gain', 'Faster Onboarding'],
+                    datasets: [{
+                        data: [ticketSavings, productivityGain, 20000],
+                        backgroundColor: ['#667eea', '#4caf50', '#2196f3']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+
+            // Payback Period Chart
+            const paybackCtx = document.getElementById('paybackChart').getContext('2d');
+            if (charts.payback) charts.payback.destroy();
+            const netBenefits = yearlyData.map(y => y.netBenefit);
+            charts.payback = new Chart(paybackCtx, {
+                type: 'bar',
+                data: {
+                    labels: years,
+                    datasets: [{
+                        label: 'Cumulative Net Benefit',
+                        data: netBenefits,
+                        backgroundColor: netBenefits.map(v => v >= 0 ? '#4caf50' : '#ff6b6b'),
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    scales: {
+                        y: {
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + (value / 1000).toFixed(0) + 'K';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function populateMetricsTable(yearlyData) {
+            const tbody = document.getElementById('metricsBody');
+            const table = document.getElementById('metricsTable');
+
+            tbody.innerHTML = yearlyData.map(data => `
+                <tr>
+                    <td>Year ${data.year}</td>
+                    <td>$${(data.investment / 1000).toFixed(1)}K</td>
+                    <td>$${(data.benefits / 1000).toFixed(1)}K</td>
+                    <td>$${(data.netBenefit / 1000).toFixed(1)}K</td>
+                    <td>${data.roi.toFixed(1)}%</td>
+                    <td><span class="highlight">$${(data.netBenefit / 1000).toFixed(1)}K</span></td>
+                </tr>
+            `).join('');
+
+            table.style.display = 'block';
+        }
+
+        function resetCalculator() {
+            document.getElementById('writers').value = 3;
+            document.getElementById('salary').value = 85000;
+            document.getElementById('toolCosts').value = 15000;
+            document.getElementById('maintenance').value = 10000;
+            document.getElementById('training').value = 5000;
+            document.getElementById('years').value = 3;
+            document.getElementById('monthlyTickets').value = 250;
+            document.getElementById('ticketReduction').value = 35;
+            document.getElementById('ticketCost').value = 45;
+            document.getElementById('onboardingSavings').value = 20000;
+            document.getElementById('productivity').value = 15;
+            document.getElementById('teamPayroll').value = 2000000;
+
+            document.getElementById('resultsPanel').style.display = 'none';
+            document.getElementById('metricsTable').style.display = 'none';
+        }
+
+        // Initialize with default calculation
+        document.addEventListener('DOMContentLoaded', function() {
+            calculateROI();
+        });
+    </script>
+</body>
+</html>

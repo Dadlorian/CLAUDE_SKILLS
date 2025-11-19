@@ -1,0 +1,52 @@
+<div class="app">
+  <header class="app-header">
+    <h1>Angular API Integration Example</h1>
+  </header>
+
+  <main class="app-main">
+    <button (click)="toggleForm()" class="btn-primary">
+      {{ showForm ? 'Cancel' : 'Add User' }}
+    </button>
+
+    <form *ngIf="showForm" (ngSubmit)="handleSubmit()" class="form">
+      <div class="form-group">
+        <input
+          [(ngModel)]="formData.name"
+          name="name"
+          type="text"
+          placeholder="Name"
+          required
+        />
+      </div>
+      <div class="form-group">
+        <input
+          [(ngModel)]="formData.email"
+          name="email"
+          type="email"
+          placeholder="Email"
+          required
+        />
+      </div>
+      <div class="form-group">
+        <select [(ngModel)]="formData.role" name="role">
+          <option value="user">User</option>
+          <option value="admin">Admin</option>
+          <option value="moderator">Moderator</option>
+        </select>
+      </div>
+      <button type="submit" class="btn-primary">Create User</button>
+    </form>
+
+    <div *ngIf="loading" class="loading">Loading users...</div>
+    <div *ngIf="error" class="error">{{ error }}</div>
+
+    <div class="users-grid">
+      <div *ngFor="let user of users" class="user-card">
+        <h3>{{ user.name }}</h3>
+        <p>Email: {{ user.email }}</p>
+        <p>Role: {{ user.role }}</p>
+        <button (click)="deleteUser(user.id)" class="btn-danger">Delete</button>
+      </div>
+    </div>
+  </main>
+</div>

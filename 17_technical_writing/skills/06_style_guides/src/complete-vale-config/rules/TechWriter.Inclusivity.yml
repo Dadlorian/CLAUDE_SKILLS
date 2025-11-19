@@ -1,0 +1,193 @@
+---
+name: Inclusive Language Standards
+desc: Promotes inclusive and accessible language in documentation
+message: "Use inclusive language: '%s' should be '%s'"
+level: warning
+scope: paragraph, heading
+action:
+  name: replace
+
+extends: substitution
+
+ignorecase: true
+
+swap:
+  # Technology-specific inclusive terms
+  'whitelist': 'allowlist'
+  'blacklist': 'blocklist'
+  'master|slave': 'primary|replica'
+  'master\s+branch': 'main branch'
+  'dummy': 'placeholder'
+  'crazy': 'wild|unusual'
+  'stupid': 'illogical|counterintuitive'
+  'insane': 'extreme|excessive'
+  'lame': 'inadequate|ineffective'
+  'dumb terminal': 'thin client'
+
+  # Ability-related language
+  'suffers from': 'lives with'
+  'crippled': 'limited'
+  'deaf to': 'unresponsive to'
+  'blind spot': 'oversight|gap'
+  'sanity check': 'verification check'
+  'handicap': 'limitation'
+
+  # Neurodiverse language
+  'crazy complex': 'highly complex|intricate'
+  'schizophrenic API': 'inconsistent API'
+  'psycho user': 'power user'
+  'psychotic behavior': 'erratic behavior'
+
+  # Other inclusive replacements
+  'guys': 'team|folks|people|everyone'
+  'man-power': 'personnel'
+  'he/she': 'they'
+
+# Culturally sensitive terms
+cultural_sensitivity:
+  - term: 'master race'
+    replace: 'best-in-class'
+    severity: error
+
+  - term: 'savage'
+    replace: 'raw|untamed'
+    severity: warning
+
+  - term: 'exotic'
+    avoid_in: "describing people"
+    severity: warning
+
+  - term: 'oriental'
+    replace: 'Asian|East Asian'
+    severity: warning
+
+# Age-related inclusive language
+age_related:
+  avoid:
+    - 'aging developers'
+    - 'old technology'
+    - 'legacy' (use in technical context only)
+
+  correct:
+    - 'experienced developers'
+    - 'established technology'
+    - 'deprecated (in technical context)'
+
+# Ableist language patterns
+ableist_patterns:
+  - pattern: '\b(crazy|insane|mad|nuts|schizo)\b'
+    severity: warning
+    message: "Avoid ableist language; use descriptive alternatives"
+
+  - pattern: '\b(blind|deaf|dumb)\b'
+    in_context: "not literal disability"
+    severity: warning
+    message: "Use literal terms only; 'invisible' or 'unresponsive' alternatives available"
+
+  - pattern: 'suffers from'
+    replace_with: 'lives with|has'
+    severity: warning
+
+# Accessibility-focused language
+accessibility:
+  - term: 'alt text'
+    standard: 'alternative text'
+    importance: "essential for screen readers"
+
+  - term: 'caption'
+    standard: 'should describe visual content'
+    importance: "helps deaf/hard of hearing users"
+
+  - term: 'transcript'
+    standard: 'text version of audio/video'
+    importance: "accessibility for multiple disabilities"
+
+# Gendered role language
+role_neutral:
+  - term: 'housewife'
+    replace: 'homemaker'
+
+  - term: 'stewardess'
+    replace: 'flight attendant'
+
+  - term: 'chairman'
+    replace: 'chair'
+
+  - term: 'spokesman'
+    replace: 'spokesperson'
+
+# Sexual orientation inclusive language
+lgbtq_inclusive:
+  - use: 'partner|spouse'
+    instead_of: 'boyfriend|girlfriend|wife|husband'
+    context: "when relationship type unknown"
+
+  - use: 'married couple'
+    instead_of: 'man and wife'
+
+  - use: 'parent'
+    instead_of: 'mother|father'
+    context: "when specific parent unknown"
+
+# Neurodiversity friendly language
+neurodiversity:
+  - term: 'ADHD friendly'
+    usage: "clear structure, short paragraphs"
+
+  - term: 'Autism-friendly'
+    usage: "avoid sensory overload, clear instructions"
+
+  - term: 'Dyslexia-friendly'
+    usage: "sans-serif fonts, adequate spacing"
+
+# Mental health inclusive language
+mental_health:
+  avoid:
+    - 'crazy'
+    - 'insane'
+    - 'psycho'
+    - 'manic'
+    - 'depressed'
+
+  use_instead:
+    - 'complex'
+    - 'unusual'
+    - 'powerful'
+    - 'energetic'
+    - 'unhappy'
+
+# Examples of inclusive language
+examples:
+  - context: "Technical documentation"
+    correct: "The primary database and replica setup"
+    incorrect: "The master-slave database setup"
+
+  - context: "Feature discussion"
+    correct: "This is a wild approach"
+    incorrect: "This is a crazy approach"
+
+  - context: "User description"
+    correct: "An experienced developer"
+    incorrect: "An old developer"
+
+  - context: "API documentation"
+    correct: "Invalid input verification"
+    incorrect: "Sanity check"
+
+# Intersectionality awareness
+intersectionality:
+  note: "Different communities may prefer different terms"
+  guidance: "Research and ask communities being described"
+  resources: "Disability Language Style Guide"
+
+# Testing for inclusivity
+test_cases:
+  inclusive:
+    - "The allowlist contains trusted domains"
+    - "The team reviewed the implementation"
+    - "An experienced developer implemented the feature"
+
+  not_inclusive:
+    - "The whitelist contains trusted domains"
+    - "The guys reviewed the implementation"
+    - "An old developer implemented the feature"

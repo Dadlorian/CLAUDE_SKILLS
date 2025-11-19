@@ -1,0 +1,258 @@
+%% Multi-Cloud Infrastructure Architecture
+%% AWS, Azure, GCP with hybrid and multi-region deployment
+
+graph TB
+    %% Global Layer
+    subgraph Global["Global Infrastructure"]
+        GlobalDNS["🌐 Global DNS<br/>Route 53/Cloud DNS<br/>Failover<br/>Geolocation routing"]
+        CDN["🌍 CDN<br/>CloudFront/Akamai<br/>200+ PoPs<br/>DDoS protection"]
+    end
+
+    %% AWS Region
+    subgraph AWSRegion["AWS Region - US-East-1"]
+        subgraph AWSNetwork["VPC & Networking"]
+            VPC["🔌 VPC<br/>CIDR: 10.0.0.0/16<br/>3 availability zones<br/>Public/Private subnets"]
+            NAT["🔀 NAT Gateway<br/>Managed outbound<br/>High availability<br/>Pay per GB"]
+            TGW["🚏 Transit Gateway<br/>Hub-and-spoke<br/>On-premises"]
+        end
+
+        subgraph AWSCompute["Compute"]
+            EKS["☸️ EKS Cluster<br/>Kubernetes 1.28<br/>Managed control plane<br/>Auto-scaling"]
+            AutoScale["↕️ Auto-scaling Group<br/>EC2 m5.xlarge<br/>3-12 instances<br/>CPU+Memory"]
+            Lambda["λ Lambda<br/>Serverless functions<br/>128MB-10GB memory<br/>Pay per invoke"]
+        end
+
+        subgraph AWSDatabase["Data Storage"]
+            RDS["🗄️ RDS Aurora<br/>PostgreSQL compatible<br/>Primary + 2 replicas<br/>Automated backup"]
+            Redshift["📊 Redshift<br/>Data warehouse<br/>ra3.4xl nodes<br/>Managed storage"]
+            DynamoDB["⚡ DynamoDB<br/>NoSQL database<br/>On-demand billing<br/>Global tables"]
+            S3["🗃️ S3 Storage<br/>Multi-tier: Standard/IA<br/>Versioning<br/>Lifecycle policies"]
+        end
+
+        subgraph AWSServices["AWS Services"]
+            SQS["📬 SQS<br/>Message queue<br/>FIFO/Standard<br/>Visibility timeout"]
+            EventBridge["📡 EventBridge<br/>Event routing<br/>400+ targets<br/>Schema registry"]
+            Kinesis["🌊 Kinesis<br/>Streaming data<br/>Shards on-demand<br/>1MB/s default"]
+        end
+
+        subgraph AWSMonitor["Monitoring & Logging"]
+            CloudWatch["📊 CloudWatch<br/>Metrics<br/>Logs<br/>Alarms"]
+            XRay["🔭 X-Ray<br/>Distributed tracing<br/>Segment sampling<br/>Service map"]
+        end
+    end
+
+    %% Azure Region
+    subgraph AzureRegion["Azure Region - East US"]
+        subgraph AzureNetwork["Virtual Network"]
+            VNet["🔌 Virtual Network<br/>CIDR: 172.16.0.0/16<br/>3 subnets<br/>Network policies"]
+            AppGateway["🔌 Application Gateway<br/>Layer 7 LB<br/>WAF enabled<br/>SSL/TLS termination"]
+            Firewall["🚨 Azure Firewall<br/>Stateful<br/>Threat intelligence<br/>Logging"]
+        end
+
+        subgraph AzureCompute["Compute"]
+            AKS["☸️ AKS Cluster<br/>Kubernetes managed<br/>Multi-zone<br/>Pod identity"]
+            VMSS["🖥️ VM Scale Set<br/>Standard_D2s<br/>Spot instances<br/>50% savings"]
+            FunctionApp["λ Function App<br/>Durable functions<br/>Consumption plan<br/>Managed runtime"]
+        end
+
+        subgraph AzureDatabase["Data Storage"]
+            SQLServer["🗄️ SQL Database<br/>Managed PaaS<br/>Hyperscale tier<br/>Point-in-time restore"]
+            CosmosDB["🌍 Cosmos DB<br/>Multi-model<br/>5 regions<br/>Multi-master"]
+            BlobStorage["🗃️ Blob Storage<br/>Archive/Cool tiers<br/>Smart tiering<br/>Retention policies"]
+        end
+
+        subgraph AzureServices["Azure Services"]
+            ServiceBus["📬 Service Bus<br/>Topics & queues<br/>Sessions<br/>Deduplication"]
+            EventGrid["📡 Event Grid<br/>Event routing<br/>140+ publishers<br/>Retry policy"]
+        end
+
+        subgraph AzureMonitor["Monitoring"]
+            Monitor["📊 Azure Monitor<br/>Application Insights<br/>Log Analytics<br/>Metrics"]
+        end
+    end
+
+    %% GCP Region
+    subgraph GCPRegion["GCP Region - US-Central1"]
+        subgraph GCPNetwork["VPC Network"]
+            GCPVpc["🔌 VPC Network<br/>CIDR: 192.168.0.0/16<br/>Custom routes<br/>Cloud Interconnect"]
+            CloudLB["⚖️ Cloud Load Balancer<br/>Global anycast<br/>HTTP/2<br/>Auto-scaling"]
+            CloudArmor["🛡️ Cloud Armor<br/>DDoS/WAF<br/>GeoIP blocking<br/>Policies"]
+        end
+
+        subgraph GCPCompute["Compute"]
+            GKE["☸️ GKE Cluster<br/>Autopilot mode<br/>Workload identity<br/>Multi-cluster mesh"]
+            InstanceGroup["🖥️ Instance Group<br/>e2-standard-2<br/>Committed discounts<br/>1-3 year"]
+            CloudFunctions["λ Cloud Functions<br/>Event-driven<br/>Concurrent execution<br/>Timeout: 540s"]
+        end
+
+        subgraph GCPDatabase["Data Storage"]
+            CloudSQL["🗄️ Cloud SQL<br/>PostgreSQL 14<br/>Cross-region HA<br/>Backups automated"]
+            Firestore["🔥 Firestore<br/>Document DB<br/>Global scale<br/>Real-time sync"]
+            BigQuery["📊 BigQuery<br/>Data warehouse<br/>Serverless query<br/>1GB free/month"]
+            CloudStorage["🗃️ Cloud Storage<br/>Multi-region<br/>Nearline/Coldline<br/>Transfers"]
+        end
+
+        subgraph GCPServices["GCP Services"]
+            PubSub["📬 Pub/Sub<br/>Topic-based<br/>Ordering keys<br/>Exactly-once"]
+            Workflows["⚙️ Workflows<br/>Orchestration<br/>Multi-service<br/>Error handling"]
+        end
+
+        subgraph GCPMonitor["Monitoring"]
+            CloudMonitoring["📊 Cloud Monitoring<br/>Ops Agent<br/>Custom metrics<br/>Service monitoring"]
+            Trace["🔭 Cloud Trace<br/>Distributed tracing<br/>Latency analysis"]
+        end
+    end
+
+    %% On-Premises / Hybrid
+    subgraph OnPrem["On-Premises & Hybrid"]
+        DataCenter["🏢 Data Center<br/>VMware vSphere<br/>Physical servers<br/>Private network"]
+        HybridGateway["🔗 Hybrid Gateway<br/>Site-to-site VPN<br/>Direct Connect<br/>ExpressRoute"]
+        EdgeComputing["📡 Edge Computing<br/>Outposts<br/>Wavelength<br/>Local zones"]
+    end
+
+    %% Disaster Recovery & Backup
+    subgraph DisasterRecovery["Disaster Recovery & Backup"]
+        GeoReplica["🌍 Geo-Replication<br/>Cross-region<br/>Active-passive<br/>RPO: 1h"]
+        BackupService["💾 Backup Service<br/>Vault storage<br/>Retention: 35y<br/>Encryption"]
+        FailoverMech["🔄 Failover<br/>Automatic DNS update<br/>Health checks<br/>RTO: 5 min"]
+    end
+
+    %% Security & Governance
+    subgraph SecurityGovernance["Security & Governance"]
+        IAM["🔐 IAM<br/>RBAC<br/>Service accounts<br/>MFA enforcement"]
+        SecretManager["🗝️ Secret Manager<br/>Encrypted storage<br/>Rotation<br/>Audit logging"]
+        ConfigMgmt["⚙️ Config Management<br/>Terraform<br/>Policy as code<br/>Version controlled"]
+    end
+
+    %% Global Connections
+    GlobalDNS -->|Route| AWSRegion
+    GlobalDNS -->|Route| AzureRegion
+    GlobalDNS -->|Route| GCPRegion
+    GlobalDNS -->|Route| OnPrem
+
+    CDN -->|Cache| AWSRegion
+    CDN -->|Cache| AzureRegion
+    CDN -->|Cache| GCPRegion
+
+    %% AWS Internal
+    VPC -->|Subnets| EKS
+    VPC -->|Subnets| AutoScale
+    NAT -->|Outbound| EKS
+    TGW -->|Connect| HybridGateway
+
+    EKS -->|Deploy| Lambda
+    AutoScale -->|Host| Lambda
+
+    EKS -->|Read/Write| RDS
+    Lambda -->|Query| DynamoDB
+    EKS -->|Upload| S3
+
+    EKS -->|Queue| SQS
+    EKS -->|Publish| EventBridge
+    EKS -->|Stream| Kinesis
+
+    CloudWatch -->|Monitor| EKS
+    XRay -->|Trace| EKS
+
+    %% Azure Internal
+    VNet -->|Subnets| AKS
+    AppGateway -->|Route| AKS
+    Firewall -->|Protect| AKS
+
+    AKS -->|Deploy| FunctionApp
+    VMSS -->|Host| FunctionApp
+
+    AKS -->|Read/Write| SQLServer
+    AKS -->|Global| CosmosDB
+    AKS -->|Upload| BlobStorage
+
+    AKS -->|Queue| ServiceBus
+    AKS -->|Publish| EventGrid
+
+    Monitor -->|Monitor| AKS
+
+    %% GCP Internal
+    GCPVpc -->|Subnets| GKE
+    CloudLB -->|Route| GKE
+    CloudArmor -->|Protect| GKE
+
+    GKE -->|Deploy| CloudFunctions
+    InstanceGroup -->|Host| CloudFunctions
+
+    GKE -->|Read/Write| CloudSQL
+    GKE -->|Documents| Firestore
+    GKE -->|Analytics| BigQuery
+    GKE -->|Upload| CloudStorage
+
+    GKE -->|Queue| PubSub
+    GKE -->|Orchestrate| Workflows
+
+    CloudMonitoring -->|Monitor| GKE
+    Trace -->|Trace| GKE
+
+    %% Cross-Region
+    RDS -.->|Replicate| GeoReplica
+    SQLServer -.->|Replicate| GeoReplica
+    CloudSQL -.->|Replicate| GeoReplica
+
+    S3 -.->|Backup| BackupService
+    BlobStorage -.->|Backup| BackupService
+    CloudStorage -.->|Backup| BackupService
+
+    %% Disaster Recovery
+    GeoReplica -->|Trigger| FailoverMech
+    FailoverMech -->|Update| GlobalDNS
+
+    %% Hybrid Connectivity
+    DataCenter -->|VPN/Direct| HybridGateway
+    HybridGateway -->|Connect| TGW
+    HybridGateway -->|Connect| VNet
+    HybridGateway -->|Connect| GCPVpc
+
+    DataCenter -->|Deploy| EdgeComputing
+    EdgeComputing -->|Sync| AWSRegion
+
+    %% Security
+    IAM -.->|Control| EKS
+    IAM -.->|Control| AKS
+    IAM -.->|Control| GKE
+
+    SecretManager -.->|Secrets| EKS
+    SecretManager -.->|Secrets| AKS
+    SecretManager -.->|Secrets| GKE
+
+    ConfigMgmt -.->|Deploy| AWSRegion
+    ConfigMgmt -.->|Deploy| AzureRegion
+    ConfigMgmt -.->|Deploy| GCPRegion
+
+    %% Styling
+    classDef global fill:#FF6B6B,stroke:#C92A2A,color:#fff,stroke-width:2px
+    classDef awsStyle fill:#FF9900,stroke:#C86400,color:#fff,stroke-width:2px
+    classDef azureStyle fill:#0078D4,stroke:#004578,color:#fff,stroke-width:2px
+    classDef gcpStyle fill:#4285F4,stroke:#1A4FAA,color:#fff,stroke-width:2px
+    classDef hybrid fill:#9B59B6,stroke:#6C3483,color:#fff,stroke-width:2px
+    classDef network fill:#3498DB,stroke:#1B4F72,color:#fff,stroke-width:2px
+    classDef compute fill:#2ECC71,stroke:#186A3B,color:#fff,stroke-width:2px
+    classDef database fill:#F39C12,stroke:#D68910,color:#fff,stroke-width:2px
+    classDef services fill:#1ABC9C,stroke:#0B7285,color:#fff,stroke-width:2px
+    classDef monitor fill:#FFEAA7,stroke:#D68910,color:#333,stroke-width:2px
+    classDef dr fill:#E74C3C,stroke:#922B21,color:#fff,stroke-width:2px
+    classDef secure fill:#27AE60,stroke:#145A32,color:#fff,stroke-width:2px
+
+    class GlobalDNS,CDN global
+
+    class VPC,NAT,TGW,AWSNetwork,AppGateway,VNet,GCPVpc,CloudLB network
+
+    class EKS,AutoScale,Lambda,AzureCompute,VMSS,FunctionApp,GKE,InstanceGroup,CloudFunctions compute
+
+    class RDS,Redshift,DynamoDB,S3,SQLServer,CosmosDB,BlobStorage,CloudSQL,Firestore,BigQuery,CloudStorage database
+
+    class SQS,EventBridge,Kinesis,ServiceBus,EventGrid,PubSub,Workflows services
+
+    class CloudWatch,XRay,Monitor,CloudMonitoring,Trace monitor
+
+    class GeoReplica,BackupService,FailoverMech dr
+
+    class Firewall,CloudArmor,IAM,SecretManager,ConfigMgmt,SecurityGovernance secure
+
+    class DataCenter,HybridGateway,EdgeComputing,OnPrem hybrid

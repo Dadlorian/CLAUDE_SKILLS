@@ -1,0 +1,189 @@
+%% Event-Driven Architecture with Event Sourcing & CQRS
+%% Demonstrates command-query separation, event flow, and eventual consistency
+
+graph TB
+    %% Client Layer
+    subgraph ClientLayer["Client Applications"]
+        WebUI["🌐 Web UI<br/>User Interactions"]
+        MobileUI["📱 Mobile App<br/>User Actions"]
+        AdminUI["👨‍💼 Admin Dashboard<br/>System Commands"]
+    end
+
+    %% Command Side - Write Model
+    subgraph CommandSide["Command Side (Write Model)"]
+        CommandAPI["📝 Command API<br/>REST/gRPC<br/>POST/PUT/DELETE"]
+
+        subgraph CommandHandlers["Command Handlers"]
+            CreateOrderCmd["🔨 Create Order<br/>Command Handler<br/>Validation"]
+            UpdateOrderCmd["🔨 Update Order<br/>Command Handler<br/>Business rules"]
+            ProcessPaymentCmd["🔨 Process Payment<br/>Command Handler<br/>Idempotency"]
+        end
+
+        subgraph Aggregates["Domain Aggregates"]
+            OrderAggregate["📦 Order Aggregate<br/>Root: Order<br/>Entities: Items<br/>Value Objects"]
+            PaymentAggregate["💳 Payment Aggregate<br/>Root: Payment<br/>State machine"]
+        end
+
+        subgraph EventGeneration["Event Generation"]
+            DomainEvents["⚡ Domain Events<br/>OrderCreated<br/>OrderShipped<br/>PaymentProcessed<br/>PaymentFailed"]
+        end
+    end
+
+    %% Event Store - Single Source of Truth
+    subgraph EventStore["Event Store - Append-Only Log"]
+        ESDatabase["📚 Event Store DB<br/>PostgreSQL/EventStoreDB<br/>Immutable events<br/>Sequence numbers"]
+        ESSnapshot["💾 Snapshots<br/>Periodic snapshots<br/>Faster rebuilds<br/>v100 → v150"]
+    end
+
+    %% Event Bus & Distribution
+    subgraph EventBus["Event Bus & Distribution"]
+        Kafka["🚌 Apache Kafka<br/>Topic: domain-events<br/>12 partitions<br/>Retention: 30 days<br/>Compression: Snappy"]
+        KafkaConnector["🔗 Kafka Connect<br/>Source connector<br/>Poll interval: 100ms"]
+        DeadLetter["☠️ Dead Letter Queue<br/>Failed messages<br/>Max retries: 3"]
+    end
+
+    %% Query Side - Read Model
+    subgraph QuerySide["Query Side (Read Model)"]
+        QueryAPI["🔍 Query API<br/>REST endpoints<br/>GET only<br/>Cache-friendly"]
+
+        subgraph ProjectionHandlers["Projection Handlers<br/>Event subscribers"]
+            OrderProjector["🎬 Order Projector<br/>OrderCreated event<br/>OrderShipped event"]
+            PaymentProjector["🎬 Payment Projector<br/>PaymentProcessed event<br/>PaymentFailed event"]
+            AnalyticsProjector["🎬 Analytics Projector<br/>All domain events"]
+        end
+
+        subgraph ReadModels["Read Models - Denormalized Views"]
+            OrderView["📋 Orders View<br/>Materialized view<br/>Indexed by user_id<br/>Optimized for queries"]
+            PaymentView["💰 Payments View<br/>Aggregated data<br/>Status filters"]
+            OrderStatsView["📊 Order Stats View<br/>Counts & metrics<br/>Time-series data"]
+        end
+    end
+
+    %% Read Model Databases
+    subgraph ReadDB["Read Model Storage"]
+        PostgresRead["🗄️ PostgreSQL Read<br/>Denormalized schema<br/>Optimized indexes"]
+        ElasticsearchRead["🔍 Elasticsearch<br/>Full-text search<br/>Aggregations"]
+        RedisRead["⚡ Redis Cache<br/>Hot queries<br/>TTL: 1 hour"]
+    end
+
+    %% Event Processing & Side Effects
+    subgraph EventProcessing["Event Processing & Side Effects"]
+        SagaOrchestrator["🎭 Saga Orchestrator<br/>Distributed transactions<br/>Compensation handlers"]
+
+        subgraph SideEffects["Event-Triggered Actions"]
+            EmailSaga["📧 Email Saga<br/>OrderShipped<br/>→ Send confirmation"]
+            NotificationSaga["🔔 Notification Saga<br/>PaymentProcessed<br/>→ Push notification"]
+            WarehouseSaga["🏭 Warehouse Saga<br/>OrderCreated<br/>→ Pick & pack"]
+        end
+    end
+
+    %% External Service Integration
+    subgraph ExternalServices["External Service Integration"]
+        EmailService["📧 Email Service<br/>SendGrid/Mailgun"]
+        NotificationService["🔔 Notification Service<br/>Firebase/Twilio"]
+        WarehouseService["🏭 Warehouse API<br/>WMS Integration"]
+        PaymentGateway["💳 Payment Gateway<br/>Stripe/PayPal"]
+    end
+
+    %% Monitoring & Audit
+    subgraph Monitoring["Monitoring & Audit"]
+        EventLog["📝 Audit Log<br/>All events<br/>Timestamp<br/>User ID<br/>IP address"]
+        MetricsCollector["📊 Metrics<br/>Event rate<br/>Processing lag<br/>Error count"]
+        DistributedTrace["🔭 Distributed Tracing<br/>Event flow tracking<br/>Latency breakdown"]
+    end
+
+    %% Client to Command API
+    WebUI -->|POST /orders| CommandAPI
+    MobileUI -->|POST /orders| CommandAPI
+    AdminUI -->|PUT /orders/:id| CommandAPI
+
+    %% Command API to Handlers
+    CommandAPI -->|Route| CreateOrderCmd
+    CommandAPI -->|Route| UpdateOrderCmd
+    CommandAPI -->|Route| ProcessPaymentCmd
+
+    %% Handlers to Aggregates
+    CreateOrderCmd -->|Create| OrderAggregate
+    UpdateOrderCmd -->|Update| OrderAggregate
+    ProcessPaymentCmd -->|Create| PaymentAggregate
+
+    %% Aggregates Generate Events
+    OrderAggregate -->|Emit| DomainEvents
+    PaymentAggregate -->|Emit| DomainEvents
+
+    %% Events to Event Store
+    DomainEvents -->|Append| ESDatabase
+    ESDatabase -->|Snapshot| ESSnapshot
+
+    %% Event Store to Event Bus
+    KafkaConnector -->|CDC| Kafka
+    ESDatabase -->|Read| KafkaConnector
+
+    %% Event Bus Distribution
+    Kafka -->|Events| OrderProjector
+    Kafka -->|Events| PaymentProjector
+    Kafka -->|Events| AnalyticsProjector
+    Kafka -->|Events| SagaOrchestrator
+
+    %% Failed Events
+    Kafka -->|Error| DeadLetter
+
+    %% Projectors to Read Models
+    OrderProjector -->|Update| OrderView
+    PaymentProjector -->|Update| PaymentView
+    AnalyticsProjector -->|Update| OrderStatsView
+
+    %% Read Models to Storage
+    OrderView -->|Persist| PostgresRead
+    PaymentView -->|Persist| PostgresRead
+    OrderStatsView -->|Index| ElasticsearchRead
+    OrderView -->|Cache| RedisRead
+
+    %% Query API to Read Models
+    QueryAPI -->|Read| PostgresRead
+    QueryAPI -->|Search| ElasticsearchRead
+    QueryAPI -->|Cache hit| RedisRead
+
+    %% Query API Results
+    QueryAPI -->|Response| WebUI
+    QueryAPI -->|Response| MobileUI
+    QueryAPI -->|Response| AdminUI
+
+    %% Sagas to External Services
+    SagaOrchestrator -->|Trigger| EmailSaga
+    SagaOrchestrator -->|Trigger| NotificationSaga
+    SagaOrchestrator -->|Trigger| WarehouseSaga
+
+    EmailSaga -->|Send| EmailService
+    NotificationSaga -->|Send| NotificationService
+    WarehouseSaga -->|Create task| WarehouseService
+    ProcessPaymentCmd -->|Charge| PaymentGateway
+
+    %% Monitoring Integration
+    Kafka -.->|Stream| EventLog
+    ESDatabase -.->|Audit| EventLog
+    Kafka -.->|Rate| MetricsCollector
+    KafkaConnector -.->|Lag| MetricsCollector
+    OrderProjector -.->|Trace| DistributedTrace
+    PaymentProjector -.->|Trace| DistributedTrace
+
+    %% Styling
+    classDef client fill:#FF6B6B,stroke:#C92A2A,color:#fff,stroke-width:2px
+    classDef commandWrite fill:#4ECDC4,stroke:#0B7285,color:#fff,stroke-width:2px
+    classDef eventStore fill:#F39C12,stroke:#D68910,color:#fff,stroke-width:2px
+    classDef eventBus fill:#9B59B6,stroke:#6C3483,color:#fff,stroke-width:2px
+    classDef queryRead fill:#3498DB,stroke:#1B4F72,color:#fff,stroke-width:2px
+    classDef database fill:#96CEB4,stroke:#47624F,color:#fff,stroke-width:2px
+    classDef saga fill:#E74C3C,stroke:#922B21,color:#fff,stroke-width:2px
+    classDef external fill:#DDA15E,stroke:#AD6828,color:#fff,stroke-width:2px
+    classDef monitoring fill:#FFEAA7,stroke:#D68910,color:#333,stroke-width:2px
+
+    class WebUI,MobileUI,AdminUI client
+    class CommandAPI,CreateOrderCmd,UpdateOrderCmd,ProcessPaymentCmd,OrderAggregate,PaymentAggregate,DomainEvents commandWrite
+    class ESDatabase,ESSnapshot eventStore
+    class Kafka,KafkaConnector,DeadLetter eventBus
+    class QueryAPI,OrderProjector,PaymentProjector,AnalyticsProjector,OrderView,PaymentView,OrderStatsView queryRead
+    class PostgresRead,ElasticsearchRead,RedisRead database
+    class SagaOrchestrator,EmailSaga,NotificationSaga,WarehouseSaga saga
+    class EmailService,NotificationService,WarehouseService,PaymentGateway external
+    class EventLog,MetricsCollector,DistributedTrace monitoring

@@ -1,0 +1,129 @@
+---
+name: Command Formatting Standards
+desc: Enforces consistent command and code formatting
+message: "Command should be formatted consistently: '%s'"
+level: error
+scope: paragraph, list, code
+action:
+  name: format
+
+extends: existence
+
+# Command formatting rules
+patterns:
+  # Inline code formatting
+  - pattern: '(?<!`)(?P<cmd>npm|pip|pip3|yarn|brew|apt-get|docker|kubectl|git|curl|wget)\s+[a-z-]+(?!`)'
+    message: "Command '%s' should be wrapped in backticks"
+    format: "`%s`"
+    level: warning
+
+  # File path formatting
+  - pattern: '(?<!`)/(?P<path>[a-zA-Z0-9_\-./:]+)(?!`)'
+    message: "File path '%s' should be wrapped in backticks"
+    format: "`%s`"
+    level: warning
+
+  # Variable formatting
+  - pattern: '(?<!\$)\$(?P<var>[A-Z_]+)(?!\w)'
+    message: "Environment variable '%s' should be wrapped in backticks"
+    format: "`$%s`"
+    level: warning
+
+# Code block requirements
+code_blocks:
+  - pattern: '```'
+    required: true
+    must_have_language: true
+    message: "Code blocks must specify a language identifier"
+    severity: error
+
+# Valid language identifiers
+languages:
+  - bash
+  - shell
+  - sh
+  - zsh
+  - fish
+  - python
+  - py
+  - javascript
+  - js
+  - typescript
+  - ts
+  - json
+  - yaml
+  - yml
+  - xml
+  - html
+  - css
+  - scss
+  - less
+  - java
+  - kotlin
+  - go
+  - rust
+  - cpp
+  - c
+  - csharp
+  - cs
+  - php
+  - ruby
+  - rb
+  - perl
+  - r
+  - swift
+  - objective-c
+  - objc
+  - scala
+  - clojure
+  - groovy
+  - gradle
+  - maven
+  - sql
+  - mysql
+  - postgresql
+  - oracle
+  - dockerfile
+  - makefile
+  - cmake
+  - gradle
+  - maven
+
+# Command-specific formats
+command_formats:
+  - command: npm install
+    format: "`npm install`"
+    full_form: "Node Package Manager install"
+
+  - command: pip install
+    format: "`pip install`"
+    full_form: "Python package installer"
+
+  - command: docker run
+    format: "`docker run`"
+    full_form: "Docker container execution"
+
+  - command: kubectl apply
+    format: "`kubectl apply`"
+    full_form: "Kubernetes manifest application"
+
+  - command: git clone
+    format: "`git clone`"
+    full_form: "Git repository cloning"
+
+# Prompt symbols
+prompts:
+  - symbol: "$"
+    usage: "User shell prompt"
+  - symbol: "#"
+    usage: "Root/admin prompt"
+  - symbol: ">"
+    usage: "Windows command prompt"
+  - symbol: ">>"
+    usage: "Continuation prompt"
+
+# Output formatting
+output_blocks:
+  pattern: '```(?:output|log|text)'
+  message: "Command output should be in output/log code blocks"
+  severity: warning

@@ -1,0 +1,16 @@
+# Vale Rule: Flag deprecated terminology
+# Description: Alerts writers to outdated or deprecated terms
+# Severity: error
+
+extends: substitution
+message: "'%s' is deprecated. Use '%s' instead"
+level: error
+ignorecase: true
+swap:
+  'master': 'primary'
+  'slave': 'secondary'
+  'whitelist': 'allowlist'
+  'blacklist': 'blocklist'
+  'sanity check': 'verification'
+  'dummy variable': 'placeholder variable'
+  'crippled': 'limited'

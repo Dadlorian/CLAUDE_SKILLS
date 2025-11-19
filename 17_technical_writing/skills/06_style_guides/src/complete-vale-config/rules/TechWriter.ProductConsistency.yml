@@ -1,0 +1,296 @@
+---
+name: Product Consistency Standards
+desc: Ensures consistent product name and terminology usage
+message: "Product reference should be consistent: '%s' should be '%s'"
+level: error
+scope: paragraph, heading
+action:
+  name: replace
+
+extends: substitution
+
+# Product names - exact format required
+product_names:
+  - name: "Node.js"
+    variants:
+      - "nodejs"
+      - "Node"
+      - "node.js"
+      - "Node Js"
+    correct: "Node.js"
+    context: "JavaScript runtime"
+
+  - name: "TypeScript"
+    variants:
+      - "typescript"
+      - "Type Script"
+      - "TS"
+    correct: "TypeScript"
+    context: "Programming language"
+    note: "Use 'TS' in code/abbreviations only"
+
+  - name: "React"
+    variants:
+      - "react"
+      - "ReactJS"
+      - "react.js"
+    correct: "React"
+    context: "JavaScript library"
+
+  - name: "Vue.js"
+    variants:
+      - "vuejs"
+      - "Vue"
+      - "vue"
+    correct: "Vue.js"
+    context: "Progressive framework"
+    note: "Use 'Vue' informally, 'Vue.js' formally"
+
+  - name: "Angular"
+    variants:
+      - "angular"
+      - "AngularJS"
+      - "Angular.js"
+    correct: "Angular"
+    context: "Framework"
+    note: "Use 'Angular' for v2+, 'AngularJS' for v1"
+
+  - name: "MongoDB"
+    variants:
+      - "mongodb"
+      - "Mongo"
+      - "mongo db"
+    correct: "MongoDB"
+    context: "NoSQL database"
+    note: "Use 'Mongo' in code/files only"
+
+  - name: "PostgreSQL"
+    variants:
+      - "postgresql"
+      - "postgres"
+      - "Postgres"
+    correct: "PostgreSQL"
+    context: "Relational database"
+    note: "Use 'postgres' in commands/config"
+
+  - name: "MySQL"
+    variants:
+      - "mysql"
+      - "My SQL"
+    correct: "MySQL"
+    context: "Relational database"
+
+  - name: "Docker"
+    variants:
+      - "docker"
+      - "docker.io"
+    correct: "Docker"
+    context: "Container platform"
+
+  - name: "Kubernetes"
+    variants:
+      - "kubernetes"
+      - "K8s"
+      - "k8s"
+    correct: "Kubernetes"
+    context: "Orchestration platform"
+    note: "Use 'K8s' in abbreviations only"
+
+  - name: "AWS"
+    variants:
+      - "aws"
+      - "Amazon Web Services"
+      - "amazon"
+    correct: "AWS"
+    context: "Cloud provider"
+    note: "Use 'Amazon Web Services' only in formal contexts"
+
+  - name: "Google Cloud"
+    variants:
+      - "gcp"
+      - "Google Cloud Platform"
+      - "google cloud"
+    correct: "Google Cloud"
+    context: "Cloud provider"
+
+  - name: "Microsoft Azure"
+    variants:
+      - "azure"
+      - "Azure"
+    correct: "Azure"
+    context: "Cloud provider"
+
+# API and service names
+service_names:
+  - name: "REST API"
+    variants:
+      - "Rest API"
+      - "rest api"
+      - "REST api"
+    correct: "REST API"
+
+  - name: "GraphQL"
+    variants:
+      - "graphql"
+      - "graph ql"
+    correct: "GraphQL"
+
+  - name: "WebSocket"
+    variants:
+      - "websocket"
+      - "web socket"
+    correct: "WebSocket"
+
+  - name: "OAuth 2.0"
+    variants:
+      - "OAuth"
+      - "oauth 2.0"
+      - "OAuth2"
+    correct: "OAuth 2.0"
+
+  - name: "JWT"
+    variants:
+      - "json web token"
+      - "Json Web Token"
+    correct: "JWT"
+    note: "Use full form in first mention"
+
+# Version consistency
+version_formatting:
+  rules:
+    - product: "Node.js"
+      format: "v14.0.0"
+      example_correct: "Node.js v14.0.0"
+      example_incorrect: "NodeJS 14.0.0"
+
+    - product: "React"
+      format: "16.13.0"
+      example_correct: "React 16.13.0"
+      example_incorrect: "React v16.13.0"
+
+    - product: "Angular"
+      format: "12.0.0"
+      example_correct: "Angular 12"
+      example_incorrect: "Angular v12"
+
+# Deprecated product names
+deprecated_names:
+  - old: "AngularJS"
+    new: "Angular"
+    reason: "Version 1 is deprecated"
+    severity: warning
+
+  - old: "Babel 6"
+    new: "Babel 7"
+    reason: "Version 6 is deprecated"
+    severity: suggestion
+
+  - old: "npm v6"
+    new: "npm v7+"
+    reason: "Outdated version"
+    severity: suggestion
+
+# Feature name consistency
+feature_names:
+  - feature: "Component"
+    capitalized: true
+    examples:
+      - "React Component"
+      - "Component Library"
+    avoid: "component (lowercase in formal context)"
+
+  - feature: "Hook"
+    capitalized: true
+    context: "React feature"
+    examples:
+      - "useState Hook"
+      - "Custom Hook"
+
+  - feature: "Middleware"
+    lowercase: true
+    examples:
+      - "Express middleware"
+      - "middleware pattern"
+
+  - feature: "Plugin"
+    lowercase: true
+    examples:
+      - "Webpack plugin"
+      - "plugin system"
+
+# Brand consistency
+brand_guidelines:
+  company_names:
+    - correct: "Acme Corporation"
+      avoid: ["Acme", "acme corp", "Acme Corp"]
+
+    - correct: "GitHub"
+      avoid: ["github", "Github", "Git Hub"]
+
+    - correct: "Stack Overflow"
+      avoid: ["stackoverflow", "Stack overflow"]
+
+  product_families:
+    - family: "Microsoft Office"
+      products:
+        - "Word"
+        - "Excel"
+        - "PowerPoint"
+        - "Outlook"
+
+    - family: "JetBrains IDEs"
+      products:
+        - "IntelliJ IDEA"
+        - "WebStorm"
+        - "PyCharm"
+
+# Terminology consistency
+terminology:
+  - term: "Application"
+    vs: "App"
+    guidance: "Use 'application' formally, 'app' colloquially"
+
+  - term: "Configuration"
+    vs: "Config"
+    guidance: "Use 'configuration' in prose, 'config' in code/files"
+
+  - term: "Authentication"
+    vs: "Auth"
+    guidance: "Use 'authentication' formally, 'auth' in code"
+
+  - term: "Administrator"
+    vs: "Admin"
+    guidance: "Use 'administrator' formally, 'admin' in UI/code"
+
+# Examples of correct usage
+examples:
+  correct:
+    - "Install Node.js v14.0.0"
+    - "React components are reusable"
+    - "Use MongoDB for NoSQL storage"
+    - "Deploy to AWS using CloudFormation"
+    - "Configure PostgreSQL database"
+    - "Kubernetes orchestrates containers"
+
+  incorrect:
+    - "Install nodejs v14.0.0"
+    - "react Components are reusable"
+    - "Use mongo for NoSQL storage"
+    - "Deploy to amazon using CloudFormation"
+    - "Configure postgres database"
+    - "K8s orchestrates containers" (formal docs)
+
+# Product release cycles
+release_information:
+  - product: "Node.js"
+    lts_versions: ["14.x", "16.x", "18.x"]
+    current_version: "20.x"
+    deprecated: ["10.x", "12.x"]
+
+  - product: "React"
+    current_major: "18"
+    lts: "18.x"
+
+  - product: "Angular"
+    current_major: "16"
+    lts: "16.x"

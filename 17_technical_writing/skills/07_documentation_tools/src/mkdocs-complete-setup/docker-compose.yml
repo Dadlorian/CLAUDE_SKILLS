@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  docs:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mkdocs-site
+    ports:
+      - "8000:80"
+    environment:
+      - TZ=UTC
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - docs-network
+
+  # Optional: SSL proxy with Nginx
+  nginx-proxy:
+    image: nginx:1.25-alpine
+    container_name: mkdocs-proxy
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./certs:/etc/nginx/certs:ro
+      - ./nginx-proxy.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - docs
+    restart: unless-stopped
+    networks:
+      - docs-network
+
+networks:
+  docs-network:
+    driver: bridge

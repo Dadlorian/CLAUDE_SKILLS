@@ -1,0 +1,126 @@
+---
+name: File Naming Conventions
+desc: Enforces consistent file naming patterns in documentation
+message: "File naming should follow conventions: '%s'"
+level: error
+scope: paragraph
+action:
+  name: suggest
+
+extends: existence
+
+# Valid file name patterns
+naming_conventions:
+  markdown:
+    pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*\.md$'
+    description: "Lowercase with hyphens"
+    examples:
+      - "installation-guide.md"
+      - "api-reference.md"
+      - "troubleshooting-faq.md"
+    avoid:
+      - "Installation Guide.md"
+      - "API_Reference.md"
+      - "Troubleshooting FAQ.md"
+
+  code:
+    pattern: '^[a-zA-Z_][a-zA-Z0-9_]*\.(js|py|go|rs|java)$'
+    description: "CamelCase or snake_case depending on language"
+    examples:
+      - "packageName.js"
+      - "package_name.py"
+      - "PackageName.java"
+    avoid:
+      - "package-name.js"
+      - "Package-Name.py"
+
+  configuration:
+    pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*\.(yml|yaml|json|toml|ini)$'
+    description: "Lowercase with hyphens"
+    examples:
+      - "app-config.yml"
+      - "database-config.json"
+      - "build-config.toml"
+
+  images:
+    pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*\.(png|jpg|jpeg|gif|svg)$'
+    description: "Lowercase with hyphens"
+    examples:
+      - "architecture-diagram.png"
+      - "ui-screenshot.jpg"
+      - "logo-icon.svg"
+
+# Prefixes and suffixes
+prefixes:
+  - "guide-"
+  - "tutorial-"
+  - "reference-"
+  - "howto-"
+  - "faq-"
+
+suffixes:
+  - "-guide.md"
+  - "-reference.md"
+  - "-tutorial.md"
+  - "-api.md"
+
+# Discouraged patterns
+avoid_patterns:
+  - pattern: '[A-Z]'
+    in: "markdown filenames"
+    message: "Use lowercase for markdown filenames"
+    correct: "installation-guide.md"
+    incorrect: "Installation-Guide.md"
+
+  - pattern: '[_\s]'
+    in: "markdown filenames"
+    message: "Use hyphens instead of underscores or spaces"
+    correct: "getting-started.md"
+    incorrect: "Getting_Started.md"
+
+  - pattern: '\..*\.\md'
+    message: "Avoid double extensions"
+    correct: "config.yml"
+    incorrect: "config.backup.md"
+
+  - pattern: '^\..*'
+    message: "Avoid hidden files"
+    severity: suggestion
+
+# Version numbers
+versioning:
+  pattern: '^v?\d+(\.\d+)*'
+  examples:
+    - "api-v1.md"
+    - "guide-2.0.md"
+  deprecated_pattern: '(v1|v2|version1)'
+  message: "Use semantic versioning"
+
+# Date patterns
+dates:
+  avoid: "^\\d{4}-\\d{2}-\\d{2}.*"
+  message: "Avoid date-based filenames in documentation"
+  use_instead: "Document titles with date in metadata"
+
+# Special characters
+special_characters:
+  allowed: ['-', '_', '.', '/']
+  disallowed: ['@', '#', '$', '%', '&', '!', '?', '*', '(', ')']
+  message: "Avoid special characters in filenames"
+
+# Path conventions
+path_structure:
+  - pattern: 'guides/[a-z0-9-]+\.md'
+    description: "Guides directory structure"
+
+  - pattern: 'reference/[a-z0-9-]+\.md'
+    description: "Reference directory structure"
+
+  - pattern: 'tutorials/[a-z0-9-]+\.md'
+    description: "Tutorials directory structure"
+
+  - pattern: 'src/[a-z0-9-]+/.*'
+    description: "Source code directory structure"
+
+  - pattern: 'docs/api/[a-z0-9-]+/.*'
+    description: "API documentation structure"

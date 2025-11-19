@@ -1,0 +1,23 @@
+# Vale Rule: Detect contractions in formal technical writing
+# Description: Flags contractions which are typically avoided in technical documentation
+# Severity: warning
+
+extends: substitution
+message: "Avoid contractions in technical writing: change '%s' to '%s'"
+level: warning
+ignorecase: false
+swap:
+  "don't": 'do not'
+  "can't": 'cannot'
+  "won't": 'will not'
+  "shouldn't": 'should not'
+  "isn't": 'is not'
+  "aren't": 'are not'
+  "wasn't": 'was not'
+  "weren't": 'were not'
+  "doesn't": 'does not'
+  "haven't": 'have not'
+  "hasn't": 'has not'
+  "hadn't": 'had not'
+  "it's": 'it is'
+  "that's": 'that is'

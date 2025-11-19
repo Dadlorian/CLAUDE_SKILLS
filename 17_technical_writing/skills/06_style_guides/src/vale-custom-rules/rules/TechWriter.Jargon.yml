@@ -1,0 +1,16 @@
+# Vale Rule: Detect unexplained jargon
+# Description: Flags technical jargon without explanation
+# Severity: warning
+
+extends: existence
+message: "Technical term '%s' should be explained or defined on first use"
+level: warning
+ignorecase: true
+tokens:
+  - 'blockchain(?!\s+is\s+|,\s+)'
+  - 'cryptography(?!\s+is\s+|,\s+)'
+  - 'API(?!\s+is\s+|,\s+)'
+  - 'OAuth(?!\s+is\s+|,\s+)'
+  - 'REST(?!\s+is\s+|,\s+)'
+  - 'JSON(?!\s+is\s+|,\s+)'
+  - 'XML(?!\s+is\s+|,\s+)'
