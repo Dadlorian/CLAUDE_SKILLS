@@ -1,0 +1,454 @@
+openapi: 3.1.0
+
+info:
+  title: Payment Processing API
+  version: 1.0.0
+  description: |
+    Complete payment processing API example.
+
+    ## Features
+    - Create and manage payments
+    - Handle subscriptions
+    - Process refunds
+    - Manage customers
+
+    ## Authentication
+    All requests require an API key in the Authorization header:
+    ```
+    Authorization: Bearer YOUR_API_KEY
+    ```
+
+    ## Rate Limits
+    - Standard tier: 100 requests/second
+    - Premium tier: 1000 requests/second
+
+    ## Support
+    - Documentation: https://docs.example.com
+    - Email: api-support@example.com
+    - Status: https://status.example.com
+
+  contact:
+    name: API Support Team
+    email: api-support@example.com
+    url: https://example.com/support
+
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+  termsOfService: https://example.com/terms
+
+servers:
+  - url: https://api.example.com/v1
+    description: Production
+  - url: https://sandbox-api.example.com/v1
+    description: Sandbox (test mode)
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Payments
+    description: Create and manage payments
+  - name: Customers
+    description: Customer management
+  - name: Refunds
+    description: Process refunds
+
+paths:
+  /payments:
+    get:
+      summary: List payments
+      description: Returns a list of payments with pagination
+      operationId: listPayments
+      tags:
+        - Payments
+
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/StartingAfter'
+        - name: status
+          in: query
+          description: Filter by payment status
+          schema:
+            type: string
+            enum:
+              - pending
+              - processing
+              - succeeded
+              - failed
+              - canceled
+
+      responses:
+        '200':
+          description: List of payments
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Payment'
+                  has_more:
+                    type: boolean
+                  next_cursor:
+                    type: string
+
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      summary: Create a payment
+      description: Creates a new payment intent
+      operationId: createPayment
+      tags:
+        - Payments
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - amount
+                - currency
+              properties:
+                amount:
+                  type: integer
+                  description: Amount in smallest currency unit
+                  minimum: 50
+                  example: 1000
+                currency:
+                  type: string
+                  description: Three-letter ISO currency code
+                  pattern: ^[a-z]{3}$
+                  example: usd
+                customer_id:
+                  type: string
+                  description: Customer identifier
+                  example: cus_123
+                description:
+                  type: string
+                  maxLength: 500
+                  example: Order #12345
+
+            examples:
+              basic:
+                summary: Basic payment
+                value:
+                  amount: 1000
+                  currency: usd
+              with_customer:
+                summary: Payment with customer
+                value:
+                  amount: 2500
+                  currency: usd
+                  customer_id: cus_123
+                  description: Premium subscription
+
+      responses:
+        '201':
+          description: Payment created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+
+  /payments/{id}:
+    get:
+      summary: Get a payment
+      description: Retrieves the details of a payment
+      operationId: getPayment
+      tags:
+        - Payments
+
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Payment identifier
+          schema:
+            type: string
+          example: pmt_1234567890
+
+      responses:
+        '200':
+          description: Payment retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /payments/{id}/capture:
+    post:
+      summary: Capture a payment
+      description: Captures a previously authorized payment
+      operationId: capturePayment
+      tags:
+        - Payments
+
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                amount:
+                  type: integer
+                  description: Amount to capture (optional, defaults to full amount)
+
+      responses:
+        '200':
+          description: Payment captured
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+
+  /refunds:
+    post:
+      summary: Create a refund
+      description: Refunds a payment
+      operationId: createRefund
+      tags:
+        - Refunds
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - payment_id
+              properties:
+                payment_id:
+                  type: string
+                  example: pmt_123
+                amount:
+                  type: integer
+                  description: Amount to refund (optional, defaults to full amount)
+                reason:
+                  type: string
+                  enum:
+                    - duplicate
+                    - fraudulent
+                    - requested_by_customer
+                  example: requested_by_customer
+
+      responses:
+        '201':
+          description: Refund created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Refund'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: API Key
+      description: |
+        Use your API key from the dashboard:
+        ```
+        Authorization: Bearer YOUR_API_KEY
+        ```
+
+  parameters:
+    Limit:
+      name: limit
+      in: query
+      description: Maximum number of results to return
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 10
+
+    StartingAfter:
+      name: starting_after
+      in: query
+      description: Cursor for pagination
+      schema:
+        type: string
+
+  schemas:
+    Payment:
+      type: object
+      required:
+        - id
+        - amount
+        - currency
+        - status
+        - created_at
+      properties:
+        id:
+          type: string
+          description: Unique payment identifier
+          example: pmt_1234567890
+          pattern: ^pmt_[a-zA-Z0-9]+$
+
+        amount:
+          type: integer
+          description: Amount in smallest currency unit
+          minimum: 50
+          example: 1000
+
+        currency:
+          type: string
+          description: Three-letter ISO currency code
+          pattern: ^[a-z]{3}$
+          example: usd
+
+        status:
+          type: string
+          enum:
+            - pending
+            - processing
+            - succeeded
+            - failed
+            - canceled
+          example: succeeded
+
+        customer_id:
+          type: string
+          description: Associated customer ID
+          example: cus_123
+
+        description:
+          type: string
+          description: Payment description
+          maxLength: 500
+          example: Order #12345
+
+        created_at:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp
+          example: "2025-11-19T10:30:00Z"
+          readOnly: true
+
+    Refund:
+      type: object
+      properties:
+        id:
+          type: string
+          example: ref_123
+        payment_id:
+          type: string
+          example: pmt_123
+        amount:
+          type: integer
+          example: 1000
+        status:
+          type: string
+          enum:
+            - pending
+            - succeeded
+            - failed
+        created_at:
+          type: string
+          format: date-time
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+              description: Machine-readable error code
+              example: validation_error
+            message:
+              type: string
+              description: Human-readable error message
+              example: Invalid email format
+            details:
+              type: object
+              description: Additional error context
+              additionalProperties: true
+            request_id:
+              type: string
+              description: Request ID for support
+              example: req_1234567890
+
+  responses:
+    Unauthorized:
+      description: Unauthorized - Invalid or missing API key
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: unauthorized
+              message: Invalid API key
+
+    BadRequest:
+      description: Bad request - Invalid parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: not_found
+              message: Resource not found
+
+    RateLimitExceeded:
+      description: Too many requests
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+          description: Seconds to wait before retrying
+        X-RateLimit-Limit:
+          schema:
+            type: integer
+        X-RateLimit-Remaining:
+          schema:
+            type: integer
+        X-RateLimit-Reset:
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: rate_limit_exceeded
+              message: Rate limit exceeded
