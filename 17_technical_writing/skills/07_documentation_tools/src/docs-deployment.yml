@@ -1,0 +1,179 @@
+# .github/workflows/docs-deployment.yml
+# Production-ready documentation deployment workflow
+
+name: Deploy Documentation
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'docs/**'
+      - 'docusaurus.config.js'
+      - 'sidebars.js'
+      - '.github/workflows/docs-deployment.yml'
+  pull_request:
+    paths:
+      - 'docs/**'
+      - 'docusaurus.config.js'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: 'pages'
+  cancel-in-progress: true
+
+jobs:
+  # 1. Quality checks
+  quality:
+    name: Quality Checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Prose linting
+      - name: Vale (Prose Linting)
+        uses: errata-ai/vale-action@v2
+        with:
+          files: docs
+          config: .vale.ini
+        continue-on-error: true
+
+      # Markdown linting
+      - name: Markdownlint
+        run: npx markdownlint-cli docs/**/*.md
+        continue-on-error: true
+
+      # Spell checking
+      - name: CSpell (Spell Check)
+        run: npx cspell docs/**/*.md
+        continue-on-error: true
+
+      # Link checking
+      - name: Link Checker
+        run: npx broken-link-checker http://localhost:3000 -ro
+        continue-on-error: true
+
+  # 2. Build the documentation
+  build:
+    name: Build Documentation
+    runs-on: ubuntu-latest
+    needs: quality
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build documentation
+        run: npm run build
+
+      - name: Upload build artifact
+        uses: actions/upload-pages-artifact@v2
+        with:
+          path: ./build
+
+  # 3. Test the build locally
+  test:
+    name: Test Build
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Download artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: github-pages
+
+      - name: Extract artifact
+        run: mkdir -p _site && tar -xzf artifact.tar -C _site
+
+      - name: Start web server
+        run: npx http-server _site &
+        continue-on-error: true
+
+      - name: Accessibility Test (Pa11y)
+        run: npx pa11y-ci --config .pa11y-ci.json
+        continue-on-error: true
+
+      - name: Lighthouse Check
+        uses: treosh/lighthouse-ci-action@v9
+        with:
+          configPath: ./lighthouserc.json
+        continue-on-error: true
+
+  # 4. Deploy to production
+  deploy:
+    name: Deploy to GitHub Pages
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v2
+
+  # 5. Notify on completion
+  notify:
+    name: Notify
+    runs-on: ubuntu-latest
+    needs: [quality, build, deploy]
+    if: always()
+    steps:
+      - name: Build status
+        run: |
+          if [ "${{ needs.build.result }}" == "success" ]; then
+            echo "✅ Documentation build succeeded"
+          else
+            echo "❌ Documentation build failed"
+            exit 1
+          fi
+
+      - name: Slack Notification
+        uses: slackapi/slack-github-action@v1
+        with:
+          payload: |
+            {
+              "text": "Docs deployment: ${{ job.status }}",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "Documentation Deployment: ${{ job.status }}\n*Branch:* ${{ github.ref_name }}\n*Commit:* ${{ github.sha }}"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        if: always()

@@ -1,0 +1,197 @@
+# mkdocs.yml
+# Production-ready MkDocs Material configuration
+
+site_name: My Awesome API
+site_description: Comprehensive documentation for developers
+site_author: Example Inc
+site_url: https://docs.example.com
+
+repo_name: example/documentation
+repo_url: https://github.com/example/documentation
+edit_uri: edit/main/docs/
+
+# Theme configuration
+theme:
+  name: material
+  features:
+    # Navigation features
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - navigation.footer
+    - toc.follow
+    - toc.integrate
+
+    # Content features
+    - content.code.copy
+    - content.code.select
+    - content.code.annotate
+    - content.tabs.link
+    - content.tooltips
+
+    # Search features
+    - search.suggest
+    - search.highlight
+    - search.share
+
+  palette:
+    # Light mode
+    - scheme: default
+      primary: blue
+      accent: blue
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+
+    # Dark mode
+    - scheme: slate
+      primary: blue
+      accent: blue
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+  font:
+    text: Roboto
+    code: Roboto Mono
+
+  favicon: assets/favicon.png
+  logo: assets/logo.svg
+
+# Navigation structure
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Quick Start: getting-started/quickstart.md
+    - Installation: getting-started/installation.md
+    - Authentication: getting-started/authentication.md
+  - Guides:
+    - API Basics: guides/api-basics.md
+    - Creating Charges: guides/charges.md
+    - Handling Webhooks: guides/webhooks.md
+    - Error Handling: guides/errors.md
+  - API Reference:
+    - Overview: api/overview.md
+    - Charges: api/charges.md
+    - Customers: api/customers.md
+    - Refunds: api/refunds.md
+  - Resources:
+    - FAQ: resources/faq.md
+    - Troubleshooting: resources/troubleshooting.md
+    - Support: resources/support.md
+
+# Extensions
+markdown_extensions:
+  # Python Markdown Extensions
+  - tables
+  - toc:
+      permalink: true
+      toc_depth: 3
+  - abbr
+  - footnotes
+  - attr_list
+  - md_in_html
+  - sane_lists
+
+  # PyMdown Extensions
+  - pymdownx.emoji:
+      emoji_index: !!python/name:materialx.emoji.twemoji
+      emoji_generator: !!python/name:materialx.emoji.to_svg
+  - pymdownx.highlight:
+      use_pygments: true
+      auto_title: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets:
+      base_path: docs/assets/snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.arithmatex:
+      block_start: '$$'
+      block_end: '$$'
+
+# Plugins
+plugins:
+  # Search
+  - search:
+      lang:
+        - en
+        - es
+        - fr
+      separator: '[\s\-\.]+'
+
+  # Instant loading
+  - offline:
+      enabled: !ENV [OFFLINE, false]
+
+  # Table of contents generation
+  - awesome-pages:
+      enable: !ENV [AWESOME_PAGES_STRICT, true]
+
+  # Code preview
+  - macros:
+      include_dir: docs/include
+
+  # SEO optimization
+  - minify:
+      minify_html: true
+      minify_js: true
+      minify_css: true
+      htmlmin_opts:
+        remove_comments: true
+
+# Extra configuration
+extra:
+  # Version switcher
+  version:
+    provider: mike
+    default: latest
+
+  # Language selector
+  alternate:
+    - name: English
+      lang: en
+      link: /
+    - name: Español
+      lang: es
+      link: /es/
+    - name: Français
+      lang: fr
+      link: /fr/
+
+  # Social links
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/example
+    - icon: fontawesome/brands/twitter
+      link: https://twitter.com/example
+    - icon: fontawesome/brands/discord
+      link: https://discord.gg/example
+
+  # Analytics
+  analytics:
+    provider: google
+    property: G-XXXXXXXXXX
+
+  # Additional metadata
+  author: Example Inc
+  copyright: Copyright © 2025 Example Inc. All rights reserved.
+
+# Extra CSS and JS
+extra_css:
+  - stylesheets/extra.css
+
+extra_javascript:
+  - javascripts/extra.js
+
+# Build configuration
+build:
+  number: !ENV BUILD_NUMBER

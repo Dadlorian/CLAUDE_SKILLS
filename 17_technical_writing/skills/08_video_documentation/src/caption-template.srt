@@ -1,0 +1,460 @@
+1
+00:00:00,000 --> 00:00:03,000
+Welcome! In this video, we'll build a complete REST API
+from scratch using Node.js and Express.
+
+2
+00:00:03,000 --> 00:00:06,000
+By the end, you'll understand how to set up an Express server,
+create API endpoints, and deploy your API.
+
+3
+00:00:06,000 --> 00:00:09,000
+Let's get started! First, make sure you have Node.js 16 or higher
+installed on your computer.
+
+4
+00:00:09,500 --> 00:00:12,000
+Open your terminal and check your Node.js version
+with the command: node --version
+
+5
+00:00:12,500 --> 00:00:15,000
+Great! Now let's create our project directory.
+Type: mkdir my-rest-api
+
+6
+00:00:15,500 --> 00:00:18,000
+Then navigate into it: cd my-rest-api
+
+7
+00:00:18,500 --> 00:00:21,000
+Initialize npm in the project: npm init -y
+
+8
+00:00:21,500 --> 00:00:24,000
+Now let's install Express, which is the framework
+we'll use to build our API.
+
+9
+00:00:24,500 --> 00:00:27,000
+Type: npm install express cors
+
+10
+00:00:27,500 --> 00:00:30,000
+We're also installing CORS to handle cross-origin requests.
+This installation takes about 10 seconds.
+
+11
+00:00:31,000 --> 00:00:33,500
+Perfect! Now let's create our server file.
+Create a file called server.js
+
+12
+00:00:34,000 --> 00:00:36,500
+And open it in your code editor.
+
+13
+00:00:37,000 --> 00:00:40,000
+Now, let's write the code to create an Express server.
+Type the following code:
+
+14
+00:00:40,500 --> 00:00:44,000
+const express = require('express');
+const cors = require('cors');
+
+15
+00:00:44,500 --> 00:00:47,000
+const app = express();
+const PORT = 3000;
+
+16
+00:00:47,500 --> 00:00:50,000
+Next, we add middleware:
+app.use(cors());
+app.use(express.json());
+
+17
+00:00:50,500 --> 00:00:53,000
+Finally, we start the server:
+app.listen(PORT, () => {
+
+18
+00:00:53,500 --> 00:00:56,000
+  console.log(`Server running on port ${PORT}`);
+});
+
+19
+00:00:57,000 --> 00:01:00,000
+Here's what's happening:
+1. We import Express and CORS libraries
+2. We create an app instance
+3. We add middleware to handle JSON and cross-origin requests
+
+20
+00:01:00,500 --> 00:01:03,000
+4. We start the server on port 3000
+
+21
+00:01:04,000 --> 00:01:07,000
+Now let's add our first API endpoint.
+Add this code before app.listen():
+
+22
+00:01:07,500 --> 00:01:10,000
+app.get('/', (req, res) => {
+  res.json({ message: 'Welcome to our API' });
+});
+
+23
+00:01:10,500 --> 00:01:13,000
+This endpoint:
+- Uses the GET HTTP method
+- Responds to requests to the root path '/'
+
+24
+00:01:13,500 --> 00:01:16,000
+- Returns a JSON response with a welcome message
+
+25
+00:01:16,500 --> 00:01:19,000
+Let's test it. In the terminal, type:
+npm start
+
+26
+00:01:19,500 --> 00:01:22,000
+Or if you installed nodemon for auto-reload:
+nodemon server.js
+
+27
+00:01:22,500 --> 00:01:25,000
+Great! The server is running on port 3000.
+Now let's test the endpoint using Postman.
+
+28
+00:01:25,500 --> 00:01:28,000
+Create a GET request to http://localhost:3000/
+
+29
+00:01:28,500 --> 00:01:31,000
+Click Send.
+
+30
+00:01:31,500 --> 00:01:34,000
+Excellent! Our first endpoint is working.
+We got the welcome message in JSON format.
+
+31
+00:01:34,500 --> 00:01:37,000
+Now let's create more endpoints to make this a real API.
+
+32
+00:01:37,500 --> 00:01:40,500
+Let's create a simple in-memory database with some users.
+Add this code before your routes:
+
+33
+00:01:41,000 --> 00:01:44,000
+let users = [
+  { id: 1, name: 'Alice', email: 'alice@example.com' },
+
+34
+00:01:44,500 --> 00:01:47,000
+  { id: 2, name: 'Bob', email: 'bob@example.com' }
+];
+
+35
+00:01:47,500 --> 00:01:50,000
+Now let's add our first user endpoint.
+This will GET all users:
+
+36
+00:01:50,500 --> 00:01:53,000
+app.get('/api/users', (req, res) => {
+  res.json(users);
+});
+
+37
+00:01:53,500 --> 00:01:56,000
+Let's add another endpoint to get a specific user by ID:
+
+38
+00:01:56,500 --> 00:01:59,000
+app.get('/api/users/:id', (req, res) => {
+  const user = users.find(u =>
+
+39
+00:01:59,500 --> 00:02:02,000
+    u.id === parseInt(req.params.id)
+  );
+
+40
+00:02:02,500 --> 00:02:05,000
+  if (!user) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+  res.json(user);
+});
+
+41
+00:02:05,500 --> 00:02:08,000
+The `:id` in the route is a parameter.
+We access it with req.params.id
+
+42
+00:02:08,500 --> 00:02:11,000
+Now let's add a POST endpoint to create a new user:
+
+43
+00:02:11,500 --> 00:02:14,500
+app.post('/api/users', (req, res) => {
+  const { name, email } = req.body;
+
+44
+00:02:15,000 --> 00:02:17,500
+  if (!name || !email) {
+    return res.status(400).json({
+
+45
+00:02:18,000 --> 00:02:20,500
+      error: 'Name and email required'
+    });
+  }
+
+46
+00:02:21,000 --> 00:02:23,500
+  const newUser = {
+    id: users.length + 1,
+    name,
+
+47
+00:02:24,000 --> 00:02:26,500
+    email
+  };
+
+48
+00:02:27,000 --> 00:02:29,500
+  users.push(newUser);
+  res.status(201).json(newUser);
+});
+
+49
+00:02:30,000 --> 00:02:33,000
+Now let's restart the server and test these endpoints.
+
+50
+00:02:33,500 --> 00:02:36,000
+Press Ctrl+C to stop the server.
+
+51
+00:02:36,500 --> 00:02:39,000
+Then start it again: npm start
+
+52
+00:02:39,500 --> 00:02:42,000
+Now let's test the endpoints in Postman.
+First, GET all users:
+
+53
+00:02:42,500 --> 00:02:45,000
+Make a GET request to http://localhost:3000/api/users
+
+54
+00:02:45,500 --> 00:02:48,000
+Click Send.
+
+55
+00:02:48,500 --> 00:02:51,000
+Great! We got both users in the response.
+
+56
+00:02:51,500 --> 00:02:54,000
+Now let's get a specific user. Change the URL to:
+http://localhost:3000/api/users/1
+
+57
+00:02:54,500 --> 00:02:57,000
+Click Send.
+
+58
+00:02:57,500 --> 00:03:00,000
+Perfect! We got Alice's data.
+
+59
+00:03:00,500 --> 00:03:03,000
+Now let's create a new user using POST.
+Change the method to POST
+
+60
+00:03:03,500 --> 00:03:06,000
+The URL stays: http://localhost:3000/api/users
+
+61
+00:03:06,500 --> 00:03:09,000
+Click the Body tab, select "raw", and change to JSON.
+
+62
+00:03:09,500 --> 00:03:12,000
+Type the following JSON:
+
+63
+00:03:12,500 --> 00:03:15,000
+{
+  "name": "Charlie",
+  "email": "charlie@example.com"
+}
+
+64
+00:03:15,500 --> 00:03:18,000
+Click Send.
+
+65
+00:03:18,500 --> 00:03:21,000
+Excellent! We successfully created a new user.
+
+66
+00:03:21,500 --> 00:03:24,000
+We've successfully:
+- Retrieved all users
+- Retrieved a specific user
+- Created a new user
+
+67
+00:03:24,500 --> 00:03:27,000
+This is the core of a REST API!
+
+68
+00:03:27,500 --> 00:03:30,000
+Now let's add proper error handling.
+A good API needs to handle errors gracefully.
+
+69
+00:03:30,500 --> 00:03:33,000
+Add this error handling middleware at the end of your code,
+before app.listen():
+
+70
+00:03:33,500 --> 00:03:36,000
+app.use((err, req, res, next) => {
+  console.error(err);
+
+71
+00:03:36,500 --> 00:03:39,000
+  res.status(500).json({
+    error: 'Internal server error'
+  });
+});
+
+72
+00:03:39,500 --> 00:03:42,000
+Also add a 404 handler for non-existent routes:
+
+73
+00:03:42,500 --> 00:03:45,000
+app.use((req, res) => {
+  res.status(404).json({
+    error: 'Not found'
+  });
+});
+
+74
+00:03:45,500 --> 00:03:48,000
+Restart the server and test it.
+
+75
+00:03:48,500 --> 00:03:51,000
+Try accessing a non-existent endpoint:
+GET http://localhost:3000/api/invalid
+
+76
+00:03:51,500 --> 00:03:54,000
+Click Send.
+
+77
+00:03:54,500 --> 00:03:57,000
+Perfect! Our error handling is working.
+We get a 404 error with a proper error message.
+
+78
+00:03:57,500 --> 00:04:00,000
+Now let's add environment variables for the port.
+This is important for deployment.
+
+79
+00:04:00,500 --> 00:04:03,000
+Change this line:
+const PORT = 3000;
+
+80
+00:04:03,500 --> 00:04:06,000
+To:
+const PORT = process.env.PORT || 3000;
+
+81
+00:04:06,500 --> 00:04:09,000
+Now we can set the PORT environment variable,
+and the app will use that. If not set, it defaults to 3000.
+
+82
+00:04:09,500 --> 00:04:12,000
+Great! We've built a complete REST API with:
+- Express server setup
+- GET and POST endpoints
+- Error handling
+- Environment variables
+
+83
+00:04:12,500 --> 00:04:15,000
+All in just 15 minutes!
+
+84
+00:04:15,500 --> 00:04:18,000
+Here are some next steps to improve your API:
+
+85
+00:04:18,500 --> 00:04:21,000
+1. Database: Use PostgreSQL instead of in-memory arrays
+
+86
+00:04:21,500 --> 00:04:24,000
+2. Authentication: Add JWT authentication
+
+87
+00:04:24,500 --> 00:04:27,000
+3. Validation: Use a library like Joi for request validation
+
+88
+00:04:27,500 --> 00:04:30,000
+4. Documentation: Create API documentation with Swagger
+
+89
+00:04:30,500 --> 00:04:33,000
+5. Deployment: Deploy to Heroku or AWS
+
+90
+00:04:33,500 --> 00:04:36,000
+6. Testing: Write automated tests
+
+91
+00:04:36,500 --> 00:04:39,000
+Check out the GitHub repository for the complete code.
+All the links are in the description.
+
+92
+00:04:39,500 --> 00:04:42,000
+Thanks for watching! If you found this helpful:
+- Like and subscribe for more tutorials
+
+93
+00:04:42,500 --> 00:04:45,000
+- Check out the linked repository for the full code
+
+94
+00:04:45,500 --> 00:04:48,000
+- Let me know what you'd like to see next in the comments
+
+95
+00:04:48,500 --> 00:04:51,000
+Good luck with your API development!
+See you in the next video!
