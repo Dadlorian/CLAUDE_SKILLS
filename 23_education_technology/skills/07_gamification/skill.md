@@ -395,6 +395,107 @@ class MotivationDesign:
 7. **Regular feedback**: Show progress and improvement
 8. **Community building**: Emphasize collaboration, not just competition
 
+### A/B Testing Gamification Features
+
+**Experimentation Framework**:
+```python
+import random
+from scipy import stats
+
+class GamificationABTest:
+    """
+    A/B test gamification features to measure impact on learning outcomes.
+    """
+
+    def assign_treatment_group(self, student_id):
+        """
+        Randomly assign students to control or treatment group.
+        """
+        groups = ['control', 'treatment']
+        # Use student_id for consistent assignment
+        random.seed(student_id)
+        return random.choice(groups)
+
+    def measure_impact(self, control_group, treatment_group, metric='completion_rate'):
+        """
+        Compare learning outcomes between groups.
+        Metrics: completion_rate, final_score, engagement_time, retention
+        """
+        control_values = [s[metric] for s in control_group]
+        treatment_values = [s[metric] for s in treatment_group]
+
+        # Statistical significance test
+        t_stat, p_value = stats.ttest_ind(control_values, treatment_values)
+
+        return {
+            'control_mean': np.mean(control_values),
+            'treatment_mean': np.mean(treatment_values),
+            'difference': np.mean(treatment_values) - np.mean(control_values),
+            'p_value': p_value,
+            'statistically_significant': p_value < 0.05,
+            'effect_size': self.cohens_d(control_values, treatment_values)
+        }
+
+    def cohens_d(self, group1, group2):
+        """
+        Calculate Cohen's d for effect size.
+        d = 0.2 (small), 0.5 (medium), 0.8 (large)
+        """
+        n1, n2 = len(group1), len(group2)
+        var1, var2 = np.var(group1, ddof=1), np.var(group2, ddof=1)
+        pooled_std = np.sqrt(((n1-1)*var1 + (n2-1)*var2) / (n1+n2-2))
+        return (np.mean(group2) - np.mean(group1)) / pooled_std
+```
+
+**Analytics Dashboard**:
+```javascript
+class GamificationAnalytics {
+  /**
+   * Track which game mechanics drive engagement and learning.
+   */
+
+  trackMechanicUsage(studentId, mechanic, outcome) {
+    // mechanic: 'points', 'badges', 'leaderboard', 'streaks'
+    // outcome: 'engaged', 'completed', 'scored'
+
+    analytics.track('gamification_interaction', {
+      student_id: studentId,
+      mechanic_type: mechanic,
+      outcome: outcome,
+      timestamp: Date.now()
+    });
+  }
+
+  generateEngagementReport(courseId) {
+    /**
+     * Report showing which gamification features work best.
+     * Example output:
+     * - Badges: 25% increase in completion rate
+     * - Leaderboards: 15% increase in time-on-task
+     * - Points: No significant impact on learning outcomes
+     */
+    return {
+      'badges': {
+        'engagement_lift': 0.25,
+        'completion_lift': 0.30,
+        'recommended': true
+      },
+      'leaderboards': {
+        'engagement_lift': 0.15,
+        'completion_lift': -0.05,  // Negative impact!
+        'recommended': false,
+        'note': 'Causes anxiety in some students'
+      },
+      'points': {
+        'engagement_lift': 0.05,
+        'completion_lift': 0.02,
+        'recommended': 'neutral'
+      }
+    };
+  }
+}
+```
+
 ---
 
 **Version**: 2.0

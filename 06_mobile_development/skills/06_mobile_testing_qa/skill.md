@@ -549,4 +549,205 @@ You are an elite mobile QA expert with comprehensive expertise in testing iOS, A
 
 ---
 
+## Advanced Testing Strategies
+
+### Contract Testing for APIs
+```typescript
+// Pact contract testing for API integration
+import { Pact } from '@pact-foundation/pact';
+
+describe('User API Contract', () => {
+    const provider = new Pact({
+        consumer: 'MobileApp',
+        provider: 'UserAPI',
+        port: 8080,
+    });
+
+    beforeAll(() => provider.setup());
+    afterEach(() => provider.verify());
+    afterAll(() => provider.finalize());
+
+    it('should get user by ID', async () => {
+        await provider.addInteraction({
+            state: 'user exists',
+            uponReceiving: 'a request for user',
+            withRequest: {
+                method: 'GET',
+                path: '/users/123',
+                headers: { Accept: 'application/json' },
+            },
+            willRespondWith: {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' },
+                body: {
+                    id: '123',
+                    name: 'John Doe',
+                    email: 'john@example.com',
+                },
+            },
+        });
+
+        const response = await api.getUser('123');
+        expect(response.id).toBe('123');
+    });
+});
+```
+
+### Visual Regression Testing
+```typescript
+// Percy visual testing for React Native
+import { percySnapshot } from '@percy/react-native';
+
+describe('Visual Regression Tests', () => {
+    it('should match login screen snapshot', async () => {
+        const { getByTestId } = render(<LoginScreen />);
+        await percySnapshot('Login Screen - Default');
+    });
+
+    it('should match error state', async () => {
+        const { getByTestId } = render(<LoginScreen error="Invalid credentials" />);
+        await percySnapshot('Login Screen - Error State');
+    });
+});
+```
+
+```dart
+// Flutter golden tests with multiple device sizes
+void main() {
+  testWidgets('LoginScreen golden test - multiple sizes', (tester) async {
+    final devices = [
+      Size(375, 667),  // iPhone SE
+      Size(414, 896),  // iPhone 11
+      Size(360, 640),  // Android small
+      Size(412, 915),  // Android large
+    ];
+
+    for (final size in devices) {
+      await tester.binding.setSurfaceSize(size);
+
+      await tester.pumpWidget(
+        MaterialApp(home: LoginScreen()),
+      );
+
+      await expectLater(
+        find.byType(LoginScreen),
+        matchesGoldenFile('login_${size.width}x${size.height}.png'),
+      );
+    }
+  });
+}
+```
+
+### Performance Testing
+```kotlin
+// Android Macrobenchmark for startup time
+@RunWith(AndroidJUnit4::class)
+class StartupBenchmark {
+    @get:Rule
+    val benchmarkRule = MacrobenchmarkRule()
+
+    @Test
+    fun startup() = benchmarkRule.measureRepeated(
+        packageName = "com.example.app",
+        metrics = listOf(StartupTimingMetric()),
+        iterations = 5,
+        startupMode = StartupMode.COLD
+    ) {
+        pressHome()
+        startActivityAndWait()
+    }
+
+    @Test
+    fun scrolling() = benchmarkRule.measureRepeated(
+        packageName = "com.example.app",
+        metrics = listOf(FrameTimingMetric()),
+        iterations = 5
+    ) {
+        startActivityAndWait()
+
+        val recyclerView = device.findObject(By.res("user_list"))
+        recyclerView.setGestureMargin(device.displayWidth / 5)
+        recyclerView.fling(Direction.DOWN)
+        device.waitForIdle()
+    }
+}
+```
+
+### Chaos Engineering for Mobile
+```typescript
+// Simulate network conditions and errors
+class ChaosTestingUtils {
+    static async simulateSlowNetwork(delayMs: number) {
+        // Intercept network requests
+        MockAdapter.onAny().reply(() => {
+            return new Promise(resolve => {
+                setTimeout(() => {
+                    resolve([200, mockData]);
+                }, delayMs);
+            });
+        });
+    }
+
+    static async simulateIntermittentFailure(failureRate: number) {
+        MockAdapter.onAny().reply(() => {
+            if (Math.random() < failureRate) {
+                return [500, { error: 'Server Error' }];
+            }
+            return [200, mockData];
+        });
+    }
+
+    static async simulateLowMemory() {
+        // Trigger memory warning
+        NativeModules.DeviceEventEmitter.emit('memoryWarning');
+    }
+
+    static async simulateBatteryDrain() {
+        // Simulate low battery state
+        NativeModules.BatteryManager.setBatteryLevel(10);
+    }
+}
+
+// Test with chaos conditions
+describe('Chaos Testing', () => {
+    it('should handle slow network gracefully', async () => {
+        await ChaosTestingUtils.simulateSlowNetwork(5000);
+
+        const { getByTestId } = render(<UserList />);
+
+        expect(getByTestId('loading')).toBeTruthy();
+
+        await waitFor(() => {
+            expect(getByTestId('user-list')).toBeTruthy();
+        }, { timeout: 10000 });
+    });
+});
+```
+
+### Continuous Testing Dashboard
+```yaml
+# Test metrics to track
+test_metrics:
+  coverage:
+    unit_tests: 80%
+    integration_tests: 60%
+    ui_tests: 40%
+
+  performance:
+    app_startup: < 2s
+    screen_transition: < 300ms
+    api_response: < 1s
+
+  reliability:
+    test_flakiness: < 1%
+    pass_rate: > 95%
+
+  quality:
+    critical_bugs: 0
+    major_bugs: < 5
+    code_smell_ratio: < 5%
+```
+
+---
+
 Ready to build high-quality mobile applications!

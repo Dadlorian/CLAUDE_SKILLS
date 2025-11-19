@@ -539,6 +539,102 @@ class SpacedRepetitionMobile:
 7. **App permissions**: Request only needed permissions
 8. **Testing on devices**: Simulators don't catch all issues
 
+### Mobile Performance Profiling
+
+**React Native Performance Monitoring**:
+```javascript
+import { Performance } from 'react-native-performance';
+import Crashlytics from '@react-native-firebase/crashlytics';
+
+class MobilePerformanceMonitor {
+  /**
+   * Track mobile app performance metrics.
+   */
+
+  measureScreenLoadTime(screenName) {
+    const mark = Performance.mark(`${screenName}_start`);
+
+    // When screen finishes loading
+    return () => {
+      Performance.measure(`${screenName}_load`, `${screenName}_start`);
+
+      const duration = Performance.getEntriesByName(`${screenName}_load`)[0].duration;
+
+      // Log to analytics
+      analytics.logEvent('screen_load', {
+        screen: screenName,
+        duration_ms: duration
+      });
+
+      // Alert if slow (> 2 seconds)
+      if (duration > 2000) {
+        Crashlytics.log(`Slow screen load: ${screenName} took ${duration}ms`);
+      }
+    };
+  }
+
+  measureAPILatency(endpoint, startTime) {
+    const latency = Date.now() - startTime;
+
+    analytics.logEvent('api_call', {
+      endpoint,
+      latency_ms: latency,
+      network_type: this.getNetworkType()
+    });
+
+    return latency;
+  }
+
+  async getNetworkType() {
+    const NetInfo = await import('@react-native-community/netinfo');
+    const state = await NetInfo.fetch();
+    return state.type; // 'wifi', 'cellular', 'none'
+  }
+
+  trackMemoryUsage() {
+    /**
+     * Monitor memory to prevent crashes on low-end devices.
+     */
+    if (global.performance && global.performance.memory) {
+      const memory = global.performance.memory;
+      return {
+        usedJSHeapSize: memory.usedJSHeapSize,
+        totalJSHeapSize: memory.totalJSHeapSize,
+        limit: memory.jsHeapSizeLimit,
+        usage_percent: (memory.usedJSHeapSize / memory.jsHeapSizeLimit) * 100
+      };
+    }
+  }
+}
+
+// Usage example
+const monitor = new MobilePerformanceMonitor();
+const endMeasure = monitor.measureScreenLoadTime('LessonScreen');
+
+// ... component renders ...
+
+endMeasure(); // Log completion time
+```
+
+**Bundle Size Optimization**:
+```bash
+# Analyze React Native bundle size
+npx react-native-bundle-visualizer
+
+# Check individual module sizes
+npm run bundle -- --verbose | grep "^├─"
+
+# Optimize images
+npx @bam.tech/react-native-image-resizer
+
+# Remove unused dependencies
+npx depcheck
+
+# Use Hermes engine for faster startup
+# android/app/build.gradle
+enableHermes: true
+```
+
 ---
 
 **Version**: 2.0

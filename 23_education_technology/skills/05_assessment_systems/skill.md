@@ -507,6 +507,172 @@ class RubricScorer:
 5. **Cultural bias**: Questions/problems should be culturally responsive
 6. **Transparency**: Students deserve to understand grading criteria
 
+### Security & Anti-Cheating Measures
+
+**Assessment Security Architecture**:
+```python
+import hashlib
+import secrets
+from cryptography.fernet import Fernet
+
+class AssessmentSecurity:
+    """
+    Secure assessment delivery and prevent cheating.
+    """
+
+    def generate_unique_exam_version(self, question_bank, student_id):
+        """
+        Create unique exam for each student (randomized question order/options).
+        Prevents students from sharing answers.
+        """
+        import random
+
+        # Use student_id as seed for reproducibility
+        random.seed(hashlib.sha256(str(student_id).encode()).digest())
+
+        # Select random subset of questions
+        questions = random.sample(question_bank, k=20)
+
+        # Randomize order
+        random.shuffle(questions)
+
+        # Randomize multiple choice options
+        for q in questions:
+            if q['type'] == 'multiple_choice':
+                random.shuffle(q['options'])
+
+        return {
+            'exam_id': self.generate_exam_id(student_id),
+            'questions': questions,
+            'expires_at': datetime.utcnow() + timedelta(hours=2)
+        }
+
+    def encrypt_exam_content(self, exam_data):
+        """
+        Encrypt exam questions until exam starts.
+        Student can't view questions before allowed time.
+        """
+        key = Fernet.generate_key()
+        cipher = Fernet(key)
+
+        encrypted = cipher.encrypt(json.dumps(exam_data).encode())
+
+        return {
+            'encrypted_exam': encrypted,
+            'decryption_key': key,  # Store securely, release at exam time
+            'exam_start_time': exam_data['start_time']
+        }
+
+    def detect_tab_switching(self, student_session):
+        """
+        Track when student leaves exam window.
+        Flag as potential cheating (looking up answers).
+        """
+        violations = []
+
+        for event in student_session['events']:
+            if event['type'] == 'visibility_change' and event['hidden']:
+                violations.append({
+                    'timestamp': event['timestamp'],
+                    'type': 'tab_switch',
+                    'duration_seconds': event['duration']
+                })
+
+        # Flag if excessive switching
+        if len(violations) > 5:
+            self.flag_session_for_review(student_session['id'], violations)
+
+        return violations
+
+    def analyze_answer_timing(self, student_responses):
+        """
+        Detect anomalous answer timing patterns.
+        - Too fast: May have pre-knowledge
+        - Too similar to other students: Possible collusion
+        """
+        timing_anomalies = []
+
+        for question_id, response in student_responses.items():
+            time_spent = response['time_spent_seconds']
+            question_difficulty = response['estimated_time_seconds']
+
+            # Answer submitted unusually fast
+            if time_spent < question_difficulty * 0.2:
+                timing_anomalies.append({
+                    'question_id': question_id,
+                    'anomaly': 'too_fast',
+                    'time_spent': time_spent,
+                    'expected_time': question_difficulty
+                })
+
+        return timing_anomalies
+
+    def compare_answer_similarity(self, student_responses_list):
+        """
+        Detect potential collusion by comparing answer patterns.
+        High similarity in wrong answers = possible cheating.
+        """
+        from sklearn.feature_extraction.text import TfidfVectorizer
+        from sklearn.metrics.pairwise import cosine_similarity
+
+        # Extract text responses
+        student_texts = []
+        for responses in student_responses_list:
+            combined_text = ' '.join(
+                r['answer_text'] for r in responses if 'answer_text' in r
+            )
+            student_texts.append(combined_text)
+
+        # Calculate similarity
+        vectorizer = TfidfVectorizer()
+        tfidf_matrix = vectorizer.fit_transform(student_texts)
+        similarity_matrix = cosine_similarity(tfidf_matrix)
+
+        # Flag high similarity pairs
+        suspicious_pairs = []
+        for i in range(len(similarity_matrix)):
+            for j in range(i + 1, len(similarity_matrix)):
+                if similarity_matrix[i][j] > 0.85:  # 85% similarity threshold
+                    suspicious_pairs.append({
+                        'student_1': i,
+                        'student_2': j,
+                        'similarity_score': similarity_matrix[i][j]
+                    })
+
+        return suspicious_pairs
+```
+
+**Rate Limiting & DDoS Protection**:
+```python
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+
+limiter = Limiter(
+    key_func=get_remote_address,
+    default_limits=["200 per hour", "50 per minute"]
+)
+
+@app.route('/api/submit-answer', methods=['POST'])
+@limiter.limit("10 per minute")  # Prevent rapid submission attacks
+def submit_answer():
+    """
+    Rate-limited endpoint for answer submission.
+    Prevents students from brute-forcing multiple choice answers.
+    """
+    student_id = request.json['student_id']
+    answer = request.json['answer']
+
+    # Verify student has active exam session
+    session = verify_exam_session(student_id)
+    if not session:
+        return {'error': 'No active exam session'}, 403
+
+    # Store answer
+    save_answer(student_id, answer)
+
+    return {'success': True}
+```
+
 ---
 
 **Version**: 2.0

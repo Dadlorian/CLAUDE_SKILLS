@@ -587,4 +587,248 @@ You are an elite mobile DevOps expert with expertise in building, testing, and d
 
 ---
 
+## Advanced CI/CD Patterns
+
+### Blue-Green Deployment Strategy
+```yaml
+# GitHub Actions: Blue-Green deployment with rollback
+name: Blue-Green Deployment
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy-green:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build green version
+        run: ./gradlew assembleRelease
+
+      - name: Deploy to green environment
+        run: |
+          firebase appdistribution:distribute app-release.apk \
+            --groups "green-testers" \
+            --release-notes "Testing new version"
+
+      - name: Run smoke tests
+        run: ./run-smoke-tests.sh green
+
+      - name: Switch traffic to green
+        if: success()
+        run: |
+          firebase appdistribution:distribute app-release.apk \
+            --groups "production" \
+            --release-notes "$(cat RELEASE_NOTES.md)"
+
+      - name: Rollback to blue
+        if: failure()
+        run: ./rollback-to-blue.sh
+```
+
+### Advanced Build Optimization
+```groovy
+// Android Gradle optimization
+android {
+    // Enable build cache
+    buildCache {
+        local {
+            enabled = true
+            directory = file("${rootDir}/build-cache")
+            removeUnusedEntriesAfterDays = 7
+        }
+    }
+
+    // Enable parallel builds
+    tasks.withType(JavaCompile) {
+        options.fork = true
+        options.forkOptions.javaHome = file(System.env.JAVA_HOME)
+        options.forkOptions.memoryMaximumSize = "2g"
+    }
+
+    // Configure dex options
+    dexOptions {
+        preDexLibraries = true
+        maxProcessCount = 8
+        javaMaxHeapSize = "4g"
+    }
+
+    // Split APKs
+    splits {
+        abi {
+            enable true
+            reset()
+            include 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64'
+            universalApk true
+        }
+        density {
+            enable true
+            reset()
+            include 'mdpi', 'hdpi', 'xhdpi', 'xxhdpi', 'xxxhdpi'
+        }
+    }
+}
+```
+
+### Infrastructure as Code
+```terraform
+# Terraform for mobile app infrastructure
+resource "aws_s3_bucket" "app_builds" {
+  bucket = "mobile-app-builds"
+  acl    = "private"
+
+  versioning {
+    enabled = true
+  }
+
+  lifecycle_rule {
+    enabled = true
+
+    transition {
+      days          = 30
+      storage_class = "GLACIER"
+    }
+
+    expiration {
+      days = 90
+    }
+  }
+}
+
+resource "aws_device_farm_project" "mobile_tests" {
+  name = "Mobile App Tests"
+}
+
+resource "aws_cloudwatch_dashboard" "mobile_metrics" {
+  dashboard_name = "mobile-app-metrics"
+
+  dashboard_body = jsonencode({
+    widgets = [
+      {
+        type = "metric"
+        properties = {
+          metrics = [
+            ["Mobile/App", "CrashRate"],
+            ["Mobile/App", "AppStartupTime"],
+            ["Mobile/App", "APIResponseTime"]
+          ]
+          period = 300
+          stat   = "Average"
+          region = "us-east-1"
+          title  = "App Performance Metrics"
+        }
+      }
+    ]
+  })
+}
+```
+
+### Multi-Environment Pipeline
+```yaml
+# Complete multi-environment pipeline
+stages:
+  - build
+  - test
+  - deploy_dev
+  - deploy_staging
+  - deploy_production
+
+variables:
+  FASTLANE_SKIP_UPDATE_CHECK: "true"
+  LC_ALL: "en_US.UTF-8"
+  LANG: "en_US.UTF-8"
+
+build_ios:
+  stage: build
+  tags: [macos]
+  script:
+    - bundle exec fastlane ios build
+  artifacts:
+    paths:
+      - build/ios/
+    expire_in: 1 week
+
+build_android:
+  stage: build
+  script:
+    - ./gradlew assembleRelease
+  artifacts:
+    paths:
+      - app/build/outputs/
+    expire_in: 1 week
+
+test:
+  stage: test
+  parallel:
+    matrix:
+      - PLATFORM: [ios, android]
+        TEST_TYPE: [unit, integration, ui]
+  script:
+    - ./run_tests.sh $PLATFORM $TEST_TYPE
+
+deploy_dev:
+  stage: deploy_dev
+  environment:
+    name: development
+  script:
+    - bundle exec fastlane deploy_internal
+
+deploy_staging:
+  stage: deploy_staging
+  environment:
+    name: staging
+  when: manual
+  script:
+    - bundle exec fastlane deploy_staging
+
+deploy_production:
+  stage: deploy_production
+  environment:
+    name: production
+  when: manual
+  only:
+    - tags
+  script:
+    - bundle exec fastlane deploy_production
+    - ./notify_team.sh "Production deployment completed"
+```
+
+### Automated Release Notes
+```ruby
+# Fastlane: Auto-generate release notes from commits
+lane :generate_release_notes do
+  # Get commits since last tag
+  commits = changelog_from_git_commits(
+    between: [last_git_tag, "HEAD"],
+    pretty: "- %s",
+    merge_commit_filtering: "exclude_merges"
+  )
+
+  # Categorize commits
+  features = commits.lines.select { |line| line.include?("feat:") }
+  fixes = commits.lines.select { |line| line.include?("fix:") }
+  improvements = commits.lines.select { |line| line.include?("chore:") }
+
+  # Format release notes
+  release_notes = <<~NOTES
+    ## What's New
+
+    ### Features
+    #{features.join("\n")}
+
+    ### Bug Fixes
+    #{fixes.join("\n")}
+
+    ### Improvements
+    #{improvements.join("\n")}
+  NOTES
+
+  # Save to file
+  File.write("RELEASE_NOTES.md", release_notes)
+
+  release_notes
+end
+```
+
+---
+
 Ready to build robust mobile CI/CD pipelines!

@@ -403,6 +403,215 @@ class VirtualClassroomRecorder:
 6. **Accessibility first**: Captions and alt text essential
 7. **Technical support**: Have backup plan for connection failures
 
+### Troubleshooting & Production Issues
+
+**Common WebRTC Issues**:
+```python
+class WebRTCTroubleshooting:
+    """Diagnose and fix common WebRTC problems."""
+
+    def diagnose_connection_failure(self, peer_connection):
+        """
+        Common causes:
+        1. Firewall blocking UDP (use TURN)
+        2. Symmetric NAT (requires TURN relay)
+        3. ICE candidates not exchanged properly
+        4. Certificate errors (HTTPS required)
+        """
+        diagnostics = {
+            'ice_connection_state': peer_connection.iceConnectionState,
+            'ice_gathering_state': peer_connection.iceGatheringState,
+            'connection_state': peer_connection.connectionState,
+            'signaling_state': peer_connection.signalingState
+        }
+
+        if diagnostics['ice_connection_state'] == 'failed':
+            return {
+                'issue': 'ICE connection failed',
+                'solution': 'Enable TURN server, check firewall settings',
+                'turn_config': {
+                    'urls': 'turn:turn.example.com:3478',
+                    'username': 'user',
+                    'credential': 'password'
+                }
+            }
+
+        return diagnostics
+
+    def fix_audio_echo(self):
+        """
+        Audio echo issues and solutions.
+        """
+        return {
+            'constraints': {
+                'audio': {
+                    'echoCancellation': True,
+                    'noiseSuppression': True,
+                    'autoGainControl': True
+                }
+            },
+            'tips': [
+                'Use headphones (prevents speaker -> mic feedback)',
+                'Enable browser echo cancellation',
+                'Mute when not speaking',
+                'Test with getUserMedia constraints'
+            ]
+        }
+
+    def optimize_poor_video_quality(self):
+        """
+        Video quality troubleshooting.
+        """
+        return {
+            'check_bandwidth': 'Run network speed test (need 1-5 Mbps per stream)',
+            'reduce_resolution': 'Lower video resolution (720p -> 480p)',
+            'reduce_framerate': 'Lower framerate (30fps -> 15fps)',
+            'disable_video': 'Audio-only mode for very poor connections',
+            'use_simulcast': 'Send multiple quality levels, receiver chooses best'
+        }
+
+    def handle_high_cpu_usage(self):
+        """
+        CPU usage optimization for video processing.
+        """
+        return {
+            'hardware_acceleration': 'Enable GPU video encoding/decoding',
+            'codec_selection': 'Use VP9 or H.264 (hardware accelerated)',
+            'resolution_limits': 'Cap at 720p for standard meetings',
+            'background_blur_off': 'Disable CPU-intensive background blur',
+            'participant_limit': 'Reduce visible participants (show 4-6 max)'
+        }
+```
+
+**Monitoring & Alerting**:
+```javascript
+class VirtualClassroomMonitoring {
+  /**
+   * Track quality metrics in production.
+   * Alert instructors when students have connection issues.
+   */
+
+  constructor() {
+    this.qualityThresholds = {
+      minBitrate: 300000,  // 300 kbps
+      maxPacketLoss: 5,    // 5%
+      maxJitter: 30,       // 30ms
+      maxRTT: 300          // 300ms round-trip time
+    };
+  }
+
+  async monitorConnectionQuality(peerConnection, studentId) {
+    const stats = await peerConnection.getStats();
+
+    const metrics = this.parseWebRTCStats(stats);
+
+    // Check for quality issues
+    if (metrics.packetLossRate > this.qualityThresholds.maxPacketLoss) {
+      this.alertInstructor({
+        studentId,
+        issue: 'high_packet_loss',
+        value: metrics.packetLossRate,
+        recommendation: 'Student may have poor connection - consider audio-only mode'
+      });
+    }
+
+    if (metrics.currentBitrate < this.qualityThresholds.minBitrate) {
+      this.alertInstructor({
+        studentId,
+        issue: 'low_bitrate',
+        value: metrics.currentBitrate,
+        recommendation: 'Bandwidth constrained - video may freeze'
+      });
+    }
+
+    // Log metrics to analytics
+    this.logMetrics({
+      studentId,
+      timestamp: Date.now(),
+      ...metrics
+    });
+
+    return metrics;
+  }
+
+  parseWebRTCStats(stats) {
+    let inboundRTP = null;
+    let outboundRTP = null;
+
+    stats.forEach(report => {
+      if (report.type === 'inbound-rtp' && report.mediaType === 'video') {
+        inboundRTP = report;
+      }
+      if (report.type === 'outbound-rtp' && report.mediaType === 'video') {
+        outboundRTP = report;
+      }
+    });
+
+    return {
+      packetsReceived: inboundRTP?.packetsReceived || 0,
+      packetsLost: inboundRTP?.packetsLost || 0,
+      packetLossRate: (inboundRTP?.packetsLost / inboundRTP?.packetsReceived) * 100 || 0,
+      jitter: inboundRTP?.jitter || 0,
+      currentBitrate: outboundRTP?.bitrate || 0,
+      frameRate: inboundRTP?.framesPerSecond || 0
+    };
+  }
+
+  alertInstructor(alert) {
+    // Send real-time alert to instructor dashboard
+    console.warn('Connection quality alert:', alert);
+    // Could send via WebSocket, notification API, etc.
+  }
+}
+```
+
+**SFU Server Configuration (Janus)**:
+```bash
+# /etc/janus/janus.jcfg - Production Janus config
+
+general: {
+    configs_folder = "/etc/janus"
+    plugins_folder = "/usr/lib/janus/plugins"
+    transports_folder = "/usr/lib/janus/transports"
+    events_folder = "/usr/lib/janus/events"
+
+    # Performance tuning
+    session_timeout = 0
+    rtp_port_range = "20000-40000"
+
+    # Enable IPv4 only (or add IPv6 if needed)
+    ipv6 = false
+
+    # Enable debug level logging
+    debug_level = 4
+}
+
+nat: {
+    # STUN server for NAT traversal
+    stun_server = "stun.l.google.com"
+    stun_port = 19302
+
+    # TURN server for relaying (when peer-to-peer fails)
+    turn_server = "turn.example.com"
+    turn_port = 3478
+    turn_type = "udp"
+    turn_user = "username"
+    turn_pwd = "password"
+
+    # Public IP for server reflexive candidates
+    nat_1_1_mapping = "YOUR_PUBLIC_IP"
+}
+
+# VideoRoom plugin for SFU mode
+plugins: {
+    videoroom: {
+        bitrate = 2048000  # Max bitrate per publisher (2 Mbps)
+        record = true      # Enable recording
+        rec_dir = "/var/janus/recordings"
+    }
+}
+```
+
 ---
 
 **Version**: 2.0

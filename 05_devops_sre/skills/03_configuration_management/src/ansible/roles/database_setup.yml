@@ -1,0 +1,271 @@
+---
+# Ansible Role: PostgreSQL Database Setup and Configuration
+# This role demonstrates idempotent database configuration management
+# Features: Installation, configuration, replication, backup, monitoring
+
+- name: PostgreSQL Database Setup
+  hosts: databases
+  become: yes
+  vars:
+    postgres_version: 14
+    postgres_data_dir: /var/lib/postgresql/{{ postgres_version }}/main
+    postgres_config_dir: /etc/postgresql/{{ postgres_version }}/main
+    backup_dir: /var/backups/postgresql
+    replication_user: replicator
+    app_db_name: myapp_production
+    app_db_user: myapp_user
+
+  tasks:
+    # Installation
+    - name: Add PostgreSQL APT repository
+      apt_repository:
+        repo: "deb http://apt.postgresql.org/pub/repos/apt {{ ansible_distribution_release }}-pgdg main"
+        state: present
+
+    - name: Add PostgreSQL repository key
+      apt_key:
+        url: https://www.postgresql.org/media/keys/ACCC4CF8.asc
+        state: present
+
+    - name: Install PostgreSQL
+      apt:
+        name:
+          - "postgresql-{{ postgres_version }}"
+          - "postgresql-contrib-{{ postgres_version }}"
+          - python3-psycopg2
+        state: present
+        update_cache: yes
+
+    # Configuration Management
+    - name: Configure PostgreSQL - postgresql.conf
+      template:
+        src: templates/postgresql.conf.j2
+        dest: "{{ postgres_config_dir }}/postgresql.conf"
+        owner: postgres
+        group: postgres
+        mode: '0644'
+      notify: restart postgresql
+      vars:
+        max_connections: "{{ '200' if postgres_role == 'primary' else '100' }}"
+        shared_buffers: "{{ '4GB' if postgres_role == 'primary' else '2GB' }}"
+        effective_cache_size: "{{ '12GB' if postgres_role == 'primary' else '6GB' }}"
+
+    - name: Configure PostgreSQL - pg_hba.conf
+      template:
+        src: templates/pg_hba.conf.j2
+        dest: "{{ postgres_config_dir }}/pg_hba.conf"
+        owner: postgres
+        group: postgres
+        mode: '0640'
+      notify: reload postgresql
+
+    # Primary-specific configuration
+    - name: Configure replication on primary
+      block:
+        - name: Create replication user
+          postgresql_user:
+            name: "{{ replication_user }}"
+            password: "{{ lookup('hashi_vault', 'secret=secret/postgres/replication:password') }}"
+            role_attr_flags: REPLICATION,LOGIN
+          become_user: postgres
+
+        - name: Configure WAL archiving
+          lineinfile:
+            path: "{{ postgres_config_dir }}/postgresql.conf"
+            regexp: "{{ item.regexp }}"
+            line: "{{ item.line }}"
+          loop:
+            - { regexp: '^#?wal_level', line: 'wal_level = replica' }
+            - { regexp: '^#?max_wal_senders', line: 'max_wal_senders = 10' }
+            - { regexp: '^#?wal_keep_size', line: 'wal_keep_size = 1024' }
+            - { regexp: '^#?archive_mode', line: 'archive_mode = on' }
+            - { regexp: '^#?archive_command', line: "archive_command = 'cp %p {{ backup_dir }}/wal/%f'" }
+          notify: restart postgresql
+      when: postgres_role == 'primary'
+
+    # Replica-specific configuration
+    - name: Configure streaming replication on replica
+      block:
+        - name: Stop PostgreSQL for initial sync
+          systemd:
+            name: postgresql
+            state: stopped
+
+        - name: Remove existing data directory
+          file:
+            path: "{{ postgres_data_dir }}"
+            state: absent
+
+        - name: Perform base backup from primary
+          command: >
+            pg_basebackup -h {{ hostvars[groups['postgres_primary'][0]]['ansible_host'] }}
+            -D {{ postgres_data_dir }}
+            -U {{ replication_user }}
+            -P -v -R -X stream -C -S replica_slot_{{ inventory_hostname }}
+          become_user: postgres
+          environment:
+            PGPASSWORD: "{{ lookup('hashi_vault', 'secret=secret/postgres/replication:password') }}"
+
+        - name: Create recovery configuration
+          copy:
+            content: |
+              primary_conninfo = 'host={{ hostvars[groups['postgres_primary'][0]]['ansible_host'] }} port=5432 user={{ replication_user }} password={{ lookup('hashi_vault', 'secret=secret/postgres/replication:password') }}'
+              primary_slot_name = 'replica_slot_{{ inventory_hostname }}'
+            dest: "{{ postgres_data_dir }}/standby.signal"
+            owner: postgres
+            group: postgres
+            mode: '0600'
+
+        - name: Start PostgreSQL replica
+          systemd:
+            name: postgresql
+            state: started
+      when: postgres_role == 'replica'
+
+    # Application Database Setup
+    - name: Create application database
+      postgresql_db:
+        name: "{{ app_db_name }}"
+        encoding: UTF-8
+        lc_collate: en_US.UTF-8
+        lc_ctype: en_US.UTF-8
+        template: template0
+      become_user: postgres
+      when: postgres_role == 'primary'
+
+    - name: Create application user
+      postgresql_user:
+        name: "{{ app_db_user }}"
+        password: "{{ lookup('hashi_vault', 'secret=secret/postgres/app:password') }}"
+        db: "{{ app_db_name }}"
+      become_user: postgres
+      when: postgres_role == 'primary'
+
+    - name: Grant privileges to application user
+      postgresql_privs:
+        database: "{{ app_db_name }}"
+        roles: "{{ app_db_user }}"
+        type: database
+        privs: ALL
+      become_user: postgres
+      when: postgres_role == 'primary'
+
+    # Extensions
+    - name: Install required PostgreSQL extensions
+      postgresql_ext:
+        name: "{{ item }}"
+        db: "{{ app_db_name }}"
+      loop:
+        - pg_stat_statements
+        - pgcrypto
+        - uuid-ossp
+      become_user: postgres
+      when: postgres_role == 'primary'
+
+    # Backup Configuration
+    - name: Create backup directory
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: postgres
+        group: postgres
+        mode: '0700'
+      loop:
+        - "{{ backup_dir }}"
+        - "{{ backup_dir }}/wal"
+        - "{{ backup_dir }}/dumps"
+
+    - name: Create backup script
+      copy:
+        content: |
+          #!/bin/bash
+          # PostgreSQL backup script
+          BACKUP_DIR="{{ backup_dir }}/dumps"
+          TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+          BACKUP_FILE="$BACKUP_DIR/{{ app_db_name }}_$TIMESTAMP.sql.gz"
+
+          # Perform backup
+          pg_dump {{ app_db_name }} | gzip > "$BACKUP_FILE"
+
+          # Keep only last 7 days of backups
+          find "$BACKUP_DIR" -name "*.sql.gz" -mtime +7 -delete
+
+          # Log success
+          echo "Backup completed: $BACKUP_FILE"
+        dest: /usr/local/bin/postgres_backup.sh
+        mode: '0755'
+
+    - name: Schedule daily backups
+      cron:
+        name: "PostgreSQL daily backup"
+        minute: "0"
+        hour: "2"
+        job: "/usr/local/bin/postgres_backup.sh >> /var/log/postgres_backup.log 2>&1"
+        user: postgres
+
+    # Monitoring Setup
+    - name: Install pg_stat_statements extension
+      postgresql_ext:
+        name: pg_stat_statements
+        db: postgres
+      become_user: postgres
+
+    - name: Create monitoring user for Prometheus
+      postgresql_user:
+        name: postgres_exporter
+        password: "{{ lookup('hashi_vault', 'secret=secret/postgres/exporter:password') }}"
+      become_user: postgres
+
+    - name: Grant monitoring privileges
+      postgresql_privs:
+        database: postgres
+        roles: postgres_exporter
+        type: database
+        privs: CONNECT
+      become_user: postgres
+
+    # Performance Tuning
+    - name: Apply performance tuning settings
+      postgresql_query:
+        db: "{{ app_db_name }}"
+        query: "{{ item }}"
+      loop:
+        - "ALTER SYSTEM SET shared_preload_libraries = 'pg_stat_statements';"
+        - "ALTER SYSTEM SET track_activity_query_size = 2048;"
+        - "ALTER SYSTEM SET pg_stat_statements.track = all;"
+        - "ALTER SYSTEM SET log_min_duration_statement = 1000;"
+        - "ALTER SYSTEM SET log_line_prefix = '%t [%p]: [%l-1] user=%u,db=%d,app=%a,client=%h ';"
+      become_user: postgres
+      when: postgres_role == 'primary'
+      notify: reload postgresql
+
+    # Health Checks
+    - name: Verify PostgreSQL is running
+      systemd:
+        name: postgresql
+        state: started
+        enabled: yes
+
+    - name: Check replication status
+      postgresql_query:
+        db: postgres
+        query: "SELECT * FROM pg_stat_replication;"
+      become_user: postgres
+      register: replication_status
+      when: postgres_role == 'primary'
+
+    - name: Display replication status
+      debug:
+        var: replication_status
+      when: postgres_role == 'primary' and replication_status.rowcount > 0
+
+  handlers:
+    - name: restart postgresql
+      systemd:
+        name: postgresql
+        state: restarted
+
+    - name: reload postgresql
+      systemd:
+        name: postgresql
+        state: reloaded

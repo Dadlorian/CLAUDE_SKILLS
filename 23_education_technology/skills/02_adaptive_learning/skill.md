@@ -307,6 +307,324 @@ class LearnerProfile:
 - **ML Frameworks**: XGBoost, LightGBM for learner ability prediction
 - **Deployment**: Docker, Kubernetes, FastAPI for real-time decisions
 
+### Production ML Model Deployment & Monitoring
+
+**Real-Time Prediction Service**:
+```python
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+import mlflow
+import numpy as np
+
+app = FastAPI(title="Adaptive Learning API")
+
+# Load model from MLflow
+model = mlflow.pytorch.load_model("models:/dkt-model/production")
+
+class PredictionRequest(BaseModel):
+    student_id: str
+    problem_ids: list[int]
+    correctness: list[bool]
+
+class PredictionResponse(BaseModel):
+    student_id: str
+    predictions: dict[int, float]
+    confidence: float
+    recommended_difficulty: float
+
+@app.post("/predict", response_model=PredictionResponse)
+async def predict_next_problem(request: PredictionRequest):
+    """
+    Real-time prediction API for adaptive content selection.
+    Returns probability of success on each problem.
+    """
+    try:
+        # Prepare input tensors
+        problem_tensor = torch.tensor([request.problem_ids])
+        correctness_tensor = torch.tensor([request.correctness]).float()
+
+        # Run inference
+        with torch.no_grad():
+            predictions = model(problem_tensor, correctness_tensor)
+
+        # Convert to probabilities
+        probs = torch.sigmoid(predictions[0, -1, :]).numpy()
+
+        # Track prediction latency
+        from prometheus_client import Histogram
+        prediction_latency = Histogram('adaptive_prediction_seconds', 'Prediction latency')
+
+        return PredictionResponse(
+            student_id=request.student_id,
+            predictions={i: float(probs[i]) for i in range(len(probs))},
+            confidence=float(np.std(probs)),
+            recommended_difficulty=float(np.mean(probs))
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint."""
+    return {"status": "healthy", "model_version": "v1.2.3"}
+```
+
+**Model Training Pipeline (MLflow)**:
+```python
+import mlflow
+import mlflow.pytorch
+from sklearn.model_selection import train_test_split
+
+class AdaptiveLearningMLOps:
+    """MLOps practices for adaptive learning models."""
+
+    def train_and_log_model(self, training_data, validation_data):
+        """
+        Train DKT model with experiment tracking.
+        Logs: Parameters, metrics, model artifact, training graphs.
+        """
+        mlflow.set_experiment("adaptive-learning-dkt")
+
+        with mlflow.start_run(run_name="dkt-training"):
+            # Log parameters
+            params = {
+                'hidden_size': 200,
+                'num_layers': 2,
+                'dropout': 0.5,
+                'learning_rate': 0.001,
+                'batch_size': 32,
+                'epochs': 50
+            }
+            mlflow.log_params(params)
+
+            # Initialize model
+            model = DeepKnowledgeTracer(
+                num_problems=training_data.num_problems,
+                hidden_size=params['hidden_size'],
+                num_layers=params['num_layers'],
+                dropout=params['dropout']
+            )
+
+            # Train model
+            optimizer = torch.optim.Adam(model.parameters(), lr=params['learning_rate'])
+            criterion = nn.BCEWithLogitsLoss()
+
+            for epoch in range(params['epochs']):
+                train_loss = self.train_epoch(model, training_data, optimizer, criterion)
+                val_loss, val_auc = self.validate_epoch(model, validation_data, criterion)
+
+                # Log metrics
+                mlflow.log_metrics({
+                    'train_loss': train_loss,
+                    'val_loss': val_loss,
+                    'val_auc': val_auc
+                }, step=epoch)
+
+                # Early stopping
+                if val_loss < best_val_loss:
+                    best_val_loss = val_loss
+                    patience_counter = 0
+                else:
+                    patience_counter += 1
+                    if patience_counter >= 5:
+                        break
+
+            # Log model
+            mlflow.pytorch.log_model(model, "model")
+
+            # Log training artifacts
+            mlflow.log_artifact("training_curves.png")
+
+            return model
+
+    def evaluate_model_quality(self, model, test_data):
+        """
+        Comprehensive model evaluation.
+        Metrics: AUC, accuracy, calibration, fairness.
+        """
+        from sklearn.metrics import roc_auc_score, accuracy_score, calibration_curve
+
+        predictions = []
+        actuals = []
+
+        with torch.no_grad():
+            for batch in test_data:
+                preds = model(batch['problem_ids'], batch['correctness'])
+                predictions.extend(preds.cpu().numpy().flatten())
+                actuals.extend(batch['labels'].cpu().numpy().flatten())
+
+        # ROC-AUC
+        auc = roc_auc_score(actuals, predictions)
+
+        # Accuracy
+        binary_preds = [1 if p > 0.5 else 0 for p in predictions]
+        accuracy = accuracy_score(actuals, binary_preds)
+
+        # Calibration (are predicted probabilities accurate?)
+        prob_true, prob_pred = calibration_curve(actuals, predictions, n_bins=10)
+        calibration_error = np.mean(np.abs(prob_true - prob_pred))
+
+        return {
+            'auc': auc,
+            'accuracy': accuracy,
+            'calibration_error': calibration_error
+        }
+
+    def monitor_model_drift(self, production_predictions, ground_truth):
+        """
+        Detect when model performance degrades in production.
+        Alert if AUC drops below threshold or prediction distribution shifts.
+        """
+        from scipy.stats import ks_2samp
+
+        # Calculate production AUC
+        production_auc = roc_auc_score(ground_truth, production_predictions)
+
+        # Compare to baseline (training AUC)
+        baseline_auc = 0.85  # From training
+        auc_drop = baseline_auc - production_auc
+
+        if auc_drop > 0.05:  # 5% drop threshold
+            self.alert_model_degradation(auc_drop)
+
+        # Check prediction distribution shift
+        training_preds = self.load_training_predictions()
+        ks_statistic, p_value = ks_2samp(training_preds, production_predictions)
+
+        if p_value < 0.05:  # Significant distribution shift
+            self.alert_distribution_shift(ks_statistic, p_value)
+
+    def a_b_test_models(self, model_a, model_b, test_students):
+        """
+        A/B test two models to see which performs better.
+        Split students randomly, measure learning outcomes.
+        """
+        import random
+
+        group_a = random.sample(test_students, len(test_students) // 2)
+        group_b = [s for s in test_students if s not in group_a]
+
+        # Track outcomes for each group
+        outcomes_a = self.run_adaptive_learning(model_a, group_a, duration_days=30)
+        outcomes_b = self.run_adaptive_learning(model_b, group_b, duration_days=30)
+
+        # Statistical test (t-test for final scores)
+        from scipy.stats import ttest_ind
+        t_stat, p_value = ttest_ind(outcomes_a['final_scores'], outcomes_b['final_scores'])
+
+        return {
+            'model_a_mean': np.mean(outcomes_a['final_scores']),
+            'model_b_mean': np.mean(outcomes_b['final_scores']),
+            'statistical_significance': p_value < 0.05,
+            'winner': 'model_a' if np.mean(outcomes_a['final_scores']) > np.mean(outcomes_b['final_scores']) else 'model_b'
+        }
+```
+
+**Automated Model Retraining**:
+```python
+import airflow
+from airflow import DAG
+from airflow.operators.python_operator import PythonOperator
+from datetime import datetime, timedelta
+
+default_args = {
+    'owner': 'ml-team',
+    'depends_on_past': False,
+    'start_date': datetime(2025, 1, 1),
+    'email_on_failure': True,
+    'email': ['ml-alerts@university.edu'],
+    'retries': 2,
+    'retry_delay': timedelta(minutes=5)
+}
+
+dag = DAG(
+    'adaptive_learning_model_retrain',
+    default_args=default_args,
+    description='Weekly model retraining pipeline',
+    schedule_interval='0 2 * * 0',  # Sunday 2am
+    catchup=False
+)
+
+def extract_training_data():
+    """Extract last 90 days of student interactions."""
+    from datetime import datetime, timedelta
+    cutoff = datetime.now() - timedelta(days=90)
+
+    # Query database for recent attempts
+    query = """
+    SELECT student_id, problem_id, correct, timestamp
+    FROM student_attempts
+    WHERE timestamp > %s
+    ORDER BY student_id, timestamp
+    """
+    # Execute and return data
+
+def preprocess_data(raw_data):
+    """Convert raw data to model input format."""
+    # Group by student, create sequences
+    # Apply data augmentation if needed
+    pass
+
+def train_candidate_model(training_data):
+    """Train new model version."""
+    mlops = AdaptiveLearningMLOps()
+    model = mlops.train_and_log_model(training_data, validation_data)
+    return model
+
+def evaluate_candidate_model(model, test_data):
+    """Evaluate on hold-out test set."""
+    mlops = AdaptiveLearningMLOps()
+    metrics = mlops.evaluate_model_quality(model, test_data)
+
+    # Compare to production model
+    if metrics['auc'] > 0.85 and metrics['calibration_error'] < 0.1:
+        return 'promote_to_production'
+    else:
+        return 'reject_model'
+
+def promote_model_to_production(model):
+    """Replace production model if candidate is better."""
+    mlflow.register_model(
+        model_uri=f"runs:/{mlflow.active_run().info.run_id}/model",
+        name="dkt-model",
+        tags={"stage": "production"}
+    )
+
+# Define tasks
+extract_task = PythonOperator(
+    task_id='extract_data',
+    python_callable=extract_training_data,
+    dag=dag
+)
+
+preprocess_task = PythonOperator(
+    task_id='preprocess',
+    python_callable=preprocess_data,
+    dag=dag
+)
+
+train_task = PythonOperator(
+    task_id='train_model',
+    python_callable=train_candidate_model,
+    dag=dag
+)
+
+evaluate_task = PythonOperator(
+    task_id='evaluate_model',
+    python_callable=evaluate_candidate_model,
+    dag=dag
+)
+
+promote_task = PythonOperator(
+    task_id='promote_model',
+    python_callable=promote_model_to_production,
+    dag=dag
+)
+
+# Task dependencies
+extract_task >> preprocess_task >> train_task >> evaluate_task >> promote_task
+```
+
 ### Research & References
 
 - **Foundational**: Corbett & Anderson (2000) "Knowledge Tracing: Modeling the Acquisition of Procedural Knowledge"

@@ -397,6 +397,90 @@ class AssistiveTechSupport:
 9. **Keep improving**: Run accessibility audits regularly, fix issues quickly
 10. **Train instructors**: About accommodations, accessible course design
 
+### CI/CD Accessibility Testing
+
+**Automated Pipeline**:
+```yaml
+# .github/workflows/accessibility.yml
+name: Accessibility Tests
+
+on: [push, pull_request]
+
+jobs:
+  accessibility:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Setup Node
+        uses: actions/setup-node@v2
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run axe-core tests
+        run: npm run test:a11y
+
+      - name: Lighthouse accessibility audit
+        run: |
+          npm install -g @lhci/cli
+          lhci autorun --config=lighthouserc.js
+
+      - name: Pa11y tests
+        run: npx pa11y-ci --config .pa11yci.json
+
+      - name: Generate accessibility report
+        if: always()
+        run: npm run a11y:report
+
+      - name: Upload report
+        uses: actions/upload-artifact@v2
+        with:
+          name: accessibility-report
+          path: ./reports/a11y/
+```
+
+**Automated Testing Code**:
+```javascript
+// tests/accessibility.test.js
+const { axe, toHaveNoViolations } = require('jest-axe');
+expect.extend(toHaveNoViolations);
+
+describe('Accessibility Tests', () => {
+  test('Course page has no accessibility violations', async () => {
+    const { container } = render(<CoursePage />);
+    const results = await axe(container);
+    expect(results).toHaveNoViolations();
+  });
+
+  test('Assessment page keyboard navigable', async () => {
+    const { getByRole } = render(<AssessmentPage />);
+
+    // Tab through form elements
+    const firstInput = getByRole('textbox');
+    firstInput.focus();
+    expect(document.activeElement).toBe(firstInput);
+
+    // Press Tab
+    fireEvent.keyDown(firstInput, { key: 'Tab', code: 'Tab' });
+
+    // Next element should receive focus
+    const nextElement = getByRole('button', { name: /submit/i });
+    expect(document.activeElement).toBe(nextElement);
+  });
+
+  test('Video has captions', () => {
+    const { container } = render(<VideoPlayer src="lecture.mp4" />);
+    const track = container.querySelector('track[kind="captions"]');
+    expect(track).toBeInTheDocument();
+    expect(track).toHaveAttribute('src');
+  });
+});
+```
+
 ---
 
 **Version**: 2.0

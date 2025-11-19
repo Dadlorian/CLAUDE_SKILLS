@@ -414,4 +414,589 @@ You are an elite Android developer with mastery of Kotlin, Jetpack Compose, and 
 
 ---
 
+## Advanced Production Patterns
+
+### MVI Architecture Implementation
+
+#### Complete MVI Pattern with StateFlow
+```kotlin
+// UI State
+sealed class UserUiState {
+    object Loading : UserUiState()
+    data class Success(val users: List<User>) : UserUiState()
+    data class Error(val message: String) : UserUiState()
+}
+
+// User Intent
+sealed class UserIntent {
+    object LoadUsers : UserIntent()
+    data class SearchUsers(val query: String) : UserIntent()
+    data class DeleteUser(val userId: String) : UserIntent()
+    object Refresh : UserIntent()
+}
+
+// ViewModel with MVI
+class UserViewModel(
+    private val repository: UserRepository
+) : ViewModel() {
+
+    private val _uiState = MutableStateFlow<UserUiState>(UserUiState.Loading)
+    val uiState: StateFlow<UserUiState> = _uiState.asStateFlow()
+
+    private val _intents = MutableSharedFlow<UserIntent>()
+
+    init {
+        handleIntents()
+    }
+
+    fun processIntent(intent: UserIntent) {
+        viewModelScope.launch {
+            _intents.emit(intent)
+        }
+    }
+
+    private fun handleIntents() {
+        viewModelScope.launch {
+            _intents.collect { intent ->
+                when (intent) {
+                    is UserIntent.LoadUsers -> loadUsers()
+                    is UserIntent.SearchUsers -> searchUsers(intent.query)
+                    is UserIntent.DeleteUser -> deleteUser(intent.userId)
+                    is UserIntent.Refresh -> refresh()
+                }
+            }
+        }
+    }
+
+    private suspend fun loadUsers() {
+        _uiState.value = UserUiState.Loading
+        repository.getUsers()
+            .onSuccess { users ->
+                _uiState.value = UserUiState.Success(users)
+            }
+            .onFailure { error ->
+                _uiState.value = UserUiState.Error(error.message ?: "Unknown error")
+            }
+    }
+}
+
+// Compose UI
+@Composable
+fun UserScreen(viewModel: UserViewModel = hiltViewModel()) {
+    val uiState by viewModel.uiState.collectAsState()
+
+    when (val state = uiState) {
+        is UserUiState.Loading -> LoadingIndicator()
+        is UserUiState.Success -> UserList(
+            users = state.users,
+            onDeleteClick = { userId ->
+                viewModel.processIntent(UserIntent.DeleteUser(userId))
+            }
+        )
+        is UserUiState.Error -> ErrorView(
+            message = state.message,
+            onRetry = { viewModel.processIntent(UserIntent.Refresh) }
+        )
+    }
+}
+```
+
+### Advanced Networking with Retrofit & Coroutines
+
+#### Complete Network Layer Implementation
+```kotlin
+// API Service
+interface ApiService {
+    @GET("users")
+    suspend fun getUsers(@Query("page") page: Int): Response<List<User>>
+
+    @POST("users")
+    suspend fun createUser(@Body user: UserRequest): Response<User>
+
+    @PUT("users/{id}")
+    suspend fun updateUser(@Path("id") id: String, @Body user: UserRequest): Response<User>
+
+    @DELETE("users/{id}")
+    suspend fun deleteUser(@Path("id") id: String): Response<Unit>
+}
+
+// Network Result wrapper
+sealed class NetworkResult<out T> {
+    data class Success<T>(val data: T) : NetworkResult<T>()
+    data class Error(val message: String, val code: Int? = null) : NetworkResult<Nothing>()
+    object Loading : NetworkResult<Nothing>()
+}
+
+// Repository implementation
+class UserRepositoryImpl(
+    private val apiService: ApiService,
+    private val userDao: UserDao
+) : UserRepository {
+
+    override fun getUsers(): Flow<NetworkResult<List<User>>> = flow {
+        emit(NetworkResult.Loading)
+
+        try {
+            // Try to get cached data first
+            val cachedUsers = userDao.getAllUsers().firstOrNull()
+            if (cachedUsers != null && cachedUsers.isNotEmpty()) {
+                emit(NetworkResult.Success(cachedUsers))
+            }
+
+            // Fetch from network
+            val response = apiService.getUsers(1)
+            if (response.isSuccessful) {
+                val users = response.body() ?: emptyList()
+
+                // Cache the data
+                userDao.insertAll(users.map { it.toEntity() })
+
+                emit(NetworkResult.Success(users))
+            } else {
+                emit(NetworkResult.Error("Failed to fetch users", response.code()))
+            }
+        } catch (e: Exception) {
+            emit(NetworkResult.Error(e.message ?: "Unknown error"))
+        }
+    }.flowOn(Dispatchers.IO)
+}
+
+// Interceptor for authentication
+class AuthInterceptor(private val tokenProvider: TokenProvider) : Interceptor {
+    override fun intercept(chain: Interceptor.Chain): okhttp3.Response {
+        val originalRequest = chain.request()
+
+        val token = tokenProvider.getToken()
+        val authenticatedRequest = if (token != null) {
+            originalRequest.newBuilder()
+                .header("Authorization", "Bearer $token")
+                .build()
+        } else {
+            originalRequest
+        }
+
+        return chain.proceed(authenticatedRequest)
+    }
+}
+```
+
+### Advanced Room Database Patterns
+
+#### Room with Relations and Transactions
+```kotlin
+// Entities with relationships
+@Entity(tableName = "users")
+data class UserEntity(
+    @PrimaryKey val id: String,
+    val name: String,
+    val email: String
+)
+
+@Entity(
+    tableName = "posts",
+    foreignKeys = [
+        ForeignKey(
+            entity = UserEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["userId"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ],
+    indices = [Index("userId")]
+)
+data class PostEntity(
+    @PrimaryKey val id: String,
+    val userId: String,
+    val title: String,
+    val content: String
+)
+
+// Relation data class
+data class UserWithPosts(
+    @Embedded val user: UserEntity,
+    @Relation(
+        parentColumn = "id",
+        entityColumn = "userId"
+    )
+    val posts: List<PostEntity>
+)
+
+// DAO with complex queries
+@Dao
+interface UserDao {
+    @Transaction
+    @Query("SELECT * FROM users WHERE id = :userId")
+    fun getUserWithPosts(userId: String): Flow<UserWithPosts>
+
+    @Query("SELECT * FROM users WHERE name LIKE '%' || :query || '%'")
+    suspend fun searchUsers(query: String): List<UserEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertUser(user: UserEntity)
+
+    @Transaction
+    suspend fun insertUserWithPosts(user: UserEntity, posts: List<PostEntity>) {
+        insertUser(user)
+        posts.forEach { insertPost(it) }
+    }
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertPost(post: PostEntity)
+
+    @Delete
+    suspend fun deleteUser(user: UserEntity)
+}
+```
+
+### Performance Optimization Techniques
+
+#### Compose Performance Best Practices
+```kotlin
+// 1. Remember expensive computations
+@Composable
+fun ExpensiveList(items: List<Item>) {
+    val processedItems = remember(items) {
+        items.map { /* expensive operation */ }
+    }
+
+    LazyColumn {
+        items(processedItems) { item ->
+            ItemRow(item)
+        }
+    }
+}
+
+// 2. Use derivedStateOf for computed values
+@Composable
+fun FilteredList(items: List<Item>, filter: String) {
+    val filteredItems by remember(items, filter) {
+        derivedStateOf {
+            items.filter { it.name.contains(filter, ignoreCase = true) }
+        }
+    }
+
+    LazyColumn {
+        items(filteredItems) { item ->
+            ItemRow(item)
+        }
+    }
+}
+
+// 3. Use stable classes to prevent recomposition
+@Immutable
+data class StableItem(
+    val id: String,
+    val name: String,
+    val value: Int
+)
+
+// 4. Use keys in lists
+@Composable
+fun OptimizedList(items: List<Item>) {
+    LazyColumn {
+        items(
+            items = items,
+            key = { it.id }  // Prevents full recomposition
+        ) { item ->
+            ItemRow(item)
+        }
+    }
+}
+
+// 5. Avoid unnecessary state reads
+@Composable
+fun OptimizedCounter() {
+    var count by remember { mutableStateOf(0) }
+
+    Column {
+        // Only this Text recomposes when count changes
+        Text("Count: $count")
+
+        // This button doesn't recompose
+        Button(onClick = { count++ }) {
+            Text("Increment")
+        }
+    }
+}
+```
+
+#### Image Loading Optimization
+```kotlin
+// Using Coil with proper memory management
+@Composable
+fun OptimizedImage(url: String, modifier: Modifier = Modifier) {
+    AsyncImage(
+        model = ImageRequest.Builder(LocalContext.current)
+            .data(url)
+            .crossfade(true)
+            .diskCachePolicy(CachePolicy.ENABLED)
+            .memoryCachePolicy(CachePolicy.ENABLED)
+            .size(coil.size.Size.ORIGINAL)  // Load full size
+            .build(),
+        contentDescription = null,
+        modifier = modifier,
+        contentScale = ContentScale.Crop
+    )
+}
+
+// Custom image downsampling
+fun downsampleImage(context: Context, url: String, reqWidth: Int, reqHeight: Int): Bitmap? {
+    return BitmapFactory.Options().run {
+        inJustDecodeBounds = true
+        BitmapFactory.decodeFile(url, this)
+
+        inSampleSize = calculateInSampleSize(this, reqWidth, reqHeight)
+
+        inJustDecodeBounds = false
+        BitmapFactory.decodeFile(url, this)
+    }
+}
+
+fun calculateInSampleSize(options: BitmapFactory.Options, reqWidth: Int, reqHeight: Int): Int {
+    val (height, width) = options.run { outHeight to outWidth }
+    var inSampleSize = 1
+
+    if (height > reqHeight || width > reqWidth) {
+        val halfHeight = height / 2
+        val halfWidth = width / 2
+
+        while (halfHeight / inSampleSize >= reqHeight && halfWidth / inSampleSize >= reqWidth) {
+            inSampleSize *= 2
+        }
+    }
+
+    return inSampleSize
+}
+```
+
+### Advanced WorkManager Patterns
+
+#### Complex Background Work Implementation
+```kotlin
+// Worker with progress tracking
+class SyncWorker(
+    appContext: Context,
+    params: WorkerParameters
+) : CoroutineWorker(appContext, params) {
+
+    override suspend fun doWork(): Result {
+        setForeground(createForegroundInfo())
+
+        return try {
+            val totalItems = 100
+            repeat(totalItems) { index ->
+                // Update progress
+                setProgress(workDataOf(
+                    "progress" to (index * 100) / totalItems,
+                    "current" to index,
+                    "total" to totalItems
+                ))
+
+                // Do actual work
+                syncItem(index)
+
+                // Check if cancelled
+                if (isStopped) {
+                    return Result.failure()
+                }
+            }
+
+            Result.success()
+        } catch (e: Exception) {
+            if (runAttemptCount < 3) {
+                Result.retry()
+            } else {
+                Result.failure(workDataOf("error" to e.message))
+            }
+        }
+    }
+
+    private fun createForegroundInfo(): ForegroundInfo {
+        val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
+            .setContentTitle("Syncing data")
+            .setProgress(100, 0, false)
+            .setSmallIcon(R.drawable.ic_sync)
+            .build()
+
+        return ForegroundInfo(NOTIFICATION_ID, notification)
+    }
+}
+
+// Chained work example
+fun scheduleComplexWork(context: Context) {
+    val downloadWork = OneTimeWorkRequestBuilder<DownloadWorker>()
+        .setConstraints(
+            Constraints.Builder()
+                .setRequiredNetworkType(NetworkType.CONNECTED)
+                .build()
+        )
+        .build()
+
+    val processWork = OneTimeWorkRequestBuilder<ProcessWorker>()
+        .build()
+
+    val uploadWork = OneTimeWorkRequestBuilder<UploadWorker>()
+        .setConstraints(
+            Constraints.Builder()
+                .setRequiredNetworkType(NetworkType.CONNECTED)
+                .build()
+        )
+        .build()
+
+    WorkManager.getInstance(context)
+        .beginWith(downloadWork)
+        .then(processWork)
+        .then(uploadWork)
+        .enqueue()
+}
+```
+
+### Error Handling & Logging
+
+#### Comprehensive Error Management
+```kotlin
+// Custom exception hierarchy
+sealed class AppException(message: String) : Exception(message) {
+    class NetworkException(message: String) : AppException(message)
+    class DatabaseException(message: String) : AppException(message)
+    class AuthException(message: String) : AppException(message)
+    class ValidationException(message: String) : AppException(message)
+}
+
+// Error handler
+object ErrorHandler {
+    fun handleError(error: Throwable, onError: (String) -> Unit) {
+        val message = when (error) {
+            is AppException.NetworkException -> "Network error: ${error.message}"
+            is AppException.DatabaseException -> "Database error: ${error.message}"
+            is AppException.AuthException -> "Authentication failed: ${error.message}"
+            is AppException.ValidationException -> "Validation error: ${error.message}"
+            else -> "Unexpected error: ${error.message}"
+        }
+
+        // Log the error
+        Log.e("AppError", message, error)
+
+        // Report to crash reporting service
+        FirebaseCrashlytics.getInstance().recordException(error)
+
+        // Show to user
+        onError(message)
+    }
+}
+
+// Logging utility
+object Logger {
+    private const val TAG = "MyApp"
+
+    fun d(message: String, tag: String = TAG) {
+        if (BuildConfig.DEBUG) {
+            Log.d(tag, message)
+        }
+    }
+
+    fun e(message: String, throwable: Throwable? = null, tag: String = TAG) {
+        Log.e(tag, message, throwable)
+        throwable?.let {
+            FirebaseCrashlytics.getInstance().recordException(it)
+        }
+    }
+
+    fun i(message: String, tag: String = TAG) {
+        Log.i(tag, message)
+    }
+}
+```
+
+### Testing Patterns
+
+#### Advanced Test Examples
+```kotlin
+// ViewModel test with coroutines
+@ExperimentalCoroutinesApi
+class UserViewModelTest {
+
+    @get:Rule
+    val mainDispatcherRule = MainDispatcherRule()
+
+    private lateinit var viewModel: UserViewModel
+    private lateinit var repository: FakeUserRepository
+
+    @Before
+    fun setup() {
+        repository = FakeUserRepository()
+        viewModel = UserViewModel(repository)
+    }
+
+    @Test
+    fun `when loading users succeeds, state is Success`() = runTest {
+        // Arrange
+        val users = listOf(User("1", "John"), User("2", "Jane"))
+        repository.setUsers(users)
+
+        // Act
+        viewModel.processIntent(UserIntent.LoadUsers)
+
+        // Assert
+        advanceUntilIdle()
+        val state = viewModel.uiState.value
+        assertTrue(state is UserUiState.Success)
+        assertEquals(users, (state as UserUiState.Success).users)
+    }
+
+    @Test
+    fun `when loading users fails, state is Error`() = runTest {
+        // Arrange
+        repository.setShouldFail(true)
+
+        // Act
+        viewModel.processIntent(UserIntent.LoadUsers)
+
+        // Assert
+        advanceUntilIdle()
+        val state = viewModel.uiState.value
+        assertTrue(state is UserUiState.Error)
+    }
+}
+
+// Compose test with state management
+class UserScreenTest {
+
+    @get:Rule
+    val composeTestRule = createComposeRule()
+
+    @Test
+    fun whenLoadingState_showsProgressIndicator() {
+        // Arrange
+        val viewModel = FakeUserViewModel(UserUiState.Loading)
+
+        // Act
+        composeTestRule.setContent {
+            UserScreen(viewModel = viewModel)
+        }
+
+        // Assert
+        composeTestRule.onNodeWithTag("loading").assertIsDisplayed()
+    }
+
+    @Test
+    fun whenSuccessState_showsUserList() {
+        // Arrange
+        val users = listOf(User("1", "John"), User("2", "Jane"))
+        val viewModel = FakeUserViewModel(UserUiState.Success(users))
+
+        // Act
+        composeTestRule.setContent {
+            UserScreen(viewModel = viewModel)
+        }
+
+        // Assert
+        composeTestRule.onNodeWithText("John").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Jane").assertIsDisplayed()
+    }
+}
+```
+
+---
+
 Ready to build world-class Android applications!
