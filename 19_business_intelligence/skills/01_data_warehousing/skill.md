@@ -233,3 +233,196 @@ Enterprise-ready implementations including:
 - **Strengths**: Lakehouse architecture, Delta Lake, unified data and ML platform
 - **Best For**: Combined analytics and data science, streaming + batch
 - **Pricing**: DBU-based, serverless SQL option available
+
+## Advanced Design Patterns & Architecture
+
+### Multi-Tenant Data Warehouse Design
+- **Tenant Isolation**: Row-level filtering per tenant
+- **Schema Design**: Shared vs. separate schema per tenant
+- **Cost Allocation**: Tracking consumption by tenant
+- **Compliance**: GDPR, CCPA, and data residency requirements
+- **Performance**: Isolating tenant workloads
+- **Scaling**: Growing with number of tenants
+- **Security**: Preventing data leakage between tenants
+
+### Kimball Bus Matrix & Conformed Dimensions
+- **Bus Matrix Planning**: Identifying fact and dimension tables across business processes
+- **Conformed Dimensions**: Shared dimensions across data marts
+- **Dimension Conformance**: Version management and rollups
+- **Slowly Changing Dimensions**: Type 1-6 implementations
+- **Junk Dimensions**: Compact storage for flags and codes
+- **Degenerate Dimensions**: Document numbers without dimension table
+
+### Enterprise Data Architecture Patterns
+- **Staging Layer**: Raw data capture and standardization
+- **Normalized Schema**: 3NF design for flexibility
+- **Dimensional Schema**: Denormalized for query performance
+- **Presentation Layer**: Pre-built aggregations for business
+- **Semantic Layer**: Business metadata and governance
+- **Data Marts**: Subject-specific datasets
+- **Data Lake**: Raw data retention and exploration
+
+### Data Quality & Governance Framework
+- **Data Profiling**: Understanding data characteristics
+- **Quality Rules**: Defining expectations
+- **Automated Monitoring**: Continuous quality checks
+- **Issue Tracking**: Managing data quality incidents
+- **Root Cause Analysis**: Understanding quality problems
+- **SLA Definition**: Quality commitments to stakeholders
+- **Remediation**: Fixing data quality issues
+
+## Modern Data Stack Considerations
+
+### Cloud Migration Patterns
+- **Lift and Shift**: Moving traditional warehouse as-is
+- **Re-platform**: Adapting to cloud warehouse strengths
+- **Refactor**: Modernizing architecture on cloud
+- **Strangler Fig**: Gradual migration while maintaining old system
+- **Big Bang**: Complete replacement approach
+- **Phased Migration**: Subject area by subject area
+
+### Data Lakehouse Architecture
+- **Data Lake**: Flexible, cost-effective raw data storage
+- **Lakehouse**: Delta Lake/Iceberg combining lake and warehouse
+- **ACID Transactions**: Ensuring data consistency
+- **Schema Enforcement**: Preventing bad data
+- **Time Travel**: Accessing historical data versions
+- **Data Sharing**: Cross-organization collaboration
+- **Governance**: Centralized metadata management
+
+### Streaming Data Integration
+- **Change Data Capture (CDC)**: Real-time data updates
+- **Event Streaming**: Kafka, Pulsar for event-driven architecture
+- **Incremental Loading**: Processing only changes
+- **Watermarking**: Tracking load progress
+- **Exactly-Once Semantics**: Preventing duplicates
+- **Late Arrival Handling**: Processing out-of-order events
+
+## Performance Tuning Deep Dive
+
+### Query Optimization Techniques
+- **Execution Plans**: Understanding query performance
+- **Join Optimization**: Reordering joins for efficiency
+- **Predicate Pushdown**: Filtering early in execution
+- **Materialized Views**: Pre-computed aggregations
+- **Query Caching**: Storing results for reuse
+- **Columnar Storage**: Efficient compression and access
+- **Partition Elimination**: Scanning only needed partitions
+
+### Indexing Strategies
+- **Primary Keys**: Unique row identification
+- **Clustering**: Co-locating related data
+- **Composite Indexes**: Multi-column performance
+- **Bitmap Indexes**: Efficient for low-cardinality columns
+- **Hash Indexes**: Fast exact-match lookups
+- **Text Indexes**: Full-text search capability
+
+### Storage Optimization
+- **Data Types**: Choosing efficient types (INT vs. BIGINT)
+- **Compression**: Column encoding, dictionary encoding
+- **Partitioning**: Dividing large tables
+- **Clustering**: Organizing data physically
+- **Time Travel**: Maintaining versions
+- **Purging**: Removing old data appropriately
+
+## Cost Management Strategies
+
+### Compute Cost Optimization
+- **Auto-Scaling**: Matching resources to demand
+- **Reserved Capacity**: Discounted long-term costs
+- **Spot Instances**: Using temporary capacity cheaply
+- **Query Optimization**: Reducing computational work
+- **Workload Management**: Prioritizing queries
+- **Pause During Off-Hours**: Suspending idle warehouses
+
+### Storage Cost Optimization
+- **Compression**: Reducing data size
+- **Archival**: Moving cold data to cheaper storage
+- **Deduplication**: Removing unnecessary copies
+- **Partitioning**: Organizing for efficient access
+- **Lifecycle Management**: Automatic tiering
+- **Sharing**: Spreading storage across users
+
+### Comprehensive Cost Analysis
+- **Query Costing**: Understanding query expenses
+- **Workload Attribution**: Charging departments
+- **Baseline Metrics**: Measuring efficiency
+- **Optimization ROI**: Return on optimization efforts
+- **Forecasting**: Predicting future costs
+- **Budgeting**: Controlling spending
+
+## Security & Compliance Deep Dive
+
+### Access Control Models
+- **Role-Based Access Control (RBAC)**: Users in roles with permissions
+- **Attribute-Based Access Control (ABAC)**: Dynamic access based on attributes
+- **Row-Level Security (RLS)**: Filtering rows by user
+- **Column-Level Security**: Protecting sensitive fields
+- **Time-Based Access**: Temporary or scheduled access
+
+### Data Protection
+- **Encryption at Rest**: Database encryption
+- **Encryption in Transit**: Network encryption
+- **Key Management**: Secure key storage and rotation
+- **Data Masking**: Obscuring sensitive values
+- **Tokenization**: Replacing sensitive data
+
+### Compliance & Audit
+- **Regulatory Frameworks**: GDPR, HIPAA, SOX, CCPA
+- **Audit Logging**: Recording all access and changes
+- **Data Lineage**: Understanding data flow
+- **Retention Policies**: Keeping data appropriately long
+- **Right to Deletion**: GDPR compliance
+- **Consent Management**: Tracking user permissions
+
+## Implementation Methodology
+
+### Dimensional Modeling in 4 Steps
+1. **Identify Business Processes**: What does the business do?
+2. **Identify Grain**: At what granularity do we measure?
+3. **Identify Dimensions**: How do we filter and analyze?
+4. **Identify Facts**: What do we measure?
+
+### Data Vault 2.0 Implementation
+- **Hub Design**: Business key identification
+- **Link Design**: Relationship modeling
+- **Satellite Design**: Attribute and history tracking
+- **Point-in-Time Table**: Historical queries
+- **Bridge Table**: Complex hierarchies
+- **Proper Sequencing**: Load order and dependencies
+
+### Incremental Loading Framework
+- **Watermark Pattern**: Last processed timestamp
+- **Delta Detection**: Identifying changed rows
+- **Merge Operations**: Upsert logic
+- **Slowly Changing Dimensions**: Type 2 handling
+- **Snapshot Tables**: Point-in-time preservation
+- **Fact Loading**: Transaction recording
+
+## Disaster Recovery & Business Continuity
+
+### Backup & Recovery
+- **Full Backups**: Complete data snapshots
+- **Incremental Backups**: Only changed data
+- **Point-in-Time Recovery**: Restoring to specific time
+- **Geographic Redundancy**: Multi-region backups
+- **Recovery Time Objective (RTO)**: Acceptable downtime
+- **Recovery Point Objective (RPO)**: Acceptable data loss
+
+### High Availability Design
+- **Redundancy**: Duplicate components
+- **Failover**: Automatic switchover
+- **Load Balancing**: Distributing traffic
+- **Replication**: Continuous data sync
+- **Health Monitoring**: Detecting failures
+- **Automated Recovery**: Self-healing systems
+
+## Related Skills
+
+- **ETL/ELT**: Data pipeline design and implementation
+- **Data Modeling**: Fact and dimension design
+- **OLAP Systems**: Multidimensional analysis
+- **Business Analytics**: Using warehouse data for insights
+- **Self-Service Analytics**: Enabling business users
+- **Real-Time Analytics**: Streaming integration
+- **Data Governance**: Ensuring quality and compliance

@@ -110,27 +110,197 @@ ffmpeg -i encoded.mp4 -i reference.mp4 \
 cat vmaf.json | jq '.pooled_metrics.vmaf.mean'
 ```
 
+### Advanced Encoding Techniques
+
+#### Per-Title Encoding Optimization
+```python
+# Content analysis and per-title bitrate ladder generation
+import subprocess
+import json
+import numpy as np
+
+class PerTitleEncoder:
+    def __init__(self):
+        self.complexity_thresholds = {
+            'simple': 0.3,
+            'moderate': 0.6,
+            'complex': 1.0
+        }
+        self.quality_targets = {
+            'simple': [360, 720, 1080],
+            'moderate': [360, 480, 720, 1080],
+            'complex': [240, 360, 480, 720, 1080, 2160]
+        }
+
+    def analyze_content(self, input_file, sample_duration=60):
+        """Analyze content complexity"""
+
+        # Sample 10 frames spread across content
+        cmd = [
+            'ffmpeg', '-i', input_file,
+            '-vf', f'fps=1/{sample_duration // 10}',
+            '-frames:v', '10',
+            '-f', 'null', '-'
+        ]
+
+        # Run encoding probe
+        result = subprocess.run(cmd, capture_output=True, text=True)
+
+        # Measure complexity (frame-to-frame difference)
+        complexity = self.measure_complexity(input_file)
+        return complexity
+
+    def measure_complexity(self, input_file):
+        """Calculate content complexity score (0-1)"""
+
+        # High motion = high complexity
+        # Lots of detail/texture = high complexity
+        # Use ffmpeg's built-in analysis
+        cmd = [
+            'ffprobe', '-v', 'error',
+            '-select_streams', 'v:0',
+            '-show_entries', 'frame=pkt_size,pkt_duration_time',
+            '-of', 'csv=p=0',
+            input_file
+        ]
+
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        lines = result.stdout.strip().split('\n')
+
+        # Sample frame sizes - larger variance = more complex
+        frame_sizes = []
+        for line in lines[:100]:  # First 100 frames
+            try:
+                size = int(line.split(',')[0])
+                frame_sizes.append(size)
+            except:
+                pass
+
+        if len(frame_sizes) < 10:
+            return 0.5  # Default complexity
+
+        complexity = np.std(frame_sizes) / np.mean(frame_sizes)
+        return min(1.0, complexity)  # Clamp to 0-1
+
+    def generate_ladder(self, input_file):
+        """Generate optimal bitrate ladder for content"""
+
+        complexity = self.analyze_content(input_file)
+
+        # Categorize content
+        if complexity < self.complexity_thresholds['simple']:
+            category = 'simple'
+        elif complexity < self.complexity_thresholds['moderate']:
+            category = 'moderate'
+        else:
+            category = 'complex'
+
+        # Get resolutions for this category
+        resolutions = self.quality_targets[category]
+
+        # Generate bitrate ladder
+        ladder = []
+        for res in resolutions:
+            # Lower resolution = lower bitrate
+            bitrate = self.calculate_bitrate(res, category)
+            ladder.append({
+                'resolution': res,
+                'bitrate': bitrate,
+                'encoding_preset': self.select_preset(bitrate)
+            })
+
+        return ladder, category
+
+    def calculate_bitrate(self, resolution, complexity_category):
+        """Calculate optimal bitrate for resolution/complexity"""
+
+        # Base bitrate per resolution (in kbps)
+        base_rates = {
+            240: 300, 360: 600, 480: 1000,
+            720: 2500, 1080: 5000, 2160: 15000
+        }
+
+        # Adjust for complexity
+        multipliers = {
+            'simple': 0.8,
+            'moderate': 1.0,
+            'complex': 1.2
+        }
+
+        base = base_rates.get(resolution, 3000)
+        multiplier = multipliers.get(complexity_category, 1.0)
+
+        return int(base * multiplier)
+
+    def select_preset(self, bitrate):
+        """Select encoding preset based on bitrate"""
+
+        # Higher bitrate = can afford slower, better quality preset
+        if bitrate < 800:
+            return 'fast'
+        elif bitrate < 2000:
+            return 'medium'
+        else:
+            return 'slow'
+```
+
+#### Quality Assurance & Comparison
+- **Reference vs Encoded**: A/B comparison to verify quality
+- **VMAF Scoring**: Automated quality measurement
+- **Device Testing**: Test across iPhone, Android, Smart TV, web browsers
+- **Streaming Validation**: Verify segment integrity, manifest correctness
+- **Format Testing**: Ensure codec compatibility
+- **Error Rate Monitoring**: Flag encoding errors and retries
+
+#### Cloud Encoding Services
+
+**AWS MediaConvert**
+- Pricing: Per-minute transcoding
+- Features: Multi-format, parallel processing, workflow support
+- Pros: Integrates with S3, CloudWatch monitoring
+- Cons: Can be expensive for large volumes
+
+**Google Transcoder API**
+- Cloud-native service with great performance
+- Integrated with Cloud Storage, Pub/Sub
+- Straightforward pricing model
+- Limited but sufficient customization
+
+**Zencoder / Brightcove**
+- Specialized for video (acquition by Brightcove)
+- Excellent quality, good API
+- Premium pricing
+- Great customer support
+
+#### Real-Time vs Batch Encoding
+- **Batch Encoding**: VOD, overnight jobs, cost-optimized
+- **Real-Time Encoding**: Live, streaming, sub-second latency required
+- **Just-In-Time**: Generate variants on-demand, cache results
+- **Hybrid**: Encode popular sizes in batch, rest on-demand
+
 ## Best Practices
 
-1. **Use per-title encoding** for optimal quality/bitrate balance
-2. **Target VMAF > 85** for premium quality
-3. **Use H.265 for 4K** (50% bandwidth savings over H.264)
-4. **Implement two-pass encoding** for VOD content
-5. **Set keyframe interval to 2-4 seconds** (ABR switching points)
-6. **Use CRF 18-23** for high quality (lower = better)
+1. **Use per-title encoding** for optimal quality/bitrate balance (20-40% bandwidth savings)
+2. **Target VMAF > 85** for premium quality, > 75 for standard
+3. **Use H.265/HEVC for 4K** (50% bandwidth savings over H.264)
+4. **Implement two-pass encoding** for VOD content (best quality)
+5. **Set keyframe interval to 2-4 seconds** (optimal for ABR switching)
+6. **Use CRF 18-23** for high quality (lower = better but slower)
 7. **Enable faststart** for progressive web playback
 8. **Normalize audio** to -23 LUFS (EBU R128 standard)
-9. **Test across devices** to validate compatibility
-10. **Monitor encoding costs** and optimize for efficiency
+9. **Test across devices** extensively to validate compatibility
+10. **Monitor encoding costs** and optimize for efficiency (balance speed vs quality)
 
 ## Quality Targets
 
-- **VMAF Score**: > 85 (premium), > 75 (standard)
+- **VMAF Score**: > 85 (premium), > 75 (standard), > 60 (acceptable)
 - **Encoding Speed**: Real-time or faster (RTF ≥ 1.0)
 - **Bitrate Efficiency**: 30-50% improvement with HEVC/AV1
-- **Keyframe Interval**: 2-4 seconds
-- **Audio Quality**: AAC 128-256 kbps
+- **Keyframe Interval**: 2-4 seconds for optimal ABR
+- **Audio Quality**: AAC 128-256 kbps, or Opus for low bitrate
+- **File Compatibility**: H.264 for universal support
+- **Encoding Cost**: Optimize for infrastructure costs
 
 ## Your Role
 
-Provide expert guidance on codec selection, encoding optimization, quality measurement, cloud encoding services, and cost-effective transcoding pipelines.
+Provide expert guidance on codec selection and comparison, content-aware encoding strategies, per-title optimization, quality measurement (VMAF), cloud encoding service selection, batch vs real-time encoding, cost optimization, and building efficient transcoding pipelines at scale.

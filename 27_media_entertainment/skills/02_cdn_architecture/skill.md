@@ -133,25 +133,176 @@ async function handleRequest(request) {
 }
 ```
 
+### CDN Performance Optimization
+
+#### Request Routing & Geographic Distribution
+- **Anycast Routing**: Single IP address, multiple PoPs, automatic nearest routing
+- **Latency-Based Routing**: Route to lowest latency PoP
+- **Geographic Routing**: Route by country, region, timezone
+- **Load Balancing**: Distribute requests across multiple edges
+- **Failover**: Automatic failover to alternate PoPs on failure
+- **Custom Routing Rules**: Route by path, header, or query parameter
+
+#### Advanced Caching Strategies
+- **Stale-While-Revalidate**: Serve stale content while fetching fresh copy
+- **Stale-If-Error**: Serve stale content if origin is down
+- **Cache Purging**: Instant invalidation vs TTL expiry
+- **Predictive Prefetch**: Pre-populate cache for likely popular content
+- **Cache Warming**: Pre-fill CDN before content release
+- **Negative Caching**: Cache 404s for period to reduce origin load
+
+#### Edge Computing Use Cases
+```javascript
+// Cloudflare Worker example: Dynamic content at edge
+addEventListener('fetch', event => {
+  event.respondWith(handleRequest(event.request))
+})
+
+async function handleRequest(request) {
+  const url = new URL(request.url)
+
+  // Case 1: Video manifest - cache short
+  if (url.pathname.endsWith('.m3u8') || url.pathname.endsWith('.mpd')) {
+    const response = await fetch(request)
+    const newResponse = new Response(response.body, response)
+    newResponse.headers.set('Cache-Control', 'public, max-age=30, s-maxage=30')
+    return newResponse
+  }
+
+  // Case 2: Video segments - cache long
+  if (url.pathname.endsWith('.ts') || url.pathname.endsWith('.m4s')) {
+    const response = await fetch(request)
+    const newResponse = new Response(response.body, response)
+    newResponse.headers.set('Cache-Control', 'public, max-age=604800')
+    return newResponse
+  }
+
+  // Case 3: A/B testing - route based on user cookie
+  if (url.pathname === '/test-page') {
+    const variant = request.headers.get('cookie')?.includes('variant=b') ? 'b' : 'a'
+    url.pathname = `/variants/${variant}/page`
+    return fetch(new Request(url, request))
+  }
+
+  // Case 4: Rate limiting - block abusive clients
+  const ip = request.headers.get('cf-connecting-ip')
+  if (isAbusiveIP(ip)) {
+    return new Response('Rate Limited', { status: 429 })
+  }
+
+  return fetch(request)
+}
+
+function isAbusiveIP(ip) {
+  // Simple abuse detection - in production would use more sophisticated checks
+  return false
+}
+```
+
+### Multi-CDN Architecture & Failover
+
+#### CDN Selection Strategy
+- **Primary CDN**: Best performance for most users
+- **Secondary CDN**: Cost-optimized fallback
+- **Tertiary CDN**: Regional specialist (e.g., Alibaba in Asia)
+- **Health Monitoring**: Continuous health checks
+- **Automatic Failover**: Switch on health check failure
+- **Cost Optimization**: Balance performance vs cost
+
+#### Health Checking & Failover
+```javascript
+class MultiCDNRouter {
+  constructor() {
+    this.cdns = [
+      { name: 'cloudflare', url: 'https://cf.cdn.example.com/', health: 'healthy' },
+      { name: 'fastly', url: 'https://fastly.cdn.example.com/', health: 'healthy' },
+      { name: 'akamai', url: 'https://ak.cdn.example.com/', health: 'healthy' }
+    ]
+  }
+
+  async selectCDN(userRegion, contentType) {
+    // Filter healthy CDNs only
+    const healthy = this.cdns.filter(cdn => cdn.health === 'healthy')
+
+    if (healthy.length === 0) {
+      throw new Error('All CDNs are down!')
+    }
+
+    // Prioritize by region
+    const regional = healthy.filter(cdn => this.servesRegion(cdn, userRegion))
+    if (regional.length > 0) return regional[0]
+
+    // Fallback to first healthy
+    return healthy[0]
+  }
+
+  async monitorHealth() {
+    setInterval(async () => {
+      for (const cdn of this.cdns) {
+        try {
+          const response = await fetch(`${cdn.url}health`, { timeout: 5000 })
+          cdn.health = response.ok ? 'healthy' : 'degraded'
+        } catch (error) {
+          cdn.health = 'unhealthy'
+        }
+      }
+    }, 30000) // Check every 30 seconds
+  }
+
+  servesRegion(cdn, region) {
+    // Region-to-CDN mapping
+    const regionMap = {
+      'us': ['cloudflare', 'fastly'],
+      'eu': ['cloudflare', 'fastly'],
+      'asia': ['akamai'],
+      'latam': ['cloudflare']
+    }
+    return regionMap[region]?.includes(cdn.name) || false
+  }
+}
+```
+
+### DDoS Protection & Security
+
+#### Layer Protection Strategy
+- **Layer 3/4**: IP reputation, rate limiting, geographic blocking (DDoS protection)
+- **Layer 7**: Application-level filtering (WAF)
+- **Bot Detection**: Distinguish real users from bots
+- **Rate Limiting**: Per-IP request limits
+- **Geographic Blocking**: Block from sanctioned countries
+- **Custom Rules**: Whitelist/blacklist specific patterns
+
+#### SSL/TLS Optimization
+- **TLS 1.3**: Faster handshakes, reduced overhead
+- **Certificate Pinning**: Prevent MITM attacks
+- **OCSP Stapling**: Include certificate status in response
+- **Session Resumption**: Reuse TLS session IDs
+- **HTTP/2**: Multiplexing, header compression
+- **HTTP/3 (QUIC)**: UDP-based, faster connections
+
 ## Best Practices
 
 1. **Use Origin Shield** to reduce origin load by 90%+
 2. **Implement multi-CDN** for redundancy and cost optimization
 3. **Optimize cache keys** by removing session/tracking parameters
-4. **Set appropriate TTLs**: Long for VOD segments (7d), short for manifests (30s)
+4. **Set appropriate TTLs**: Long for VOD segments (7+ days), short for manifests (30s)
 5. **Enable HTTP/2 & HTTP/3** for multiplexing and reduced latency
-6. **Use Anycast** for automatic geographic routing
-7. **Monitor cache hit ratio** (target > 90%)
-8. **Implement DDoS protection** at CDN layer
+6. **Use Anycast** for automatic geographic routing to nearest PoP
+7. **Monitor cache hit ratio** continuously (target > 90%)
+8. **Implement DDoS protection** at CDN layer (Layer 3/4/7)
+9. **Use edge computing** for dynamic content and personalization
+10. **Test failover scenarios** regularly for high availability
 
 ## Performance Targets
 
-- **Cache Hit Ratio**: > 90%
+- **Cache Hit Ratio**: > 90% (aim for > 95%)
 - **Edge Latency (p95)**: < 50ms
 - **Origin Requests**: < 10% of total
-- **Global Coverage**: 100+ PoPs
+- **Global Coverage**: 100+ PoPs across 6 continents
 - **DDoS Mitigation**: Layer 3/4/7 protection
+- **TLS Handshake**: < 50ms with resumption
+- **Availability**: 99.99%+ uptime
 
 ## Your Role
 
-Provide expert guidance on CDN selection, cache optimization, edge computing, multi-CDN strategies, and performance tuning for global content delivery.
+Provide expert guidance on CDN selection, architecture design, cache optimization, edge computing, multi-CDN strategies, DDoS mitigation, security, and performance tuning for global content delivery at scale.

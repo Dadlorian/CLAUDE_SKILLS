@@ -98,6 +98,199 @@ Expert-level guidance on building, managing, and optimizing robo-advisory platfo
 - Perform portfolio analysis and attribution
 
 ### Advanced
+- Implement complex portfolio optimization algorithms
+- Design multi-objective optimization for competing goals
+- Build goal-based planning systems with Monte Carlo simulations
+- Implement tax-loss harvesting at scale
+- Design comprehensive wealth management platforms
+
+## Investment Products & Asset Classes
+
+### Equities & Funds
+- Individual stocks and stock selection
+- Mutual funds and ETF analysis
+- Index funds and passive investing
+- Factor-based investing (value, growth, momentum, quality)
+- Market capitalization-weighted vs equal-weighted portfolios
+
+### Fixed Income Products
+- Government bonds and corporate bonds
+- Bond duration and yield curve positioning
+- Fixed income fund selection
+- Money market instruments
+- Municipal bonds and tax-exempt investing
+
+### Alternative Investments
+- Real estate and REITs
+- Commodities and commodity futures
+- Hedge funds and private equity exposure
+- Cryptocurrency and digital assets
+- Peer-to-peer lending platforms
+
+### ESG & Impact Investing
+- Environmental, social, and governance criteria
+- Impact measurement and reporting
+- ESG fund analysis and selection
+- Sustainable portfolio construction
+- Responsible investing frameworks
+
+## Technology Platform Components
+
+### Portfolio Analytics Engine
+- Real-time portfolio valuation and performance tracking
+- Risk analytics and stress testing capabilities
+- Performance attribution analysis
+- Benchmark comparison and tracking
+- Scenario analysis and forecasting
+
+### Rebalancing Engine
+- Automated rebalancing algorithms
+- Tax-aware rebalancing strategies
+- Drift detection and threshold-based rebalancing
+- Commission and slippage optimization
+- Multi-objective optimization (tax, fees, tracking)
+
+### Tax Optimization System
+- Tax-loss harvesting identification and execution
+- Wash-sale rule compliance checking
+- Tax reporting and 1099 generation
+- Tax-efficient asset location
+- Tax impact modeling
+
+### Client Onboarding System
+- Risk profiling questionnaires
+- Suitability assessment
+- KYC/AML compliance verification
+- Account setup and funding
+- Document verification and storage
+
+### Reporting & Communication
+- Customized performance reports
+- Goal progress tracking dashboards
+- Client portals and mobile apps
+- Advisor tools and insights
+- Compliance documentation
+
+## Risk Management in Robo-Advisory
+
+### Portfolio Risk Monitoring
+- Real-time portfolio monitoring and alerts
+- Drawdown tracking and recovery analysis
+- Volatility monitoring and rebalancing triggers
+- Stress testing under market scenarios
+- Early warning systems for goal at risk
+
+### Client Risk Management
+- Suitability monitoring over time
+- Risk drift detection
+- Goal dependency analysis
+- Life event management
+- Advisor escalation procedures
+
+### Operational Risk
+- Model risk management
+- Data quality and completeness
+- System uptime and disaster recovery
+- Cybersecurity and data protection
+- Regulatory compliance monitoring
+
+## Regulatory & Compliance Framework
+
+### Regulatory Requirements
+- SEC Regulation (investment advisers)
+- FINRA Rules (broker-dealers)
+- Fiduciary duty obligations
+- Suitability standards
+- Best execution requirements
+- Fee disclosure and transparency
+
+### Compliance Management
+- Investment policy statement
+- Conflicts of interest management
+- Client authorization and consent
+- Documented investment process
+- Regular compliance audits
+- Annual compliance certifications
+
+### Documentation & Audit Trail
+- Client suitability records
+- Investment recommendations documentation
+- Trade execution logs
+- Performance attribution records
+- Communication logs and audit trail
+
+## Best Practices for Robo-Advisors
+
+### Platform Design
+1. **User Experience**: Intuitive interface for portfolio management
+2. **Transparency**: Clear explanation of recommendations and rationale
+3. **Customization**: Support for client preferences and constraints
+4. **Scalability**: Handle millions of clients with low latency
+5. **Reliability**: 99.99%+ uptime SLA
+6. **Security**: Multi-factor authentication, encryption, compliance
+
+### Investment Strategy
+1. **Diversification**: Appropriate diversification across asset classes
+2. **Rebalancing**: Regular rebalancing to target allocations
+3. **Low Costs**: Minimize expense ratios and trading costs
+4. **Tax Efficiency**: Maximize after-tax returns
+5. **Goal Alignment**: Align portfolios with client goals
+6. **Risk Management**: Appropriate risk for each client
+
+### Client Service
+1. **Transparency**: Clear communication of strategy and performance
+2. **Access**: Easy access to portfolio information and tools
+3. **Support**: Responsive customer service and support
+4. **Education**: Financial education and guidance
+5. **Personalization**: Customized recommendations and insights
+6. **Engagement**: Regular communication and engagement
+
+## Performance Metrics
+
+### Platform Metrics
+- Assets under management (AUM)
+- Number of active users/clients
+- Client retention rate
+- Net inflows/outflows
+- System uptime and availability
+- Average client satisfaction score
+
+### Investment Metrics
+- Portfolio performance vs benchmarks
+- Risk-adjusted returns (Sharpe ratio, Sortino ratio)
+- Outperformance/underperformance
+- Tax efficiency and after-tax returns
+- Tracking error vs benchmarks
+- Goal achievement rate
+
+### Business Metrics
+- Cost per client (CPC)
+- Customer acquisition cost (CAC)
+- Customer lifetime value (LTV)
+- Revenue per client
+- Profitability and margins
+- Market share and competitive position
+
+## When to Engage This Skill
+
+Use this skill when you need to:
+- Build or optimize a robo-advisory platform
+- Design automated portfolio management systems
+- Implement tax-loss harvesting strategies
+- Create goal-based planning systems
+- Build risk management and monitoring systems
+- Ensure regulatory compliance for advisers
+- Optimize investment performance and costs
+- Implement rebalancing automation
+- Scale portfolio management for large client base
+- Integrate with custodians and brokers
+
+---
+
+**Version**: 2.0
+**Last Updated**: 2025-11-19
+**Domain**: Robo-Advisory & Wealth Management
+**Expertise Level**: Elite Professional
 - Implement multi-period stochastic optimization
 - Design behavioral-aware robo-advisory systems
 - Develop sophisticated tax optimization algorithms

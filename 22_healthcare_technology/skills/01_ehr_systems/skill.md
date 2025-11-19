@@ -194,15 +194,241 @@ User needs patient portal that integrates with Epic MyChart
 - FHIR US Core Implementation Guide
 - SMART on FHIR specification
 
+## Advanced EHR Architecture Patterns
+
+### Clinical Data Model Design
+```
+Patient Demographics (PID segment)
+├── Medical Record Number (MRN)
+├── Name, DOB, Gender, Address
+├── Contact Information
+└── Insurance Details
+
+Encounter/Visit (PV1 segment)
+├── Encounter ID
+├── Patient Location
+├── Admission Type
+├── Discharge Disposition
+└── Attending Physician
+
+Problem List (DG1 segment)
+├── ICD-10-CM Code
+├── Problem Description
+├── Onset Date
+├── Resolution Date
+└── Problem Status
+
+Medications (RXE segment)
+├── Drug Code (RxNorm)
+├── Strength & Route
+├── Frequency & Duration
+├── Indication
+└── Status (Active/Discontinued)
+
+Allergies (AL1 segment)
+├── Allergen Code
+├── Reaction Type
+├── Severity Level
+└── Onset Date
+
+Orders (ORC segment)
+├── Placer Order Number
+├── Filler Order Number
+├── Order Status
+├── Requested Date/Time
+└── Provider ID
+```
+
+### Multi-EHR Interoperability Architecture
+- **HL7 v2.x Bridges**: Real-time ADT, orders, results feeds
+- **FHIR APIs**: Modern RESTful access to clinical data
+- **Custom Adapters**: Handle vendor-specific implementations
+- **Canonical Models**: Normalize data from multiple systems
+- **Master Data Management**: Single source of truth for patients, providers
+- **Audit Logging**: Track all data access and modifications
+
+### Clinical Decision Support Integration
+- Order set engines for standardized care pathways
+- Rules engines for medication safety (DDI, allergy checking)
+- Alert management with override tracking
+- Evidence integration (clinical guidelines, protocols)
+- Outcome monitoring and feedback loops
+- Machine learning models for predictions
+
+## EHR Implementation Methodologies
+
+### Agile in Healthcare IT
+- **Sprint-Based Development**: 2-week sprints for feature delivery
+- **Clinical Validation**: End-user testing at sprint reviews
+- **Compliance Gates**: Quality/security checkpoints between releases
+- **Documentation**: Inline with code and design decisions
+- **Risk-Based Testing**: Focus testing on high-risk clinical areas
+- **Continuous Monitoring**: Production metrics and user feedback loops
+
+### Multi-Phase Rollout Strategy
+**Phase 1: Pilot** (50-100 users)
+- Limited department or clinic
+- Intensive support and training
+- Daily standups and issue resolution
+- Rapid iteration on workflow
+
+**Phase 2: Expand** (500-1000 users)
+- Additional departments
+- Peer trainer model
+- Establish support structure
+- Document lessons learned
+
+**Phase 3: Full Deployment** (all users)
+- Remaining departments
+- Standard training programs
+- Self-service knowledge base
+- Continuous improvement process
+
+## Real-World EHR Implementation Scenarios
+
+### Scenario: Hospital-Wide Epic Implementation
+**Challenge**: 600-bed hospital transitioning from legacy system to Epic
+
+**Approach**:
+1. **Planning Phase** (3 months):
+   - Define clinical workflows for each department
+   - Establish governance committees
+   - Build EHR steering committee
+
+2. **Design Phase** (6 months):
+   - Configure Epic modules (Inpatient, Ambulatory, ED)
+   - Design clinical documentation templates
+   - Build order sets for common diagnoses
+   - Map internal codes to SNOMED CT/LOINC
+
+3. **Build Phase** (6 months):
+   - System configuration and customization
+   - Interface development with lab, pharmacy, imaging
+   - Patient portal (MyChart) setup
+   - Staff training materials
+
+4. **Testing Phase** (3 months):
+   - Unit testing (individual module functionality)
+   - Integration testing (cross-module workflows)
+   - User acceptance testing with clinicians
+   - Performance/load testing
+
+5. **Deployment** (6 weeks):
+   - Pilot with ICU and acute care units
+   - Monitor closely for first week
+   - Rapid support response team on-site
+   - Daily dashboards tracking adoption
+   - Expand to remaining departments
+
+6. **Post-Live Optimization**:
+   - Workflow refinement based on feedback
+   - Performance tuning of slow processes
+   - Staff competency improvements
+   - ROI measurement
+
+### Scenario: Building Ambulatory EHR for Specialty Clinic
+**Challenge**: Cardiology practice needs specialized EHR for cardiology workflows
+
+**Approach**:
+1. **Clinical Requirements**:
+   - Structured cardiovascular assessment forms
+   - Echo/imaging integration with measurements
+   - Medication management for cardio drugs
+   - Risk calculator integration (CHADS2, HAS-BLED)
+   - Referral workflows to cardiac surgery
+
+2. **Implementation**:
+   - Choose EHR platform (Epic, Cerner, or standalone)
+   - Customize templates for cardiac history
+   - Build order sets for common conditions (AFib, HF, CAD)
+   - Integrate with cardiology devices (echo machines, stress test systems)
+   - Patient portal for medication refills, appointment scheduling
+   - BI dashboards for quality metrics (ejection fraction trends, medication adherence)
+
+3. **Clinical Workflow**:
+   - Pre-visit: Patient completes cardiovascular history questionnaire
+   - Check-in: Vitals recorded automatically via devices
+   - Assessment: Physician reviews structured templates
+   - Plan: Electronic prescribing with drug interaction checking
+   - Follow-up: Automated reminders for repeat testing
+
+### Scenario: Implement SMART on FHIR Patient Portal
+**Challenge**: Hospital wants patient access to records via mobile app
+
+**Approach**:
+1. **Requirements**:
+   - Patient authentication (multi-factor)
+   - FHIR API access to patient's records
+   - View allergies, medications, lab results
+   - Secure messaging with providers
+   - Appointment scheduling
+
+2. **Technical Architecture**:
+   - FHIR-compliant EHR (Epic, Cerner)
+   - SMART on FHIR launch sequence
+   - OAuth 2.0 authorization
+   - Mobile app (iOS/Android)
+   - Backend API for scheduling, messaging
+
+3. **Implementation**:
+   - Configure FHIR endpoints for patient context
+   - Build mobile app with React Native
+   - Implement OAuth token refresh
+   - Secure messaging using FHIR Communication resources
+   - Automated appointment reminders
+
+## EHR Performance Optimization
+
+### Query Optimization
+- Index clinical_data on patient_id, encounter_id, date_range
+- Separate fact tables (encounters, orders) from dimension tables (patients, providers)
+- Use database views for common aggregations
+- Archive old data (>5 years) to separate storage
+- Cache medication lists and allergy information
+
+### Clinical Workflow Optimization
+- Single-click access to frequently needed information
+- Personalized dashboards showing relevant alerts
+- Smart defaults reducing manual entry
+- Copy-forward functionality for chronic medications
+- Macros and templates for common documentation
+
+### System Performance
+- Response time <2 seconds for common queries
+- Chart opening <5 seconds (even for large records)
+- Batch processing for non-urgent reports
+- Asynchronous loading of non-critical data
+- Connection pooling for database access
+
+## EHR Security and Compliance
+
+### HIPAA Compliance
+- Unique user IDs for all clinicians
+- Automatic logout after 15 minutes of inactivity
+- Audit logging of all PHI access
+- Role-based access control (physician vs. nurse vs. clerk)
+- Break-the-glass procedures for emergencies
+- Regular security awareness training
+
+### Meaningful Use/MIPS Compliance
+- Structured data capture for quality measures
+- eCQM calculation and reporting
+- E-prescribing for controlled substances
+- Computerized provider order entry (CPOE)
+- Medication reconciliation processes
+- Patient engagement (secure messaging, portal access)
+
 ## Getting Started
 
 I will help you:
-1. Understand EHR system architecture and clinical workflows
-2. Integrate with Epic, Cerner, or other EHR vendors
-3. Implement CPOE, clinical documentation, and patient portals
-4. Design clinical data models and databases
+1. Design EHR system architecture and clinical data models
+2. Plan and execute EHR implementations (Epic, Cerner, custom)
+3. Integrate with Epic, Cerner, or other EHR vendors
+4. Implement CPOE, clinical documentation, and patient portals
 5. Build EHR interfaces using HL7 and FHIR
-6. Ensure regulatory compliance (Meaningful Use, MIPS, ONC)
-7. Optimize clinical workflows for usability
+6. Design and optimize clinical workflows
+7. Ensure regulatory compliance (Meaningful Use, MIPS, ONC)
+8. Optimize EHR performance and user adoption
+9. Mentor teams on EHR best practices
 
-Let's build effective, clinician-friendly EHR systems!
+Let's build effective, clinician-friendly, interoperable EHR systems that improve patient care!

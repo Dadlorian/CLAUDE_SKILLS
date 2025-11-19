@@ -902,6 +902,362 @@ Network Director: _________________________ Date: _________
 
 Executive Sponsor: _________________________ Date: _________
 
+## Appendix C: Security Incident Case Studies
+
+### Case Study 1: Authentication Protocol Downgrade Attack (CVSS 7.5)
+
+**Scenario:** Attacker exploits legacy algorithm support in HSS
+
+**Attack Details:**
+```
+Timeline:
+T+0:00 - Attacker discovers network supports EEA1 (SNOW 3G) encryption
+         - Performs passive network analysis, identifies weak algorithm
+
+T+0:30 - Attacker initiates UE connection with algorithm downgrade
+         - Forces negotiation to EEA1 instead of EEA2/EEA3
+         - Legitimate algorithm, but cryptographically weak
+
+T+1:00 - Attacker performs brute-force cryptanalysis
+         - SNOW 3G vulnerable to known-plaintext attacks
+         - Weak IV handling exploitable with 600GB captured data
+
+T+2:00 - Attacker derives session key
+         - Decrypts entire user session traffic
+         - Access to voice calls, SMS, web traffic
+
+T+3:00 - Attacker exfiltrates sensitive data
+         - Banking credentials observed in decrypted traffic
+         - Location data showing subscriber movement patterns
+         - Corporate VPN credentials compromised
+```
+
+**Root Cause:**
+1. Weak algorithm (EEA1) still enabled for backward compatibility
+2. No algorithm-level policy enforcement
+3. Missing capability negotiation protections
+
+**Discovery Method:**
+- Security audit revealed EEA1 in supported algorithms list
+- Threat analysis identified SNOW 3G vulnerabilities (published CVE)
+- Network traffic analysis showed downgrade attempts in logs
+
+**Remediation Plan:**
+```
+Immediate Actions (24 hours):
+[ ] Disable EEA1 support in HSS configuration
+[ ] Update UE profiles to require EEA2/EEA3
+[ ] Enforce algorithm negotiation policy in AUSF
+[ ] Alert roaming partners to disable EEA1 support
+
+Short-term (1 week):
+[ ] Scan CDRs for sessions using EEA1
+[ ] Force re-authentication for affected users
+[ ] Implement algorithm audit logging
+[ ] Deploy IDS rule to detect downgrade attempts
+
+Long-term (30 days):
+[ ] Code review for other legacy algorithm support
+[ ] Update security standards to ban weak algorithms
+[ ] Implement automated algorithm compliance checking
+[ ] Quarterly security assessment for downgrade attacks
+```
+
+**Verification:**
+- Protocol analysis confirms only EEA2/EEA3 in use
+- Penetration test unable to force downgrade
+- Log analysis shows zero downgrade attempts (post-fix)
+
+**Impact Avoided:**
+- Potential exposure: 5+ subscribers with sensitive data
+- Estimated financial impact: $500K+ (regulatory fines + reputational)
+- Timeline to discovery if not audited: Possibly never (passive attack)
+
+---
+
+### Case Study 2: Rogue SEPP Infrastructure (CVSS 8.1)
+
+**Scenario:** Attacker deploys fake SEPP appliance at roaming border
+
+**Attack Setup:**
+```
+Network Topology Compromise:
+
+Normal Setup:
+HPLMN → [Firewall] → [SEPP-Gateway] → [Roaming Border] → VPLMN
+
+Attacker Setup:
+           ↓ Intercepts BGP route
+HPLMN ← Rogue SEPP (Attacker) → VPLMN
+         (All traffic passes through)
+```
+
+**Attack Execution:**
+```
+Phase 1: Establish Position
+- Attacker compromises upstream BGP router
+- Announces more specific route for SEPP destination
+- Traffic diverted through attacker's appliance
+
+Phase 2: Passive Reconnaissance (Week 1)
+- All inter-operator Diameter messages mirrored to attacker
+- Customer location queries observed
+- Policy enforcement rules analyzed
+- Call detail records logged
+
+Phase 3: Active Attack (Week 2)
+- Modify Diameter responses to reduce QoS
+- Inject fraudulent charging records
+- Observe subscriber patterns for location tracking
+- Capture authentication vectors for offline attack
+
+Phase 4: Data Exfiltration (Week 3)
+- 10,000+ subscriber location histories extracted
+- 500 authentication vectors collected
+- Roaming agreements compromised
+```
+
+**Discovery:**
+```
+Detection Vector 1: Certificate Anomaly (Day 3)
+- SEPP certificate issued by attacker-controlled CA
+- Standard SEPP cert pinning check failed (if enabled)
+- Alert: Certificate mismatch on SEPP interface
+
+Detection Vector 2: BGP Hijacking Alert (Day 5)
+- Upstream BGP monitoring detects prefix originated by attacker
+- RPKI validation fails (if deployed)
+- Alert: Unexpected BGP announcement
+
+Detection Vector 3: Traffic Analysis (Day 7)
+- Roaming partner reports unusual CDR patterns
+- Diameter message inspection reveals inconsistencies
+- Alert: CDR data does not match network events
+
+Root Cause Analysis:
+- SEPP certificate validation not strictly enforced
+- BGP RPKI validation not deployed
+- No anomaly detection on inter-operator traffic
+```
+
+**Remediation (Urgent):**
+```
+Immediate (1 hour):
+[ ] Shut down all SEPP sessions
+[ ] Withdraw compromised BGP routes
+[ ] Notify all roaming partners of incident
+[ ] Issue data breach notification (if PII compromised)
+
+Short-term (24 hours):
+[ ] Restore SEPP from clean backup
+[ ] Implement certificate pinning enforcement
+[ ] Enable RPKI validation for BGP
+[ ] Audit all inter-operator traffic (past 7 days)
+
+Medium-term (1 week):
+[ ] Deploy SEPP redundancy (prevent single point of failure)
+[ ] Implement anomaly detection on Diameter traffic
+[ ] Enable TLS-level mutual authentication
+[ ] Segment roaming traffic from internal network
+
+Long-term (30 days):
+[ ] Deploy SEPP in high-availability cluster
+[ ] Implement BGP route filtering
+[ ] Quarterly assessment of roaming infrastructure
+[ ] Red-team testing for similar vulnerabilities
+```
+
+**Impact Assessment:**
+- Subscribers affected: 10,000 (location data exposure)
+- Data compromised: Call records, location history, authentication vectors
+- Estimated regulatory fine: $1-5 million (GDPR/local privacy law)
+- Reputational damage: Media coverage, customer loss
+- Recovery effort: 6+ weeks
+
+---
+
+### Case Study 3: Denial of Service via Signaling Flooding (CVSS 8.3)
+
+**Scenario:** Attacker floods network with malformed Diameter messages
+
+**Attack Method:**
+```
+Attack Profile:
+- Source: Compromised HPLMN network (insider threat)
+- Target: HSS/UDM database
+- Vector: Malformed Diameter requests to S6a interface
+
+Methodology:
+1. Attacker gains access to compromised HSS in peer network
+2. Configures automated Diameter request generator
+3. Sends 100,000 requests/second with:
+   - Invalid AVP format
+   - Missing required fields
+   - Oversized messages
+   - Cross-protocol payloads
+
+Effect on Network:
+- HSS CPU utilization: 0% → 100% (parsing malformed messages)
+- Database connection pool exhausted
+- Response latency: 50ms → 10,000ms
+- Authentication success rate: 99.5% → 5%
+- Legitimate users unable to attach to network
+```
+
+**Detection & Response Timeline:**
+```
+T+0:00 - Attack begins
+- Diameter servers start receiving malformed messages
+- CPU utilization increases gradually
+
+T+0:10 - Operational Alert
+- SIEM detects Diameter parsing error spike
+- Rate limiting triggers automatically
+
+T+0:20 - Escalation
+- Service desk receives 100+ customer complaints
+- Network outage declared
+
+T+0:30 - Incident Response
+1. Identify attack source (roaming partner network)
+2. Implement firewall rules to drop malformed traffic
+3. Rate limit per roaming partner (100 msg/sec max)
+4. Restart HSS database (may lose in-flight transactions)
+5. Restore from last known good state
+
+T+1:00 - Stabilization
+- Block the entire roaming partner's traffic temporarily
+- Redirect legitimate traffic to backup UDM instance
+- Monitor for repeat attacks
+
+T+2:00 - Root Cause Investigation
+- Roaming partner's HSS was compromised
+- Attacker had administrative access
+- Password-based login used (no MFA)
+
+T+4:00 - Service Restoration
+- Normal traffic restored
+- Implement stricter Diameter validation
+- Increase DDoS scrubbing capacity
+- Coordinate with roaming partner on remediation
+```
+
+**Remediation Actions:**
+```
+Immediate:
+[ ] Blacklist malicious roaming partner at firewall
+[ ] Increase Diameter message validation strictness
+[ ] Deploy DDoS protection appliance
+[ ] Implement per-peer rate limiting
+
+Short-term (1 week):
+[ ] Restore HSS from backup (validate data consistency)
+[ ] Audit roaming partner infrastructure (before re-enabling)
+[ ] Implement BGP flowspec for upstream filtering
+[ ] Increase HSS processing capacity
+
+Long-term (30 days):
+[ ] Deploy SEPP between trusted roaming partners
+[ ] Implement Diameter authentication at peer level
+[ ] Quarterly stress testing of HSS DDoS resilience
+[ ] Red-team exercise simulating roaming partner compromise
+```
+
+**Lessons Learned:**
+1. Upstream DDoS mitigation needed (provider-level filtering)
+2. Roaming partners require security baseline assessments
+3. Database resilience insufficient for attack of this scale
+4. Need for faster detection (ideally <5 minutes)
+
+---
+
+### Case Study 4: IMSI Catching Attack in Remote Area (CVSS 7.5)
+
+**Scenario:** Attacker deploys rogue gNodeB to capture subscriber IMSIs
+
+**Attack Details:**
+```
+Setup:
+- Rural area with limited 5G coverage
+- Attacker deploys software-defined gNodeB (USRP-based)
+- Broadcasts legitimate PLMN ID and cell ID
+- UEs connect thinking they found home network coverage
+
+Execution:
+1. UE attaches to rogue gNodeB
+2. Rogue gNodeB captures initial attach request (contains GUTI)
+3. GUTI mapping back to IMSI via captured signaling
+4. IMSIs logged in attacker's database
+
+Data Collected (per UE):
+- IMSI
+- Device Model (IMEI)
+- Supported algorithms
+- Roaming country/profile
+- Location (gNodeB precise coordinates)
+- Behavioral patterns (when UE searches for coverage)
+```
+
+**Attack Feasibility:**
+```
+Cost to execute: $2-5K
+- USRP software-defined radio: $500
+- Development environment: Free (OpenBTS, OsmocomBB)
+- Antenna: $200
+- Power generator: $300
+- Transportation: $400
+- Mobile internet: $100/month
+
+Timeline to deploy: 4-8 hours
+- Transport equipment to location
+- Setup SDR and antenna
+- Configure cell parameters
+- Enable IMSI capture logging
+- Ready to intercept
+```
+
+**Detection:**
+```
+Method 1: RF Analysis (By operator)
+- Drive test reveals unexpected cell ID in specific location
+- Cell ID coordinates don't match known sites
+- Signal strength unusually strong for distance
+
+Method 2: Subscriber Reports (By customers)
+- Phones dropping calls in specific area
+- SMS delays
+- Data connection failures
+- Multiple users in same region report issues
+
+Method 3: Automated Anomaly Detection
+- Cell ID registered from unusual coordinates
+- MCC/MNC mismatch detected
+- Unusual IMSI patterns in logs
+```
+
+**Remediation:**
+```
+Immediate (if still broadcasting):
+[ ] Direction-finding equipment locates rogue gNodeB
+[ ] Police respond to confiscate equipment
+[ ] Block discovered cell ID from HSS
+
+Prevention:
+[ ] Deploy IMSI catcher detection system
+- Radio spectrum monitoring at known interference frequencies
+- Automated alert for rogue cell detection
+[ ] Implement IMSI protection (always encrypt SUPI)
+[ ] Enable GUTI rotation more frequently
+[ ] Deploy coverage in remote areas (reduce opportunity)
+[ ] Public awareness campaign (explain IMSI catching)
+```
+
+**Impact & Lessons:**
+- Subscribers affected: 50-100 in area during 2-day period
+- Risk: Identity theft, location tracking, physical stalking
+- Regulatory requirement: Notify subscribers of breach
+- Timeline to awareness: Possible never without public media
+
 ---
 
 **Document Control:**

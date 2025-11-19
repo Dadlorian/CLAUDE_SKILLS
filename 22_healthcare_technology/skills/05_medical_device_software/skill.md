@@ -249,17 +249,251 @@ Expert-level knowledge in regulatory-compliant medical device software developme
 - **Traceability**: Every requirement traced through design, code, tests
 - **Compliance Audit Results**: Zero critical findings in audits
 
+## Advanced Development Topics
+
+### IEC 62304 Software Lifecycle Integration with Agile
+**Challenge**: Healthcare requires both agile speed and rigorous waterfall-style documentation
+
+**Approach**:
+- **Lightweight Documentation**: Focus on critical design documents, less on process documentation
+- **Continuous Design Reviews**: Architecture review board meets at sprint boundaries
+- **Regression Testing Automation**: Automated tests provide verification evidence
+- **Risk-Driven Features**: Prioritize high-risk features in early sprints
+- **Sprint Artifacts**: Each sprint produces incremental DHF evidence
+- **Traceability Through Tools**: Use ALM (Application Lifecycle Management) tools for automated traceability
+
+### Machine Learning Model Validation for SaMD
+**Challenges**: ML models present unique validation challenges due to:
+- Non-deterministic behavior
+- Dataset dependency
+- Continuous learning updates
+- Fairness and bias concerns
+
+**Solution**:
+1. **Dataset Documentation**:
+   - Source, size, and diversity of training data
+   - Annotation methodology and inter-rater reliability
+   - Exclusion/inclusion criteria
+   - Bias analysis across demographic groups
+
+2. **Algorithm Development**:
+   - Cross-validation approach (k-fold, stratified)
+   - Hyperparameter tuning methodology
+   - Feature importance analysis (SHAP, permutation)
+   - Ensemble methods if applicable
+
+3. **Model Validation**:
+   - Holdout test set (≥10% of data, representative)
+   - Independent clinical validation with new data
+   - Performance across subpopulations (age, gender, ethnicity)
+   - Failure mode analysis (false positives, false negatives)
+
+4. **Continuous Monitoring**:
+   - Real-world performance tracking
+   - Data drift detection
+   - Model performance degradation monitoring
+   - Retraining triggers and procedures
+
+5. **Update Strategy**:
+   - Versioning all model updates
+   - Regression testing comparing new vs. old model
+   - Re-validation of clinically significant changes
+   - Staged rollout of new versions
+
+### Software as a Medical Device (SaMD) Classification
+**Determining if software qualifies as SaMD**:
+1. Is it intended for use in diagnosis, treatment, mitigation, prevention, or monitoring of a disease?
+2. Does it perform this function with or without being part of a medical device?
+3. Is the software functioning as a medical device component?
+
+**FDA SaMD Framework**:
+- **Clinical Context**: Intended use, patient population, clinical setting
+- **Qualification**: Does the software perform as a medical device?
+- **Evidence Requirements**: Clinical validity, analytical validity, clinical utility
+- **Risk-Based Approach**: Determines regulatory pathway and approval level
+
+**Regulatory Pathways**:
+- **De Minimis**: Low-risk tools, minimal regulatory oversight
+- **FDA Pre-Cert Program**: Streamlined approval for established companies
+- **Traditional 510(k)**: Demonstrates substantial equivalence
+- **PMA (Premarket Approval)**: Novel devices with higher risk
+
+### Cybersecurity in Medical Device Software
+
+**Threat Modeling Approach**:
+1. **Identify Assets**: Patient data, device functionality, control mechanisms
+2. **Identify Threat Actors**: Hackers, disgruntled employees, patients
+3. **Identify Threats**: Unauthorized access, data breach, DDoS, code tampering
+4. **Estimate Impact**: Patient harm, privacy breach, service disruption
+5. **Rate Risk**: Probability × Impact
+6. **Implement Controls**: Authentication, encryption, intrusion detection
+7. **Verify Controls**: Penetration testing, code review
+
+**Critical Controls**:
+- **Unique Authentication**: User identification and strong password requirements
+- **Encryption**: Data at rest (AES-256), in transit (TLS 1.2+)
+- **Access Control**: Least privilege, role-based access control
+- **Audit Logging**: Comprehensive logs with tamper protection
+- **Software Updates**: Secure delivery mechanism, verification of authenticity
+- **Vulnerability Management**: Regular scanning, timely patching
+
+### Post-Market Surveillance Strategy
+
+**Complaint Handling**:
+1. **Complaint Intake**: Centralized system for receiving complaints
+2. **Initial Assessment**: Determine if reportable as adverse event
+3. **Investigation**: Root cause analysis, severity assessment
+4. **Trending**: Monitor for patterns across complaints
+5. **Action**: Corrective actions, recalls, field updates
+6. **Documentation**: Maintain searchable complaint database
+7. **Reporting**: Regulatory reporting (MDR, MedWatch)
+
+**Performance Monitoring**:
+- Real-time data collection from devices in field
+- Automated alerts for performance degradation
+- Comparison to baseline performance metrics
+- Early warning system for systematic failures
+- Communication plan for identified issues
+
+**Continuous Improvement**:
+- Regular review of complaint data
+- Process improvement initiatives
+- Design changes based on field feedback
+- Training improvements for common issues
+- Proactive communication with healthcare facilities
+
+## Real-World Implementation Examples
+
+### Scenario 1: FDA 510(k) Submission for Diagnostic Algorithm
+**Device**: AI-based algorithm for detecting diabetic retinopathy in fundus images
+
+**Development Process**:
+1. **Predicate Device Selection**:
+   - Identify existing FDA-cleared retinopathy screening devices
+   - Establish substantial equivalence claims
+   - Document intended use alignment
+
+2. **Algorithm Development**:
+   - Collect >5000 fundus images with expert annotations
+   - Split into training (80%), validation (10%), test (10%)
+   - Implement deep learning model (Inception v3)
+   - Achieve 95% sensitivity, 98% specificity on test set
+
+3. **Risk Management**:
+   - False negative: Patient with retinopathy not detected → harm to vision
+   - False positive: Patient without retinopathy referred → unnecessary treatment
+   - User error: Improper image quality not recognized → inaccurate results
+   - System failure: Algorithm crash → loss of functionality
+
+4. **Mitigation**:
+   - Image quality checking before analysis
+   - Confidence scores presented to clinician
+   - Recommendation for specialist review for borderline cases
+   - Redundant processing for critical calculations
+   - Clear user documentation on limitations
+
+5. **Verification & Validation**:
+   - Unit tests for image preprocessing
+   - Integration tests for model inference
+   - System tests with realistic clinical workflows
+   - Performance testing under various conditions
+   - Clinical validation with new data from different facilities
+
+6. **Submission Package**:
+   - 510(k) form with summary
+   - Device description and specifications
+   - Substantial equivalence statement
+   - Performance testing data
+   - Risk analysis summary
+   - Software development plan
+   - Cybersecurity assessment
+
+### Scenario 2: Class B Medical Device Development (Infusion Pump Software)
+
+**Development Approach**:
+1. **IEC 62304 Classification**: Class B (moderate risk, could cause serious patient harm)
+
+2. **Software Requirements Specification**:
+   - Pump setup (volume, rate, duration)
+   - Infusion monitoring and adjustment
+   - Alarms and alerts (occlusion, end of infusion, low battery)
+   - Data logging and report generation
+   - User interface and display
+
+3. **Risk-Based Testing Plan**:
+   - **Functional Testing** (100% of requirements):
+     - Pump startup sequence
+     - Infusion rate calculations
+     - Alarm triggering and acknowledgment
+     - Battery management
+
+   - **Safety Testing** (100% of high-risk features):
+     - Dose calculation accuracy (integer and decimal)
+     - Alarm response within 2 seconds
+     - Hardware failure detection
+     - Emergency stop functionality
+
+   - **Performance Testing**:
+     - Response time <500ms for user actions
+     - Alarm notification time <2 seconds
+     - Data logging accuracy and completeness
+     - 100% uptime over 30-day continuous operation
+
+4. **Design Controls**:
+   - Multidisciplinary team (engineer, nurse, biomedical expert)
+   - User input on workflow and interface design
+   - Prototype testing with clinicians
+   - Design review at key milestones
+
+5. **Documentation Set**:
+   - Software Development Plan
+   - Requirements Specification (500+ requirements)
+   - Design Specification (architecture, detailed design)
+   - Verification Plans and Test Reports
+   - Risk Management Report
+   - Design History File (complete evidence package)
+
+6. **Clinical Validation**:
+   - Bench testing for accuracy and safety
+   - Usability testing with nurses
+   - Clinical pilot with small group
+   - Field testing in real hospital environment
+   - Feedback incorporation and changes
+
+## Performance Metrics and Quality Standards
+
+### Code Quality Metrics
+- **Code Coverage**: Minimum 80% for Class B/C software
+- **Cyclomatic Complexity**: Keep per-function complexity <10
+- **Code Review**: 100% of code reviewed by peer
+- **Static Analysis**: Zero critical findings
+- **Documentation**: Code comments for complex logic
+
+### Testing Metrics
+- **Test Coverage**: 100% of requirements traced to tests
+- **Test Pass Rate**: Target >99% (investigation of failures)
+- **Defect Escape Rate**: <0.1% of found defects reach patients
+- **Test Execution Time**: Automated test suite completes <1 hour
+
+### Development Metrics
+- **Schedule Adherence**: Track to project plan
+- **Scope Creep**: Document all changes and impacts
+- **Risk Tracking**: Regular review of risk status
+- **Process Compliance**: Audit adherence to procedures
+
 ## Success Criteria
 
 You have mastered medical device software development when you can:
 
-- Design and implement a complete IEC 62304 software development process
-- Conduct ISO 14971 risk analysis with meaningful hazard identification
-- Prepare and submit a regulatory-grade 510(k) or PMA application
-- Develop comprehensive verification and validation plans with risk-based testing
-- Implement secure software development with threat modeling and controls
-- Navigate FDA feedback and deficiency letters effectively
-- Establish post-market surveillance systems
-- Mentor team members on regulatory compliance requirements
-- Make trade-off decisions between agility and compliance
-- Anticipate regulatory questions and proactively address them
+- Design and implement a complete IEC 62304 software development process appropriate for device risk level
+- Conduct thorough ISO 14971 risk analysis with meaningful hazard identification and control verification
+- Prepare and submit regulatory-grade 510(k), PMA, or De Novo applications
+- Develop comprehensive verification and validation plans with risk-based testing strategies
+- Implement secure software development with threat modeling and cybersecurity controls
+- Navigate FDA feedback, deficiency letters, and approval cycles effectively
+- Design and implement post-market surveillance systems with complaint tracking
+- Mentor team members on regulatory compliance and best practices
+- Make sound trade-off decisions between development speed and regulatory compliance
+- Anticipate and proactively address regulatory questions before submission
+- Adapt development processes for both traditional waterfall and agile methodologies
+- Validate machine learning models for clinical use with appropriate statistical rigor

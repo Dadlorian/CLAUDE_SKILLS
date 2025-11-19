@@ -352,4 +352,266 @@ static void McpsIndication(McpsIndication_t *mcpsIndication) {
 
 ---
 
+---
+
+## Protocol Comparison & Selection Criteria
+
+### MQTT vs CoAP vs LoRaWAN Detailed
+
+**MQTT (Message Queuing Telemetry Transport)**:
+- Architecture: Publish/Subscribe with broker
+- QoS Levels: 0 (at-most-once), 1 (at-least-once), 2 (exactly-once)
+- Use Case: Cloud connectivity, frequent updates, reliable networks
+- Bandwidth: ~2-3 bytes overhead per message
+- Latency: 10-100ms typical
+- Security: TLS/SSL support, username/password, client certificates
+
+**CoAP (Constrained Application Protocol)**:
+- Architecture: Request/Response with optional proxy
+- Message Types: Confirmable (CON), Non-confirmable (NON)
+- Use Case: IoT devices, resource-constrained environments
+- Bandwidth: <20 bytes overhead
+- Latency: <100ms with retries
+- Security: DTLS (UDP-based TLS)
+
+**LoRaWAN**:
+- Architecture: Gateway-based, server-managed
+- Classes: A (battery), B (scheduled), C (always-on)
+- Use Case: Long-range sensors, meters, asset tracking
+- Bandwidth: 50-5600 bps depending on SF
+- Range: 2-15km line-of-sight
+- Security: AES-128 at application and network layers
+
+---
+
+## Advanced Implementation Patterns
+
+### MQTT Topic Hierarchies
+```c
+/* Recommended topic structure */
+#define TELEMETRY_TOPIC      "devices/%s/telemetry"
+#define COMMAND_TOPIC        "devices/%s/commands"
+#define STATUS_TOPIC         "devices/%s/status"
+#define FIRMWARE_TOPIC       "devices/%s/firmware"
+
+/* Structured device identification */
+typedef struct {
+    char device_id[32];
+    char organization[32];
+    char site[32];
+    char asset_type[32];
+} device_identifier_t;
+
+void build_topic(char *buffer, size_t len,
+                 const char *topic_fmt,
+                 const device_identifier_t *dev) {
+    snprintf(buffer, len, topic_fmt, dev->device_id);
+}
+```
+
+### CoAP Observe Pattern (Server Push)
+```c
+/* CoAP Observe request header */
+#define COAP_OBSERVE_DEREGISTER   1
+#define COAP_OBSERVE_REGISTER     0
+
+status_t coap_observe_sensor(coap_session_t *session,
+                              const char *resource_path) {
+    coap_pdu_t *pdu = coap_new_pdu(COAP_MESSAGE_CON,
+                                    COAP_REQUEST_GET, session);
+
+    /* Add Observe option to register for updates */
+    coap_add_option(pdu, COAP_OPTION_OBSERVE,
+                    1, (const uint8_t *)&COAP_OBSERVE_REGISTER);
+
+    coap_add_option(pdu, COAP_OPTION_URI_PATH,
+                    strlen(resource_path),
+                    (const uint8_t *)resource_path);
+
+    return coap_send(session, pdu) != COAP_INVALID_MID ?
+           STATUS_OK : STATUS_ERROR;
+}
+```
+
+### Connection Management & Retries
+```c
+typedef struct {
+    uint32_t retry_count;
+    uint32_t backoff_ms;
+    uint32_t max_backoff_ms;
+    uint32_t max_retries;
+} retry_config_t;
+
+status_t connect_with_exponential_backoff(mqtt_client_t *client,
+                                          const retry_config_t *config) {
+    uint32_t backoff = config->backoff_ms;
+
+    for (uint32_t attempt = 0; attempt < config->max_retries; attempt++) {
+        if (mqtt_connect(client) == STATUS_OK) {
+            return STATUS_OK;
+        }
+
+        /* Exponential backoff with jitter */
+        uint32_t jitter = rand() % (backoff / 2);
+        uint32_t wait_ms = backoff + jitter;
+
+        sleep_ms(wait_ms);
+
+        /* Increase backoff for next attempt */
+        backoff = (backoff * 2 > config->max_backoff_ms) ?
+                  config->max_backoff_ms : backoff * 2;
+    }
+
+    return STATUS_ERROR;
+}
+```
+
+---
+
+## Protocol Security Deep Dive
+
+### MQTT over TLS/SSL
+```c
+/* TLS certificate handling in embedded systems */
+typedef struct {
+    const char *ca_cert;      /* Root CA certificate */
+    const char *client_cert;  /* Device certificate */
+    const char *client_key;   /* Device private key */
+    int key_len;              /* Key length in bytes */
+    int cert_len;             /* Certificate length */
+} mqtt_tls_config_t;
+
+/* Minimal certificate embedded */
+const char mqtt_ca_cert[] = "-----BEGIN CERTIFICATE-----\n"
+    "MIICljCCAX4CCQDp2..." /* Truncated for brevity */
+    "-----END CERTIFICATE-----\n";
+
+status_t mqtt_setup_tls(mqtt_client_t *client,
+                        const mqtt_tls_config_t *tls_cfg) {
+    /* Set CA certificate for server verification */
+    if (mqtt_set_ca_cert(client, tls_cfg->ca_cert) != STATUS_OK) {
+        return STATUS_ERROR;
+    }
+
+    /* Set client certificate and key */
+    if (mqtt_set_client_cert(client, tls_cfg->client_cert,
+                             tls_cfg->cert_len) != STATUS_OK) {
+        return STATUS_ERROR;
+    }
+
+    if (mqtt_set_client_key(client, tls_cfg->client_key,
+                            tls_cfg->key_len) != STATUS_OK) {
+        return STATUS_ERROR;
+    }
+
+    return STATUS_OK;
+}
+```
+
+### LoRaWAN Security Details
+```c
+/* LoRaWAN uses two keys: NwkSKey and AppSKey */
+typedef struct {
+    uint8_t nwk_skey[16];  /* Network session key */
+    uint8_t app_skey[16];  /* Application session key */
+    uint32_t fcnt_up;      /* Uplink frame counter */
+    uint32_t fcnt_down;    /* Downlink frame counter */
+} lorawan_session_keys_t;
+
+/* OTAA: Over-The-Air Activation flow */
+void lorawan_perform_otaa(const uint8_t *app_key,
+                          const uint8_t *app_eui,
+                          const uint8_t *dev_eui) {
+    /* Step 1: Send Join Request (unencrypted) */
+    lorawan_send_join_request(dev_eui, app_eui);
+
+    /* Step 2: Receive Join Accept (encrypted with AppKey) */
+    /* Step 3: Derive session keys from AppKey + Accept */
+    lorawan_derive_session_keys(app_key);
+
+    /* Step 4: Use session keys for encrypted uplink/downlink */
+}
+```
+
+---
+
+## Troubleshooting Protocol Issues
+
+### Connection Problems
+```c
+/* Diagnostic checks */
+void diagnose_mqtt_connectivity(mqtt_client_t *client) {
+    /* Check network connectivity */
+    if (!network_is_online()) {
+        printf("Network offline\n");
+        return;
+    }
+
+    /* Check broker DNS resolution */
+    uint32_t broker_ip = dns_resolve(MQTT_BROKER);
+    if (broker_ip == 0) {
+        printf("DNS resolution failed\n");
+        return;
+    }
+
+    /* Check TLS/SSL handshake */
+    if (mqtt_test_tls_handshake(client) != STATUS_OK) {
+        printf("TLS handshake failed - check certificates\n");
+        return;
+    }
+
+    /* Check MQTT protocol negotiation */
+    if (mqtt_test_connect(client) != STATUS_OK) {
+        printf("MQTT CONNECT failed - check credentials\n");
+        return;
+    }
+
+    printf("All connectivity checks passed\n");
+}
+```
+
+### Message Loss & QoS Issues
+```c
+typedef struct {
+    uint16_t message_id;
+    uint32_t timestamp_ms;
+    enum { PENDING, ACKED, FAILED } status;
+} message_tracking_t;
+
+#define MAX_PENDING_MESSAGES 10
+static message_tracking_t pending_messages[MAX_PENDING_MESSAGES];
+
+/* Track messages for retry handling */
+void track_published_message(uint16_t msg_id) {
+    for (int i = 0; i < MAX_PENDING_MESSAGES; i++) {
+        if (pending_messages[i].status == FAILED) {
+            pending_messages[i].message_id = msg_id;
+            pending_messages[i].timestamp_ms = get_time_ms();
+            pending_messages[i].status = PENDING;
+            return;
+        }
+    }
+}
+
+/* Periodically check for unacknowledged messages */
+void check_message_timeouts(void) {
+    uint32_t now_ms = get_time_ms();
+
+    for (int i = 0; i < MAX_PENDING_MESSAGES; i++) {
+        if (pending_messages[i].status == PENDING) {
+            uint32_t elapsed = now_ms - pending_messages[i].timestamp_ms;
+
+            if (elapsed > PUBLISH_TIMEOUT_MS) {
+                printf("Message %d timed out - retransmitting\n",
+                       pending_messages[i].message_id);
+                pending_messages[i].status = FAILED;
+                /* Trigger retry mechanism */
+            }
+        }
+    }
+}
+```
+
+---
+
 **Implement production-ready IoT protocol stacks with appropriate QoS, reliability, and power optimization.**

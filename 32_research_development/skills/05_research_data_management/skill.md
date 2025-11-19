@@ -276,8 +276,331 @@ project_name/
 - DataCite Metadata Schema: schema.datacite.org
 - Research Data Alliance: rd-alliance.org
 
+## Advanced Topics in Data Management
+
+### Reproducible Research: Complete Workflow
+
+**Scenario**: Clinical genomics study analyzing biomarkers for cancer prognosis
+
+**Step 1: Planning (DMP)**
+```
+Project: Genomic Biomarkers in Ovarian Cancer
+Data types:
+- RNA-seq data: ~10 GB per sample, 50 samples = 500 GB
+- Clinical metadata: ~1 MB (patient age, stage, treatment, outcome)
+- Processed results: ~50 GB (normalized counts, differential expression)
+
+Preservation:
+- Repository: GEO (Gene Expression Omnibus) + Zenodo
+- Format: BAM files (aligned reads), CSV (metadata)
+- Retention: Indefinite (raw sequencing data per NIH policy)
+- Budget: $5k for Zenodo storage, $2k curation effort
+
+Sharing:
+- Timeline: Data + code released upon publication (or 1 year, whichever first)
+- Access: Open (publicly available)
+- License: CC0 (public domain)
+```
+
+**Step 2: Collection & Documentation**
+```
+Raw data structure:
+project_ovarian_genomics/
+├── data/
+│   ├── raw/
+│   │   ├── Sample_001_R1.fastq.gz
+│   │   ├── Sample_001_R2.fastq.gz
+│   │   └── ... (100 fastq files, 500 GB total)
+│   └── metadata/
+│       └── sample_metadata.csv  # Patient ID, age, stage, outcome
+├── docs/
+│   ├── README.md
+│   ├── data_dictionary.md
+│   ├── sequencing_methods.md
+│   └── data_collection_protocol.md
+└── code/
+    └── analysis/
+        ├── 01_qc.R
+        ├── 02_alignment.sh
+        └── 03_differential_expression.R
+```
+
+**Sample metadata CSV**:
+```
+sample_id,patient_id,age,stage,treatment,survival_months,status
+Sample_001,PT001,55,IIIB,Chemotherapy,48,Alive
+Sample_002,PT002,62,IV,Chemotherapy + Immunotherapy,12,Dead
+Sample_003,PT003,58,IIIA,Surgery only,36,Alive
+```
+
+**Step 3: Processing & Analysis**
+```r
+# R workflow with documentation
+# Title: Differential Expression Analysis
+# Author: Dr. Jane Smith
+# Date: 2024-11-19
+# Description: Compare gene expression between responders vs non-responders
+
+library(DESeq2)
+library(tidyverse)
+
+# Load data
+counts <- read.csv('data/processed/expression_matrix.csv', row.names = 1)
+metadata <- read.csv('data/metadata/sample_metadata.csv', row.names = 1)
+
+# Create DESeq2 object
+dds <- DESeqDataSetFromMatrix(countData = counts,
+                               colData = metadata,
+                               design = ~ treatment)
+
+# Run analysis
+dds <- DESeq(dds)
+results <- results(dds, contrast = c('treatment', 'Immunotherapy', 'Chemotherapy'))
+
+# Save results
+write.csv(results, 'results/differential_expression.csv')
+save(dds, file = 'results/dds_object.RData')
+
+# Session info for reproducibility
+sessionInfo()  # Captures R version + all packages used
+```
+
+**Step 4: Version Control with Git**
+```bash
+# Initialize repository
+git init
+git add .
+git commit -m "Initial commit: raw data, metadata, analysis code"
+
+# Document major milestones
+git tag -a v1.0 -m "First quality control complete"
+git tag -a v2.0 -m "Differential expression analysis done"
+
+# Push to GitHub
+git remote add origin https://github.com/mylab/ovarian_genomics
+git push -u origin main
+```
+
+**Step 5: Archiving & Publication**
+```
+Zenodo deposit:
+- Upload: All code + processed data (500 MB) + metadata
+- Metadata:
+  * Title: "Genomic biomarkers for ovarian cancer prognosis: Raw and processed data"
+  * Authors: Smith J, Johnson M, et al. (with ORCID)
+  * Description: RNA-seq from 50 ovarian cancer patients...
+  * License: CC0
+  * Related: Link to GitHub repo, link to paper
+- DOI: 10.5281/zenodo.12345678 (assigned automatically)
+
+Data availability statement in paper:
+"Sequence data and processed gene expression matrices are available at GEO (accession GSE123456) and Zenodo (doi: 10.5281/zenodo.12345678). Analysis code is available at GitHub (github.com/mylab/ovarian_genomics). Raw sequencing data is available upon request (contact: jane@institution.edu) due to patient privacy restrictions."
+```
+
+## Data Security & Compliance
+
+### HIPAA De-identification (US Healthcare)
+
+**Safe Harbor Method** (remove these 18 identifiers):
+1. Names
+2. Geographic locations (smaller than state)
+3. Dates (except year; patient age OK)
+4. Phone/fax numbers
+5. Email addresses
+6. Social Security numbers
+7. Medical record numbers
+8. Health plan beneficiary numbers
+9. Account numbers
+10. Certificate/license numbers
+11. Vehicle IDs
+12. Device identifiers
+13. Web URLs
+14. IP addresses
+15. Biometric identifiers
+16. Photographs
+17. Any other unique identifier
+18. Related information (employment records, etc.)
+
+**Example - Before De-identification**:
+```
+Name: John Smith
+DOB: January 15, 1960 (age 64)
+Address: 123 Main St, Boston, MA 02101
+Phone: (617) 555-1234
+MRN: 012345678
+Hospital: Massachusetts General Hospital
+Diagnosis: Type 2 diabetes
+```
+
+**After De-identification**:
+```
+Participant ID: STUDY_001
+Age: 64
+Location: Northeast US (by region, not city)
+Diagnosis: Type 2 diabetes
+Note: Dates removed except year; all direct identifiers removed
+```
+
+### GDPR Compliance (EU)
+
+**Key requirements**:
+- Data minimization: Collect only necessary data
+- Purpose limitation: Use data only for stated purpose
+- Consent: Explicit, informed consent (not pre-checked boxes)
+- Right to be forgotten: Allow data deletion request
+- Data Protection Impact Assessment (DPIA)
+- Data Privacy Officer (DPO) if processing sensitive data
+
+**Implementation**:
+- Consent form: "I consent to my data being used for cancer research and de-identified data being shared publicly"
+- Data retention: "Data will be stored for X years, then securely deleted unless participant consents to longer retention"
+- Withdrawal: "You can withdraw from the study at any time; your data will be deleted within 30 days"
+
+## Data Quality Assessment
+
+### Great Expectations Framework (Python)
+
+**Purpose**: Automated data validation + documentation
+
+```python
+import pandas as pd
+import great_expectations as ge
+
+# Load data
+df = pd.read_csv('data/raw/patient_data.csv')
+ge_df = ge.from_pandas(df)
+
+# Define expectations
+ge_df.expect_column_to_exist('patient_id')
+ge_df.expect_column_values_to_be_in_set('age', value_set=range(0, 120))
+ge_df.expect_column_values_to_be_between('height_cm', min_value=100, max_value=230)
+ge_df.expect_column_values_to_not_be_null('patient_id')
+ge_df.expect_column_values_to_match_regex('email', regex=r'[\w\.-]+@[\w\.-]+\.\w+')
+
+# Run validation
+results = ge_df.validate()
+
+# Generate report
+ge_df.save_expectation_suite('expectations/patient_data.json')
+results.save_as_json_file('validation_reports/patient_data_report.json')
+```
+
+**Output**: Validation report showing which checks passed/failed + recommendations for fixing
+
+## Large-Scale Data Management
+
+### Datalad: Distributed Data Management
+
+**Problem**: 500 GB genomics dataset + 10 GB software + 1 GB analysis results
+- Can't fit on laptop
+- Need version control for data (like Git for code)
+- Multiple sites collaborating
+
+**Solution**: Datalad
+
+```bash
+# Initialize a Datalad dataset
+datalad create my_genomics_project
+cd my_genomics_project
+
+# Add large data files (stored on external server, not in repo)
+datalad save --path data/raw/sequences.tar.gz \
+  -d "Raw sequencing data from site A"
+
+# Track which files have been accessed/modified
+datalad status
+
+# Synchronize with colleague's copy (with conflict resolution)
+datalad update --how=merge
+
+# Publish results
+datalad push --to backup_server
+```
+
+### High-Performance Computing (HPC) Data Management
+
+**Challenge**: Analysis on 1,000-core supercomputer with 100 GB/s I/O
+
+**Best practices**:
+- Store small metadata files (experiments, parameters) on fast storage
+- Store large raw data on high-capacity storage (slower access)
+- Use parallel I/O: MPI-IO, HDF5 with collective I/O
+- Temporary scratch space: Delete after job completes
+- Archive important results: Daily backup to archive storage
+
+## Metadata Standards Deep Dive
+
+### ISA Framework (Investigation-Study-Assay)
+
+**For systems biology / omics research**
+
+**Structure**:
+```
+Investigation: "Ovarian Cancer Genomics"
+├── Study 1: "RNA-seq analysis of primary tumors"
+│   ├── Assay 1: "mRNA sequencing"
+│   │   ├── Sample: Tumor_001
+│   │   ├── Material: RNA (extracted from tissue)
+│   │   ├── Technology: Illumina NovaSeq
+│   │   └── Result: Expression counts
+│   └── Assay 2: "Protein sequencing"
+│       ├── Sample: Tumor_001
+│       ├── Material: Protein (extracted from tissue)
+│       ├── Technology: Tandem MS
+│       └── Result: Protein ID + abundance
+└── Study 2: "Patient clinical outcomes"
+    ├── Sample: Patient metadata
+    ├── Parameters: Age, stage, treatment
+    └── Results: Survival, response
+```
+
+### DataCite Metadata (for DOI/Archiving)
+
+**Minimum required fields**:
+1. **Identifier** (DOI): 10.5281/zenodo.12345
+2. **Creators** (with ORCID): Smith, J. (0000-0001-2345-6789)
+3. **Title**: "Genomic biomarkers for ovarian cancer prognosis: RNA-seq data and metadata"
+4. **Publisher**: Zenodo
+5. **PublicationYear**: 2024
+6. **ResourceType**: Dataset
+7. **Description**: "RNA-seq data from 50 ovarian cancer patients used to identify biomarkers..."
+8. **Subjects** (keywords): genomics, cancer, biomarkers, oncology
+9. **License**: CC0 1.0 Universal
+10. **Related Identifiers**:
+    - Paper DOI: 10.1234/journal.2024.12345
+    - Code repo: https://github.com/mylab/ovarian_genomics
+
+## Common Data Management Mistakes
+
+### Mistake 1: Proprietary Formats
+**Problem**: Excel file with macros → Can't open in 10 years (Excel proprietary)
+**Solution**: Export to CSV, document all formulas in README
+
+### Mistake 2: Inconsistent Naming
+**Problem**: `data1.csv`, `data_final.csv`, `data_final_FINAL.csv`, `data_actual_final.csv`
+**Solution**: Versioned naming: `2024-11-19_patient_data_v02.csv`
+
+### Mistake 3: No Data Dictionary
+**Problem**: Column named `var_x_1` - what does it mean?
+**Solution**: Create data dictionary:
+```
+Variable | Description | Units | Range | Missing Codes
+var_x_1 | Patient age at enrollment | years | 18-100 | 999 for unknown
+var_x_2 | BMI | kg/m^2 | 15-60 | -999 for not measured
+```
+
+### Mistake 4: Lost Context
+**Problem**: Dataset with no methods → Impossible to interpret
+**Solution**: README.md with:
+- Who collected the data
+- When + where
+- How (protocol reference)
+- Why (study objective)
+- Any known limitations
+
 ---
 
-**Version**: 1.0
-**Expertise Level**: Intermediate
-**Estimated Learning Time**: 40-80 hours
+**Version**: 2.0 (Expanded)
+**Expertise Level**: Intermediate to Advanced
+**Estimated Learning Time**: 60-120 hours
+**Total Content**: 450+ lines of comprehensive material

@@ -303,12 +303,152 @@ Expert-level knowledge in medical imaging systems, DICOM protocol, PACS/VNA arch
 - **Interoperability**: FHIR imaging resources, unified archives
 - **Patient Portals**: Patient access to imaging studies
 
+## Advanced Implementation Patterns
+
+### Multi-Vendor PACS Integration
+**Challenge**: Different imaging modalities (GE, Siemens, Philips) with variations in DICOM implementation
+
+**Solution**:
+- **Conformance Analysis**: Review each vendor's DICOM conformance statement
+- **Mapping Layers**: Create adapters for vendor-specific variations
+- **Quality Monitoring**: Automated checking for DICOM compliance
+- **Fallback Mechanisms**: Handle non-standard implementations gracefully
+- **Testing Protocols**: Validate with real-world images from each vendor
+
+### Cloud-Based PACS Architecture
+```
+On-Premise Modalities (CT, MRI, X-Ray)
+         ↓
+DICOM Gateway (STOW-RS to cloud)
+         ↓
+AWS S3 / Azure Blob (long-term storage)
+         ↓
+Database (Metadata, search indexes)
+         ↓
+Web Viewer (WADO-RS for retrieval)
+         ↓
+Radiologist Workstations (global access)
+         ↓
+AI Engine (async processing)
+```
+
+**Advantages**:
+- Scales to petabyte storage capacity
+- Geographic redundancy and disaster recovery
+- Reduced on-premise infrastructure
+- Pay-as-you-go model
+- DICOMweb APIs for interoperability
+
+**Challenges**:
+- Bandwidth requirements for high-volume centers
+- Latency optimization for interactive viewing
+- Compliance with regional data residency laws
+- Hybrid approach often needed
+
+### AI Deployment in Radiology Workflow
+1. **Study Arrival** → Trigger async AI processing
+2. **Feature Extraction** → Convert DICOM to ML-ready format
+3. **Inference** → Run trained model (seconds to minutes)
+4. **Result Formatting** → Create DICOM SR or overlay
+5. **Worklist Integration** → Prioritize studies with findings
+6. **Radiologist Review** → AI results as decision support
+7. **Outcome Tracking** → Monitor model performance over time
+8. **Continuous Learning** → Feedback loop for improvement
+
+### Performance Optimization Techniques
+- **Prefetching**: Predict which studies radiologist will need and load ahead
+- **Image Compression**: JPEG 2000 with lossless option
+- **Progressive Loading**: Display low-res first, high-res as bandwidth allows
+- **Client-Side Caching**: Cache frequently accessed studies
+- **Database Indexing**: Fast queries on patient/accession/date
+- **Read Replicas**: Distribute database load across regions
+
+## Real-World Use Cases
+
+### Scenario 1: Nighthawk-Style Teleradiology Service
+**Challenge**: Provide 24/7 radiology coverage across time zones
+
+**Architecture**:
+1. **Study Distribution**:
+   - Auto-route studies to next available radiologist
+   - Load balance across geographic regions
+   - Priority queuing (STAT vs. routine)
+
+2. **Quality Assurance**:
+   - Secondary review by second radiologist (5% sampling)
+   - Comparing with home institution reads
+   - Tracking discrepancy rates
+
+3. **Communication**:
+   - Critical findings notification within 5 minutes
+   - Report delivery to EHR within 1 hour
+   - Direct communication with ordering physician
+
+4. **Technology**:
+   - DICOMweb API for image transfer
+   - Web viewer with 0-footprint access
+   - Mobile app for remote review
+   - Video conferencing for consults
+
+**Financial Model**:
+- Per-study fee or per-radiologist-hour model
+- Markup on studies compared to traditional RIS
+- 24/7 staffing from low-cost regions
+- High throughput required for profitability
+
+### Scenario 2: AI-Integrated PACS for Chest X-Ray Screening
+**Challenge**: Improve detection of pneumothorax, consolidation, and other findings
+
+**Implementation**:
+1. **Model Development**:
+   - Train on 100K+ chest X-rays
+   - Validate against radiologist consensus
+   - Test across demographics and equipment
+
+2. **Integration**:
+   - Automatic processing when chest X-ray arrives
+   - Results stored as DICOM SR
+   - Worklist prioritization based on AI findings
+
+3. **Workflow**:
+   - AI highlights potential findings
+   - Radiologist confirms/refutes
+   - Report incorporates AI insights
+   - Feedback captured for model improvement
+
+4. **Outcomes**:
+   - Reduced interpretation time (10-15%)
+   - Improved detection of subtle findings
+   - Decreased missed diagnoses
+   - Enhanced radiologist efficiency
+
+## Industry Standards and Compliance
+
+### DICOM Standard Conformance
+- **Strict Implementation**: Follow standard meticulously
+- **Graceful Degradation**: Handle non-standard data reasonably
+- **Character Set Handling**: Support international character sets
+- **UID Generation**: Follow DICOM UID rules
+- **Transfer Syntax Support**: At least JPEG, JPEG-LS, RLE compression
+
+### ACR/NEMA Standards
+- **Quality Assurance**: Regular monitor calibration
+- **Dose Monitoring**: Track radiation dose exposure
+- **Equipment Maintenance**: Regular service and testing
+- **Competency**: Ensure staff training on systems
+
+### Regulatory Bodies
+- **FDA**: Classification of imaging software tools
+- **CE**: European medical device compliance
+- **HIPAA**: Privacy and security of imaging data
+- **State Laws**: Additional requirements for licensure
+
 ## Success Criteria
 
 You have mastered medical imaging when you can:
 - Implement a production-grade DICOM server from scratch
 - Debug and fix DICOM conformance issues between systems
-- Design and deploy a scalable PACS architecture
+- Design and deploy a scalable PACS architecture (cloud or on-premise)
 - Develop and validate AI models for radiology use cases
 - Implement IHE profiles for enterprise image sharing
 - Optimize medical image processing pipelines for performance
@@ -316,3 +456,5 @@ You have mastered medical imaging when you can:
 - Build end-to-end teleradiology solutions
 - Architect vendor-neutral archive systems
 - Integrate medical imaging with broader healthcare IT ecosystem
+- Optimize cloud PACS deployments for cost and performance
+- Manage complex multi-vendor DICOM integrations

@@ -362,9 +362,178 @@ Timeline generation:
 - **Message Queue**: Process tweet creation asynchronously
 - **Elasticsearch**: For tweet search functionality
 
+## Latency & Throughput Analysis
+
+### Back-of-the-Envelope Calculations
+
+**Typical Latencies**:
+```
+Memory access:         100 ns
+SSD read:              1-10 ms
+Hard disk read:        10 ms
+Network roundtrip:     50-100 ms
+Cross-DC latency:      100-300 ms
+```
+
+**Throughput Estimates**:
+```
+Single server:         1,000-10,000 RPS
+Load balancer:         10,000-100,000 RPS
+Database:              1,000-10,000 RPS per instance
+Cache (Redis):         100,000+ RPS
+CDN:                   Millions of RPS
+```
+
+### Performance Analysis
+
+**99th Percentile vs Average**:
+```
+Important to track p99 latency, not just average:
+- Average: 100ms
+- p99:     500ms (users experience the 500ms)
+
+Rule: 95% of requests should complete in X time
+```
+
+## System Design Interview Tips
+
+### Time Management
+
+**Typical 45-60 minute interview**:
+1. **Requirements Clarification**: 5-10 minutes
+2. **Capacity Estimation**: 5-10 minutes
+3. **High-Level Design**: 10-15 minutes
+4. **Deep Dive**: 15-20 minutes
+5. **Bottlenecks & Trade-offs**: 5-10 minutes
+
+### Communication Tips
+
+1. **Ask Clarifying Questions**: Don't assume
+2. **Think Out Loud**: Show your thought process
+3. **Draw Diagrams**: Visual communication is key
+4. **Discuss Trade-offs**: Every choice has pros/cons
+5. **Justify Choices**: Why this over that?
+6. **Mention Alternatives**: Show breadth of knowledge
+7. **Identify Bottlenecks**: Single points of failure
+8. **Scale Incrementally**: Handle growth thoughtfully
+
+### Common Mistakes to Avoid
+
+1. **Over-Engineering**: Don't build Netflix from day 1
+2. **Ignoring Requirements**: Read the problem carefully
+3. **No Monitoring**: How do you know when it breaks?
+4. **Assuming Unlimited Resources**: Budget constraints matter
+5. **Ignoring Failure Scenarios**: Plan for failures
+6. **No Caching Strategy**: Caching is crucial
+7. **Poor Database Choice**: SQL vs NoSQL matters
+8. **Monolith for Everything**: Know when to use microservices
+
+## Key Design Principles
+
+### SOLID Principles for Systems
+
+**Single Responsibility**: Each service does one thing
+**Open/Closed**: Open for extension, closed for modification
+**Liskov Substitution**: Implementations are substitutable
+**Interface Segregation**: Clients depend on specific interfaces
+**Dependency Inversion**: Depend on abstractions
+
+### 12 Factor App
+
+1. Codebase: Single codebase tracked in version control
+2. Dependencies: Explicit dependencies in manifest
+3. Config: Store in environment variables
+4. Backing Services: Treat databases as attached resources
+5. Build/Run: Strict separation of build and run stages
+6. Processes: Stateless and share-nothing
+7. Port Binding: Export HTTP as service
+8. Concurrency: Scale via processes
+9. Disposability: Fast startup and graceful shutdown
+10. Dev/Prod Parity: Same tools, same code
+11. Logs: Write logs to stdout
+12. Admin Tasks: One-off tasks in processes
+
+## Real-World Design Patterns
+
+### Timeline Feed (Like Twitter/Instagram)
+
+**Challenge**: Generate personalized feeds at scale
+
+**Solutions**:
+1. **Fanout on Write**: Generate feed when user posts
+   - Pros: Fast reads
+   - Cons: Slow writes for popular users
+
+2. **Fanout on Read**: Generate feed when user requests
+   - Pros: Simple, handles follows/unfollows
+   - Cons: Slow reads, cache required
+
+3. **Hybrid**: Push to followers, pull for celebrities
+   - Pros: Best of both worlds
+   - Cons: More complex
+
+### Search (Like Google)
+
+**Components**:
+```
+┌─────────────┐
+│   Crawlers  │  - Discover pages
+└────┬────────┘
+     │
+     ▼
+┌─────────────┐
+│  Indexer    │  - Build inverted index
+└────┬────────┘
+     │
+     ▼
+┌─────────────┐
+│  Ranker     │  - Rank by relevance
+└────┬────────┘
+     │
+     ▼
+┌─────────────┐
+│   Cache     │  - Cache popular queries
+└─────────────┘
+```
+
+### Real-Time Chat
+
+**Requirements**:
+- Low latency (< 100ms)
+- Ordered messages
+- Delivery guarantees
+- Presence awareness
+
+**Implementation**:
+```
+WebSocket connections → Load Balancer → Chat Servers
+                                        ├─ Message Queue
+                                        ├─ Database
+                                        └─ Presence Service
+```
+
+## Monitoring & Observability in Design
+
+### Key Metrics to Track
+
+**SLOs (Service Level Objectives)**:
+- **Availability**: 99.99% (5 minutes downtime/year)
+- **Latency**: p50, p99, p99.9
+- **Throughput**: Requests per second
+- **Error Rate**: Percentage of failed requests
+
+### Four Golden Signals (Google)
+
+1. **Latency**: How long to process request
+2. **Traffic**: How many requests per second
+3. **Errors**: How many requests failed
+4. **Saturation**: How full is the service (CPU, memory, disk)
+
 ## References
 
 - **"Designing Data-Intensive Applications"** by Martin Kleppmann
 - **System Design Primer**: https://github.com/donnemartin/system-design-primer
 - **Grokking the System Design Interview**: educative.io
 - **FAANG Engineering Blogs**: Netflix, Uber, Airbnb, Meta
+- **Google SRE Book**: https://sre.google/books/
+- **Release It!** by Michael Nygard
