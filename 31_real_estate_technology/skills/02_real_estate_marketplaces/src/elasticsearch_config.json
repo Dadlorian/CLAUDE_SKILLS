@@ -1,0 +1,219 @@
+{
+  "settings": {
+    "number_of_shards": 3,
+    "number_of_replicas": 1,
+    "analysis": {
+      "analyzer": {
+        "address_analyzer": {
+          "tokenizer": "standard",
+          "filter": ["lowercase", "asciifolding"]
+        },
+        "autocomplete": {
+          "tokenizer": "autocomplete_tokenizer",
+          "filter": ["lowercase"]
+        }
+      },
+      "tokenizer": {
+        "autocomplete_tokenizer": {
+          "type": "edge_ngram",
+          "min_gram": 2,
+          "max_gram": 10,
+          "token_chars": ["letter", "digit"]
+        }
+      }
+    },
+    "max_result_window": 10000
+  },
+  "mappings": {
+    "properties": {
+      "property_id": {
+        "type": "keyword"
+      },
+      "mls_number": {
+        "type": "keyword"
+      },
+      "status": {
+        "type": "keyword"
+      },
+      "address": {
+        "type": "text",
+        "analyzer": "address_analyzer",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          },
+          "autocomplete": {
+            "type": "text",
+            "analyzer": "autocomplete",
+            "search_analyzer": "standard"
+          }
+        }
+      },
+      "city": {
+        "type": "keyword",
+        "fields": {
+          "text": {
+            "type": "text"
+          }
+        }
+      },
+      "state": {
+        "type": "keyword"
+      },
+      "zip": {
+        "type": "keyword"
+      },
+      "county": {
+        "type": "keyword"
+      },
+      "neighborhood": {
+        "type": "keyword",
+        "fields": {
+          "text": {
+            "type": "text"
+          }
+        }
+      },
+      "location": {
+        "type": "geo_point"
+      },
+      "price": {
+        "type": "integer"
+      },
+      "original_price": {
+        "type": "integer"
+      },
+      "price_per_sqft": {
+        "type": "integer"
+      },
+      "bedrooms": {
+        "type": "integer"
+      },
+      "bathrooms": {
+        "type": "float"
+      },
+      "sqft": {
+        "type": "integer"
+      },
+      "lot_size": {
+        "type": "integer"
+      },
+      "year_built": {
+        "type": "integer"
+      },
+      "property_type": {
+        "type": "keyword"
+      },
+      "property_subtype": {
+        "type": "keyword"
+      },
+      "description": {
+        "type": "text",
+        "analyzer": "english"
+      },
+      "features": {
+        "type": "keyword"
+      },
+      "has_pool": {
+        "type": "boolean"
+      },
+      "has_ac": {
+        "type": "boolean"
+      },
+      "has_fireplace": {
+        "type": "boolean"
+      },
+      "garage_spaces": {
+        "type": "integer"
+      },
+      "stories": {
+        "type": "integer"
+      },
+      "photos": {
+        "type": "nested",
+        "properties": {
+          "url": {
+            "type": "keyword"
+          },
+          "order": {
+            "type": "integer"
+          },
+          "caption": {
+            "type": "text"
+          }
+        }
+      },
+      "photo_count": {
+        "type": "integer"
+      },
+      "main_photo": {
+        "type": "keyword"
+      },
+      "agent": {
+        "properties": {
+          "id": {
+            "type": "keyword"
+          },
+          "name": {
+            "type": "text"
+          },
+          "phone": {
+            "type": "keyword"
+          },
+          "email": {
+            "type": "keyword"
+          }
+        }
+      },
+      "office": {
+        "properties": {
+          "id": {
+            "type": "keyword"
+          },
+          "name": {
+            "type": "text"
+          }
+        }
+      },
+      "listing_date": {
+        "type": "date"
+      },
+      "updated_at": {
+        "type": "date"
+      },
+      "days_on_market": {
+        "type": "integer"
+      },
+      "schools": {
+        "type": "nested",
+        "properties": {
+          "name": {
+            "type": "text"
+          },
+          "level": {
+            "type": "keyword"
+          },
+          "rating": {
+            "type": "integer"
+          },
+          "distance": {
+            "type": "float"
+          }
+        }
+      },
+      "walk_score": {
+        "type": "integer"
+      },
+      "transit_score": {
+        "type": "integer"
+      },
+      "source": {
+        "type": "keyword"
+      },
+      "imported_at": {
+        "type": "date"
+      }
+    }
+  }
+}
