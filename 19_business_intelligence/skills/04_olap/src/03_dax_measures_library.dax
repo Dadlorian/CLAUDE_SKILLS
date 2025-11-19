@@ -1,0 +1,360 @@
+// =========================================
+// DAX Measures Library
+// Production-ready measure examples
+// =========================================
+
+// Base Measures
+// =========================================
+
+Sales Amount = SUM(Sales[Amount])
+
+Sales Quantity = SUM(Sales[Quantity])
+
+Total Cost = SUM(Sales[Cost])
+
+Profit = [Sales Amount] - [Total Cost]
+
+Profit Margin % =
+DIVIDE([Profit], [Sales Amount], 0)
+
+Customer Count = DISTINCTCOUNT(Sales[CustomerID])
+
+Transaction Count = COUNTROWS(Sales)
+
+Average Order Value =
+DIVIDE([Sales Amount], [Transaction Count], 0)
+
+// Time Intelligence - YTD/QTD/MTD
+// =========================================
+
+Sales YTD =
+TOTALYTD(
+    [Sales Amount],
+    'Date'[Date]
+)
+
+Sales Fiscal YTD =
+TOTALYTD(
+    [Sales Amount],
+    'Date'[Date],
+    "6/30"  -- Fiscal year ends June 30
+)
+
+Sales QTD = TOTALQTD([Sales Amount], 'Date'[Date])
+
+Sales MTD = TOTALMTD([Sales Amount], 'Date'[Date])
+
+// Prior Period Comparisons
+// =========================================
+
+Sales LY =
+CALCULATE(
+    [Sales Amount],
+    SAMEPERIODLASTYEAR('Date'[Date])
+)
+
+Sales LM =
+CALCULATE(
+    [Sales Amount],
+    PREVIOUSMONTH('Date'[Date])
+)
+
+Sales LQ =
+CALCULATE(
+    [Sales Amount],
+    PREVIOUSQUARTER('Date'[Date])
+)
+
+YoY Growth % =
+VAR CurrentPeriod = [Sales Amount]
+VAR PriorPeriod = [Sales LY]
+RETURN
+    DIVIDE(CurrentPeriod - PriorPeriod, PriorPeriod, 0)
+
+YoY Growth Abs = [Sales Amount] - [Sales LY]
+
+MoM Growth % =
+DIVIDE([Sales Amount] - [Sales LM], [Sales LM], 0)
+
+// YTD Comparisons
+// =========================================
+
+Sales YTD LY =
+CALCULATE(
+    [Sales YTD],
+    SAMEPERIODLASTYEAR('Date'[Date])
+)
+
+YTD vs LY Growth % =
+DIVIDE([Sales YTD] - [Sales YTD LY], [Sales YTD LY], 0)
+
+// Moving Calculations
+// =========================================
+
+3 Month Rolling Avg =
+AVERAGEX(
+    DATESINPERIOD(
+        'Date'[Date],
+        LASTDATE('Date'[Date]),
+        -3,
+        MONTH
+    ),
+    [Sales Amount]
+)
+
+12 Month Rolling Sum =
+CALCULATE(
+    [Sales Amount],
+    DATESINPERIOD(
+        'Date'[Date],
+        LASTDATE('Date'[Date]),
+        -12,
+        MONTH
+    )
+)
+
+Rolling 90 Days =
+CALCULATE(
+    [Sales Amount],
+    DATESINPERIOD(
+        'Date'[Date],
+        MAX('Date'[Date]),
+        -90,
+        DAY
+    )
+)
+
+// Running Totals
+// =========================================
+
+Running Total =
+CALCULATE(
+    [Sales Amount],
+    FILTER(
+        ALL('Date'),
+        'Date'[Date] <= MAX('Date'[Date])
+    )
+)
+
+Running Total YTD =
+VAR MaxDate = MAX('Date'[Date])
+VAR CurrentYear = YEAR(MaxDate)
+RETURN
+    CALCULATE(
+        [Sales Amount],
+        FILTER(
+            ALL('Date'),
+            'Date'[Date] <= MaxDate &&
+            YEAR('Date'[Date]) = CurrentYear
+        )
+    )
+
+// Ranking
+// =========================================
+
+Product Rank =
+RANKX(
+    ALL(Product[ProductName]),
+    [Sales Amount],
+    ,
+    DESC,
+    Dense
+)
+
+Rank in Category =
+RANKX(
+    ALLEXCEPT(Product, Product[Category]),
+    [Sales Amount],
+    ,
+    DESC,
+    Dense
+)
+
+// Contribution Analysis
+// =========================================
+
+% of Total Sales =
+DIVIDE(
+    [Sales Amount],
+    CALCULATE([Sales Amount], ALL(Product)),
+    0
+)
+
+% of Category Sales =
+DIVIDE(
+    [Sales Amount],
+    CALCULATE([Sales Amount], ALLEXCEPT(Product, Product[Category])),
+    0
+)
+
+% of Parent =
+DIVIDE(
+    [Sales Amount],
+    CALCULATE([Sales Amount], ALLSELECTED()),
+    0
+)
+
+// ABC Analysis
+// =========================================
+
+Cumulative Sales =
+VAR CurrentProduct = MAX(Product[ProductName])
+RETURN
+    CALCULATE(
+        [Sales Amount],
+        FILTER(
+            ALL(Product[ProductName]),
+            [Product Rank] <= [Product Rank]
+        )
+    )
+
+Cumulative % of Total =
+DIVIDE([Cumulative Sales], CALCULATE([Sales Amount], ALL(Product)), 0)
+
+ABC Class =
+VAR CumPct = [Cumulative % of Total]
+RETURN
+    SWITCH(
+        TRUE(),
+        CumPct <= 0.80, "A",
+        CumPct <= 0.95, "B",
+        "C"
+    )
+
+// Same Store Sales
+// =========================================
+
+Same Store Sales =
+VAR CurrentStores = VALUES(Store[StoreID])
+VAR PriorYearDate = DATEADD('Date'[Date], -1, YEAR)
+VAR StoresOpenPriorYear =
+    CALCULATETABLE(
+        VALUES(Store[StoreID]),
+        PriorYearDate,
+        Store[OpenDate] <= MAX('Date'[Date])
+    )
+VAR SameStores = INTERSECT(CurrentStores, StoresOpenPriorYear)
+RETURN
+    CALCULATE([Sales Amount], KEEPFILTERS(SameStores))
+
+Same Store Sales Growth % =
+DIVIDE([Same Store Sales] - CALCULATE([Same Store Sales], SAMEPERIODLASTYEAR('Date'[Date])), CALCULATE([Same Store Sales], SAMEPERIODLASTYEAR('Date'[Date])), 0)
+
+// Budget Variance
+// =========================================
+
+Budget Amount = SUM(Budget[Amount])
+
+Variance = [Sales Amount] - [Budget Amount]
+
+Variance % = DIVIDE([Variance], [Budget Amount], 0)
+
+Variance Status =
+SWITCH(
+    TRUE(),
+    [Variance %] >= 0.05, "Favorable",
+    [Variance %] <= -0.05, "Unfavorable",
+    "On Target"
+)
+
+// Customer Metrics
+// =========================================
+
+New Customers =
+CALCULATE(
+    DISTINCTCOUNT(Sales[CustomerID]),
+    FILTER(
+        ALL('Date'),
+        'Date'[Date] >= DATE(YEAR(MIN('Date'[Date])), MONTH(MIN('Date'[Date])), 1) &&
+        'Date'[Date] <= MAX('Date'[Date])
+    ),
+    Customer[FirstPurchaseDate] >= DATE(YEAR(MIN('Date'[Date])), MONTH(MIN('Date'[Date])), 1)
+)
+
+Repeat Customers =
+CALCULATE(
+    DISTINCTCOUNT(Sales[CustomerID]),
+    FILTER(
+        VALUES(Sales[CustomerID]),
+        CALCULATE(COUNTROWS(Sales)) > 1
+    )
+)
+
+Customer Retention % =
+VAR PriorMonthCustomers =
+    CALCULATE(
+        DISTINCTCOUNT(Sales[CustomerID]),
+        PREVIOUSMONTH('Date'[Date])
+    )
+VAR ReturnedCustomers =
+    CALCULATE(
+        DISTINCTCOUNT(Sales[CustomerID]),
+        FILTER(
+            VALUES(Sales[CustomerID]),
+            CALCULATE(
+                COUNTROWS(Sales),
+                PREVIOUSMONTH('Date'[Date])
+            ) > 0
+        )
+    )
+RETURN
+    DIVIDE(ReturnedCustomers, PriorMonthCustomers, 0)
+
+// Advanced Analytics
+// =========================================
+
+Churn Rate % =
+1 - [Customer Retention %]
+
+Average Customer Lifetime Value =
+AVERAGEX(
+    VALUES(Customer[CustomerID]),
+    CALCULATE([Sales Amount])
+)
+
+Days Since Last Purchase =
+VAR LastPurchase = MAX(Sales[OrderDate])
+VAR Today = TODAY()
+RETURN
+    DATEDIFF(LastPurchase, Today, DAY)
+
+// Statistical Measures
+// =========================================
+
+Sales Avg = AVERAGE(Sales[Amount])
+
+Sales StdDev = STDEV.P(Sales[Amount])
+
+Sales Variance = VAR.P(Sales[Amount])
+
+Z-Score =
+VAR Avg = [Sales Avg]
+VAR StdDev = [Sales StdDev]
+VAR CurrentSales = SUM(Sales[Amount])
+RETURN
+    DIVIDE(CurrentSales - Avg, StdDev, 0)
+
+// Dynamic Time Intelligence
+// =========================================
+
+Sales Selected Period =
+VAR SelectedPeriod = SELECTEDVALUE('Period'[PeriodType])
+RETURN
+    SWITCH(
+        SelectedPeriod,
+        "MTD", [Sales MTD],
+        "QTD", [Sales QTD],
+        "YTD", [Sales YTD],
+        [Sales Amount]
+    )
+
+Comparison Period =
+VAR SelectedComparison = SELECTEDVALUE('Comparison'[ComparisonType])
+RETURN
+    SWITCH(
+        SelectedComparison,
+        "LY", [Sales LY],
+        "LM", [Sales LM],
+        "LQ", [Sales LQ],
+        BLANK()
+    )

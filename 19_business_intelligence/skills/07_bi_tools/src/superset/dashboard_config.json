@@ -1,0 +1,58 @@
+{
+  "dashboard_title": "Sales Performance Dashboard",
+  "slug": "sales-performance",
+  "position_json": {
+    "DASHBOARD_VERSION_KEY": "v2",
+    "GRID_ID": {
+      "type": "GRID",
+      "children": [
+        {
+          "id": "KPI_ROW",
+          "type": "ROW",
+          "meta": {
+            "width": 12,
+            "background": "#FAFAFA"
+          },
+          "children": ["REVENUE_KPI", "ORDERS_KPI", "CUSTOMERS_KPI"]
+        },
+        {
+          "id": "CHARTS_ROW",
+          "type": "ROW",
+          "children": ["REVENUE_TREND", "PRODUCT_MIX"]
+        }
+      ]
+    }
+  },
+  "metadata": {
+    "refresh_frequency": 300,
+    "timed_refresh_immune_slices": [],
+    "stagger_refresh": false,
+    "stagger_time": 0,
+    "color_scheme": "supersetColors",
+    "label_colors": {},
+    "shared_label_colors": {},
+    "cross_filters_enabled": true
+  },
+  "charts": [
+    {
+      "id": "REVENUE_KPI",
+      "slice_name": "Total Revenue",
+      "viz_type": "big_number_total",
+      "params": {
+        "metric": "sum__amount",
+        "header_font_size": 0.4,
+        "subheader_font_size": 0.15
+      }
+    },
+    {
+      "id": "REVENUE_TREND",
+      "slice_name": "Revenue Trend",
+      "viz_type": "echarts_timeseries_line",
+      "params": {
+        "time_grain_sqla": "P1M",
+        "metrics": ["sum__amount"],
+        "groupby": []
+      }
+    }
+  ]
+}

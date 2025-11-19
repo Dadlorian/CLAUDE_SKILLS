@@ -1,0 +1,546 @@
+# Alert Rules Configuration - Production-Grade Monitoring
+# Comprehensive alert rules for self-service analytics platform
+# Purpose: Monitor platform health, governance, usage, and anomalies
+
+---
+version: '1.0'
+description: 'Self-Service Analytics Platform Alert Rules'
+last_updated: '2025-11-19'
+
+# ============================================================================
+# Alert Severity Levels
+# ============================================================================
+severity_levels:
+  critical:
+    description: 'Immediate action required - platform impaired'
+    escalation_wait: 5m
+    notification_channels: [email, slack, pagerduty]
+  high:
+    description: 'Urgent attention - significant impact'
+    escalation_wait: 15m
+    notification_channels: [email, slack]
+  medium:
+    description: 'Requires attention - moderate impact'
+    escalation_wait: 1h
+    notification_channels: [slack, email]
+  low:
+    description: 'Informational - for awareness'
+    escalation_wait: null
+    notification_channels: [slack]
+
+# ============================================================================
+# Performance & Health Alerts
+# ============================================================================
+alerts:
+  - alert_id: query_performance_degradation
+    name: 'Query Performance Degradation'
+    description: 'Alert when average query execution time exceeds threshold'
+    severity: high
+    enabled: true
+
+    condition:
+      metric: avg_query_execution_time_ms
+      operator: '>'
+      threshold: 5000
+      lookback_window: 15m
+      comparison: 'vs 30d_baseline'
+      baseline_threshold: 1.5  # 150% of baseline
+
+    evaluation_rule: |
+      SELECT
+        AVG(query_execution_time_ms) as current_avg,
+        LAG(AVG(query_execution_time_ms)) OVER (
+          ORDER BY window_time
+        ) as previous_avg
+      FROM metrics.query_metrics
+      WHERE metric_timestamp >= NOW() - INTERVAL '15 minutes'
+      GROUP BY DATE_TRUNC('1m', metric_timestamp)
+
+    notification_template: |
+      Query performance degradation detected!
+      - Current avg: {{ current_avg }}ms
+      - Baseline avg: {{ baseline_avg }}ms
+      - Degradation: {{ degradation_pct }}%
+      - Affected users: {{ impacted_user_count }}
+
+    remediation_steps:
+      - 'Check query service status'
+      - 'Review database connection pool utilization'
+      - 'Analyze slow query logs'
+      - 'Consider scaling database resources'
+      - 'Review recent code deployments'
+
+  - alert_id: query_failure_rate_high
+    name: 'High Query Failure Rate'
+    description: 'Alert when query failure rate exceeds threshold'
+    severity: high
+    enabled: true
+
+    condition:
+      metric: query_failure_rate_pct
+      operator: '>'
+      threshold: 5
+      lookback_window: 10m
+      minimum_volume: 100
+
+    evaluation_rule: |
+      SELECT
+        SUM(CASE WHEN query_error_flag = 1 THEN 1 ELSE 0 END) * 100.0 /
+        COUNT(*) as failure_rate_pct
+      FROM audit.user_activity
+      WHERE activity_timestamp >= NOW() - INTERVAL '10 minutes'
+        AND activity_type = 'query'
+
+    notification_template: |
+      High query failure rate detected!
+      - Failure rate: {{ failure_rate_pct }}%
+      - Failed queries: {{ failed_query_count }}
+      - Total queries: {{ total_query_count }}
+      - Error types: {{ error_distribution }}
+
+    runbook: 'https://wiki.company.com/analytics/runbooks/high-query-failures'
+
+  - alert_id: dataset_sync_failure
+    name: 'Data Catalog Sync Failure'
+    description: 'Alert when catalog synchronization fails'
+    severity: high
+    enabled: true
+
+    condition:
+      metric: sync_job_status
+      operator: '='
+      threshold: 'failed'
+      lookback_window: 1h
+
+    notification_template: |
+      Data catalog synchronization failed!
+      - Job ID: {{ job_id }}
+      - Source: {{ sync_source }}
+      - Target catalog: {{ target_catalog }}
+      - Error: {{ error_message }}
+      - Last successful sync: {{ last_successful_timestamp }}
+
+    remediation_steps:
+      - 'Check data source connectivity'
+      - 'Verify catalog API availability'
+      - 'Review sync job logs'
+      - 'Restart sync service if necessary'
+
+  - alert_id: database_connection_pool_exhausted
+    name: 'Database Connection Pool Exhausted'
+    description: 'Alert when connection pool utilization is critical'
+    severity: critical
+    enabled: true
+
+    condition:
+      metric: db_connection_pool_utilization_pct
+      operator: '>'
+      threshold: 90
+      lookback_window: 5m
+
+    notification_template: |
+      Database connection pool exhausted!
+      - Utilization: {{ pool_utilization_pct }}%
+      - Active connections: {{ active_connections }}
+      - Max pool size: {{ max_pool_size }}
+      - Waiting queries: {{ queued_query_count }}
+
+    escalation:
+      - recipient: 'database-oncall@company.com'
+        delay: 5m
+      - recipient: 'platform-team@company.com'
+        delay: 10m
+
+# ============================================================================
+# Governance & Security Alerts
+# ============================================================================
+
+  - alert_id: excessive_data_export
+    name: 'Excessive Data Export Activity'
+    description: 'Alert when user exports large volumes of data'
+    severity: medium
+    enabled: true
+
+    condition:
+      metric: daily_export_volume_gb
+      operator: '>'
+      threshold: 10
+      lookback_window: 1d
+      per_user: true
+
+    notification_template: |
+      Unusual data export activity detected!
+      - User: {{ user_email }}
+      - Export volume: {{ export_volume_gb }}GB
+      - Number of exports: {{ export_count }}
+      - Datasets accessed: {{ dataset_list }}
+      - Contains sensitive data: {{ contains_pii }}
+
+    action_items:
+      - 'Review user access patterns'
+      - 'Verify legitimate business purpose'
+      - 'Consider data masking for sensitive fields'
+
+  - alert_id: unauthorized_access_attempt
+    name: 'Unauthorized Access Attempt'
+    description: 'Alert on attempted access to restricted datasets'
+    severity: high
+    enabled: true
+
+    condition:
+      metric: unauthorized_access_count
+      operator: '>'
+      threshold: 3
+      lookback_window: 15m
+      per_user: true
+
+    notification_template: |
+      Unauthorized access attempts detected!
+      - User: {{ user_email }}
+      - Attempts: {{ attempt_count }}
+      - Datasets: {{ restricted_datasets }}
+      - Last attempt: {{ last_attempt_time }}
+
+    action_items:
+      - 'Suspend user access pending review'
+      - 'Notify security team'
+      - 'Investigate access patterns'
+      - 'Audit previous successful access'
+
+  - alert_id: policy_violation_detected
+    name: 'Data Governance Policy Violation'
+    description: 'Alert when user violates governance policies'
+    severity: medium
+    enabled: true
+
+    condition:
+      metric: policy_violation_count
+      operator: '>'
+      threshold: 0
+      lookback_window: 1h
+
+    notification_template: |
+      Policy violation detected!
+      - User: {{ user_email }}
+      - Department: {{ department }}
+      - Violation type: {{ violation_type }}
+      - Affected datasets: {{ dataset_names }}
+      - Details: {{ violation_details }}
+
+    escalation_path:
+      - recipient: 'data-governance@company.com'
+        delay: 0
+      - recipient: 'security@company.com'
+        condition: 'violation_type == "pii_exposure"'
+
+  - alert_id: expired_access_rights
+    name: 'Expired or Expiring Access Rights'
+    description: 'Alert on user access reaching expiration'
+    severity: low
+    enabled: true
+
+    condition:
+      metric: role_expiry_days
+      operator: '<'
+      threshold: 7
+      lookback_window: daily
+
+    notification_template: |
+      Access rights expiring soon!
+      - User: {{ user_email }}
+      - Role: {{ role_name }}
+      - Expires in: {{ days_until_expiry }} days
+      - Expiration date: {{ expiration_date }}
+
+    action_items:
+      - 'Renew access if employee is still active'
+      - 'Deactivate access if employee departed'
+      - 'Review and adjust role permissions'
+
+# ============================================================================
+# Adoption & Engagement Alerts
+# ============================================================================
+
+  - alert_id: low_user_adoption_rate
+    name: 'Low User Adoption Rate'
+    description: 'Alert when adoption metrics are below target'
+    severity: medium
+    enabled: true
+
+    condition:
+      metric: activation_rate_pct
+      operator: '<'
+      threshold: 40
+      lookback_window: 30d
+      dimension:
+        department: ['sales', 'marketing', 'finance']
+
+    notification_template: |
+      Low adoption in {{ department }}!
+      - Activation rate: {{ activation_rate_pct }}%
+      - Target: 70%
+      - Activated users: {{ activated_count }}
+      - Total users: {{ total_count }}
+      - Gap: {{ gap_count }} users
+
+    recommended_actions:
+      - 'Conduct targeted training sessions'
+      - 'Identify adoption blockers'
+      - 'Assign adoption champions'
+      - 'Provide personalized onboarding'
+
+  - alert_id: user_inactivity_risk
+    name: 'User Inactivity Risk'
+    description: 'Alert when active users become inactive'
+    severity: low
+    enabled: true
+
+    condition:
+      metric: days_since_last_activity
+      operator: '>'
+      threshold: 30
+      lookback_window: rolling
+      user_segment: 'power_users'
+
+    notification_template: |
+      Power user inactivity detected!
+      - User: {{ user_email }}
+      - Department: {{ department }}
+      - Days inactive: {{ days_inactive }}
+      - Last activity: {{ last_activity_date }}
+      - Previous usage: {{ avg_monthly_queries }} queries/month
+
+    action_items:
+      - 'Check in with user'
+      - 'Identify if blocked by technical issues'
+      - 'Offer refresher training'
+      - 'Re-engage with relevant insights'
+
+  - alert_id: analyst_request_backlog_growing
+    name: 'Analyst Request Backlog Growing'
+    description: 'Alert when analyst request backlog grows'
+    severity: medium
+    enabled: true
+
+    condition:
+      metric: analyst_backlog_size
+      operator: '>'
+      threshold: 50
+      lookback_window: daily
+      trend: 'increasing'
+
+    notification_template: |
+      Analyst request backlog growing!
+      - Current backlog: {{ backlog_size }} requests
+      - Backlog growth: +{{ growth_rate_pct }}%
+      - Avg wait time: {{ avg_wait_hours }} hours
+      - Oldest request: {{ oldest_request_age_days }} days old
+
+    action_items:
+      - 'Review and prioritize backlog'
+      - 'Consider hiring additional analysts'
+      - 'Increase self-service training focus'
+      - 'Identify common request patterns'
+
+# ============================================================================
+# Data Quality Alerts
+# ============================================================================
+
+  - alert_id: data_freshness_sla_breach
+    name: 'Data Freshness SLA Breach'
+    description: 'Alert when data freshness exceeds SLA'
+    severity: high
+    enabled: true
+
+    condition:
+      metric: hours_since_last_refresh
+      operator: '>'
+      threshold: 24
+      lookback_window: real-time
+      dimension:
+        dataset_tag: 'critical'
+
+    evaluation_rule: |
+      SELECT
+        dataset_id,
+        dataset_name,
+        DATEDIFF(hour, last_refresh_time, NOW()) as hours_since_refresh,
+        sla_hours
+      FROM metadata.dataset_freshness
+      WHERE sla_hours > 0
+        AND DATEDIFF(hour, last_refresh_time, NOW()) > sla_hours
+
+    notification_template: |
+      Data freshness SLA breached!
+      - Dataset: {{ dataset_name }}
+      - Hours since refresh: {{ hours_since_refresh }}
+      - SLA: {{ sla_hours }} hours
+      - Last refresh: {{ last_refresh_time }}
+
+    escalation:
+      - recipient: 'data-engineering@company.com'
+        delay: 0
+
+  - alert_id: data_quality_score_degradation
+    name: 'Data Quality Score Degradation'
+    description: 'Alert on declining data quality'
+    severity: medium
+    enabled: true
+
+    condition:
+      metric: data_quality_score
+      operator: '<'
+      threshold: 80
+      lookback_window: daily
+      comparison: 'vs 7d_baseline'
+      baseline_threshold: 0.9  # 90% of baseline
+
+    notification_template: |
+      Data quality degradation detected!
+      - Dataset: {{ dataset_name }}
+      - Current score: {{ quality_score }}/100
+      - Previous score: {{ previous_score }}/100
+      - Issues: {{ issue_summary }}
+
+    action_items:
+      - 'Review data quality test results'
+      - 'Identify source of quality issues'
+      - 'Coordinate with data engineering'
+
+  - alert_id: missing_column_metadata
+    name: 'Missing Column-Level Metadata'
+    description: 'Alert when column metadata coverage is low'
+    severity: low
+    enabled: true
+
+    condition:
+      metric: metadata_coverage_pct
+      operator: '<'
+      threshold: 80
+      lookback_window: weekly
+      dimension:
+        dataset_usage_tier: ['critical', 'high']
+
+    notification_template: |
+      Low metadata coverage!
+      - Dataset: {{ dataset_name }}
+      - Coverage: {{ coverage_pct }}%
+      - Undocumented columns: {{ undocumented_count }}
+      - Owner: {{ owner_email }}
+
+# ============================================================================
+# Cost & Resource Alerts
+# ============================================================================
+
+  - alert_id: compute_cost_spike
+    name: 'Compute Cost Spike'
+    description: 'Alert when query compute costs spike'
+    severity: medium
+    enabled: true
+
+    condition:
+      metric: daily_compute_cost_usd
+      operator: '>'
+      threshold: 1000
+      lookback_window: daily
+      comparison: 'vs 7d_avg'
+      baseline_threshold: 1.5  # 150% of average
+
+    notification_template: |
+      Compute cost spike detected!
+      - Today's cost: ${{ daily_cost }}
+      - 7-day average: ${{ baseline_cost }}
+      - Increase: {{ increase_pct }}%
+      - Top cost drivers: {{ top_queries }}
+
+    action_items:
+      - 'Analyze expensive queries'
+      - 'Optimize query plans'
+      - 'Review resource allocation'
+
+  - alert_id: storage_capacity_warning
+    name: 'Storage Capacity Warning'
+    description: 'Alert when storage utilization is high'
+    severity: medium
+    enabled: true
+
+    condition:
+      metric: storage_utilization_pct
+      operator: '>'
+      threshold: 80
+      lookback_window: daily
+
+    notification_template: |
+      Storage capacity warning!
+      - Utilization: {{ utilization_pct }}%
+      - Used: {{ used_gb }}GB
+      - Total: {{ total_gb }}GB
+      - Estimated full date: {{ days_until_full }} days
+
+    action_items:
+      - 'Archive old data'
+      - 'Identify unused datasets'
+      - 'Plan capacity expansion'
+
+# ============================================================================
+# Alert Routing & Escalation
+# ============================================================================
+routing_rules:
+  - condition: 'severity == "critical"'
+    channels:
+      - email
+      - slack
+      - pagerduty
+    on_call_team: 'platform-oncall'
+    escalation_delay: 5m
+
+  - condition: 'severity == "high"'
+    channels:
+      - slack
+      - email
+    team: 'platform-engineering'
+    escalation_delay: 15m
+
+  - condition: 'severity == "medium"'
+    channels:
+      - slack
+    team: 'analytics-operations'
+
+  - condition: 'severity == "low"'
+    channels:
+      - slack
+    team: 'analytics-team'
+
+# ============================================================================
+# Alert Grouping & Correlation
+# ============================================================================
+correlation_rules:
+  - name: 'Database Issues'
+    conditions:
+      - 'query_performance_degradation'
+      - 'query_failure_rate_high'
+      - 'database_connection_pool_exhausted'
+    group_window: 15m
+    group_action: 'create_incident'
+
+  - name: 'Data Freshness Issues'
+    conditions:
+      - 'data_freshness_sla_breach'
+      - 'dataset_sync_failure'
+    group_window: 30m
+    notify: 'data-engineering@company.com'
+
+# ============================================================================
+# Maintenance Windows
+# ============================================================================
+maintenance_windows:
+  - name: 'Weekly Maintenance'
+    schedule: 'every sunday 00:00-04:00'
+    suppress_alerts:
+      - 'data_freshness_sla_breach'
+      - 'dataset_sync_failure'
+
+  - name: 'Monthly Deploys'
+    schedule: 'cron: 0 2 * * 0'
+    suppress_alerts: ['*']
+    duration: '1h'

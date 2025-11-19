@@ -1,0 +1,363 @@
+# Data Quality Rules Configuration
+# Comprehensive rules for automated quality monitoring
+# Version: 1.0
+
+version: 1
+environment: production
+owner_team: data_quality_team
+
+# ============================================
+# FRESHNESS CHECKS
+# ============================================
+freshness:
+  - name: events_table_freshness
+    table: analytics.events
+    column: event_timestamp
+    threshold_hours: 4
+    warn_threshold_hours: 2
+    schedule: hourly
+    action: notify_data_eng
+    severity: critical
+
+  - name: customer_snapshot_freshness
+    table: analytics.dim_customers
+    column: updated_at
+    threshold_hours: 24
+    warn_threshold_hours: 12
+    schedule: daily
+    action: email_team
+    severity: high
+
+  - name: product_catalog_freshness
+    table: analytics.dim_products
+    column: last_modified_date
+    threshold_hours: 48
+    schedule: daily
+    severity: medium
+
+# ============================================
+# UNIQUENESS CHECKS
+# ============================================
+uniqueness:
+  - name: customer_id_unique
+    table: analytics.dim_customers
+    columns: [customer_id]
+    allow_nulls: false
+    schedule: daily
+    severity: critical
+
+  - name: order_id_unique
+    table: analytics.fct_orders
+    columns: [order_id]
+    allow_nulls: false
+    schedule: hourly
+    severity: critical
+
+  - name: product_sku_unique
+    table: analytics.dim_products
+    columns: [sku]
+    allow_nulls: true
+    allow_null_count: 100
+    schedule: daily
+    severity: high
+
+# ============================================
+# COMPLETENESS CHECKS
+# ============================================
+completeness:
+  - name: customer_email_complete
+    table: analytics.dim_customers
+    column: email
+    null_threshold_percent: 0.5
+    schedule: daily
+    severity: high
+    description: Email addresses should be present for >99.5% of customers
+
+  - name: order_amount_complete
+    table: analytics.fct_orders
+    column: order_amount
+    null_threshold_percent: 0.0
+    schedule: hourly
+    severity: critical
+    description: Order amounts cannot be null
+
+  - name: event_user_id_complete
+    table: analytics.events
+    column: user_id
+    null_threshold_percent: 1.0
+    schedule: hourly
+    severity: high
+
+  - name: transaction_timestamp_complete
+    table: analytics.fct_transactions
+    column: transaction_timestamp
+    null_threshold_percent: 0.0
+    allow_for_last_n_days: 7
+    schedule: daily
+    severity: critical
+
+# ============================================
+# VALIDITY CHECKS
+# ============================================
+validity:
+  - name: order_date_within_range
+    table: analytics.fct_orders
+    rules:
+      - column: order_date
+        type: date_range
+        min: 2020-01-01
+        max: current_date
+        inclusive: true
+    schedule: daily
+    severity: high
+
+  - name: customer_age_valid
+    table: analytics.dim_customers
+    rules:
+      - column: age
+        type: range
+        min: 0
+        max: 150
+      - column: age
+        type: not_null
+    schedule: daily
+    severity: medium
+
+  - name: revenue_non_negative
+    table: analytics.fct_orders
+    rules:
+      - column: order_amount
+        type: greater_than_or_equal
+        value: 0
+    schedule: hourly
+    severity: critical
+
+  - name: email_format_valid
+    table: analytics.dim_customers
+    rules:
+      - column: email
+        type: regex_match
+        pattern: '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        when_not_null: true
+    schedule: daily
+    severity: medium
+
+  - name: status_enum_valid
+    table: analytics.fct_orders
+    rules:
+      - column: order_status
+        type: enum
+        allowed_values: [pending, confirmed, shipped, delivered, cancelled, refunded]
+    schedule: hourly
+    severity: high
+
+  - name: platform_enum_valid
+    table: analytics.events
+    rules:
+      - column: platform
+        type: enum
+        allowed_values: [web, mobile_ios, mobile_android, api]
+    schedule: daily
+    severity: medium
+
+# ============================================
+# CONSISTENCY CHECKS
+# ============================================
+consistency:
+  - name: order_event_consistency
+    type: referential_integrity
+    source_table: analytics.fct_orders
+    source_column: order_id
+    target_table: analytics.events
+    target_column: order_id
+    allow_orphans: false
+    severity: high
+    schedule: daily
+    description: All order_ids in events should exist in orders
+
+  - name: customer_dimension_consistency
+    type: referential_integrity
+    source_table: analytics.dim_customers
+    source_column: customer_id
+    target_table: analytics.fct_orders
+    target_column: customer_id
+    allow_orphans: false
+    allow_orphan_percent: 0.5
+    severity: high
+    schedule: daily
+
+  - name: amount_rollup_consistency
+    type: aggregation_match
+    table: analytics.fct_order_items
+    sum_column: item_amount
+    target_column: order_total
+    parent_key: order_id
+    parent_table: analytics.fct_orders
+    tolerance_percent: 0.01
+    severity: medium
+    schedule: daily
+    description: Order total should match sum of item amounts
+
+  - name: dim_product_fact_consistency
+    type: column_match
+    source_table: analytics.dim_products
+    source_column: product_name
+    target_table: analytics.fct_orders
+    target_column: product_name
+    on_keys: [product_id]
+    severity: high
+    schedule: daily
+
+# ============================================
+# DISTRIBUTION CHECKS
+# ============================================
+distribution:
+  - name: daily_order_volume_anomaly
+    table: analytics.fct_orders
+    column: order_id
+    aggregate: count
+    group_by: order_date
+    anomaly_type: zscore
+    threshold: 3.0
+    baseline_days: 30
+    schedule: daily
+    severity: medium
+    action: notify
+
+  - name: revenue_distribution_anomaly
+    table: analytics.fct_orders
+    column: order_amount
+    aggregate: sum
+    group_by: customer_segment
+    anomaly_type: iqr
+    threshold: 1.5
+    baseline_days: 90
+    schedule: daily
+    severity: high
+    action: alert
+
+  - name: user_signup_rate_anomaly
+    table: analytics.events
+    column: user_id
+    aggregate: count_distinct
+    group_by: event_date
+    filter: "event_type = 'signup'"
+    anomaly_type: zscore
+    threshold: 2.5
+    baseline_days: 60
+    schedule: daily
+    severity: medium
+
+# ============================================
+# CARDINALITY CHECKS
+# ============================================
+cardinality:
+  - name: customer_segment_cardinality
+    table: analytics.dim_customers
+    column: segment
+    min_cardinality: 2
+    max_cardinality: 50
+    schedule: weekly
+    severity: low
+
+  - name: product_category_cardinality
+    table: analytics.dim_products
+    column: category
+    exact_cardinality: 12
+    schedule: daily
+    severity: medium
+
+  - name: country_cardinality
+    table: analytics.events
+    column: country
+    min_cardinality: 10
+    max_cardinality: 250
+    schedule: weekly
+    severity: low
+
+# ============================================
+# CUSTOM RULES
+# ============================================
+custom:
+  - name: ltv_cac_ratio_sanity
+    description: LTV should be greater than CAC
+    table: analytics.metrics_ltv_cac
+    condition: |
+      SELECT COUNT(*) as failures
+      FROM analytics.metrics_ltv_cac
+      WHERE ltv < cac AND current_date = metric_date
+    threshold: 0
+    schedule: daily
+    severity: high
+    owner: finance_analytics
+
+  - name: duplicate_events_check
+    description: Check for duplicate events within 5 second window
+    tables: [analytics.events]
+    condition: |
+      SELECT COUNT(*) as duplicate_count
+      FROM (
+        SELECT user_id, event_type, event_timestamp,
+               COUNT(*) as cnt
+        FROM analytics.events
+        WHERE event_timestamp >= CURRENT_TIMESTAMP - INTERVAL '24 hours'
+        GROUP BY 1, 2, 3
+        HAVING cnt > 1
+      )
+    threshold: 0
+    schedule: hourly
+    severity: medium
+    remediation: "Review and deduplicate events"
+
+  - name: data_freshness_across_tables
+    description: Ensure all key tables have recent data
+    tables: [analytics.events, analytics.fct_orders, analytics.dim_customers]
+    condition: |
+      SELECT COUNT(*) as stale_tables
+      FROM (
+        SELECT 'events' as table_name, MAX(event_timestamp) as max_ts FROM analytics.events
+        UNION ALL
+        SELECT 'orders' as table_name, MAX(order_date) as max_ts FROM analytics.fct_orders
+        UNION ALL
+        SELECT 'customers' as table_name, MAX(updated_at) as max_ts FROM analytics.dim_customers
+      ) t
+      WHERE max_ts < CURRENT_TIMESTAMP - INTERVAL '4 hours'
+    threshold: 0
+    schedule: hourly
+    severity: critical
+    action: escalate_to_sre
+
+# ============================================
+# MONITORING & ALERTING
+# ============================================
+monitoring:
+  enabled: true
+  slack_channel: "#data-quality"
+  email_recipients:
+    - data-quality-team@company.com
+    - data-eng-leads@company.com
+
+  alert_levels:
+    critical:
+      immediate: true
+      escalate_after_minutes: 15
+    high:
+      immediate: false
+      escalate_after_minutes: 60
+    medium:
+      immediate: false
+      escalate_after_minutes: 480
+
+  dashboard_refresh: 5_minutes
+  report_schedule: daily_at_9am
+
+# ============================================
+# DOCUMENTATION
+# ============================================
+documentation:
+  created_date: 2024-11-19
+  last_updated: 2024-11-19
+  reviewed_by: data_quality_team
+  next_review_date: 2024-12-19
+  contact: data-quality-team@company.com
+  wiki_link: https://wiki.company.com/data-quality-rules

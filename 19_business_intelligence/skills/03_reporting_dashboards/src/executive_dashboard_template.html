@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Executive Dashboard</title>
+    <link rel="stylesheet" href="dashboard_layout.css">
+</head>
+<body>
+    <!-- Executive Dashboard Template - Few/Tufte Principles -->
+    <div class="dashboard-container">
+        
+        <!-- Header -->
+        <header class="dashboard-header">
+            <h1>Q4 2024 Executive Summary</h1>
+            <div class="header-actions">
+                <span>Last updated: <time datetime="2024-12-19T14:45:00">2:45 PM</time></span>
+                <button class="btn btn-secondary" aria-label="Export dashboard">Export</button>
+            </div>
+        </header>
+
+        <!-- Primary KPI (Hero) -->
+        <div class="kpi-card full-width" style="background: #F7F7F7; border-left: 4px solid #2171B5;">
+            <div class="kpi-label">Annual Recurring Revenue</div>
+            <div class="kpi-value">$12.3M</div>
+            <div class="kpi-change positive">
+                <span aria-label="increased by">▲</span> 20% vs $10.2M target
+            </div>
+            <div class="kpi-context">+18% Year over Year</div>
+            <div class="kpi-sparkline" role="img" aria-label="12-month trend showing steady growth from $10M to $12.3M">
+                <!-- Sparkline SVG or Chart Library -->
+                <svg width="100%" height="40" aria-hidden="true">
+                    <polyline points="0,30 50,28 100,25 150,22 200,20 250,18 300,15" 
+                              stroke="#2171B5" stroke-width="2" fill="none"/>
+                </svg>
+            </div>
+            <div class="kpi-metadata">Data as of Dec 19, 2024</div>
+        </div>
+
+        <!-- Supporting KPIs -->
+        <div class="kpi-card third-width">
+            <div class="kpi-label">New Customers</div>
+            <div class="kpi-value">1,234</div>
+            <div class="kpi-change positive">
+                <span aria-label="increased by">▲</span> 15% vs plan
+            </div>
+            <div class="kpi-context">Target: 1,200</div>
+            <div class="kpi-sparkline" role="img" aria-label="Trend showing increase">
+                <!-- Sparkline -->
+            </div>
+        </div>
+
+        <div class="kpi-card third-width">
+            <div class="kpi-label">Gross Margin</div>
+            <div class="kpi-value">62%</div>
+            <div class="kpi-change positive">
+                <span aria-label="up">✓</span> Above 60% target
+            </div>
+            <div class="kpi-context">Industry avg: 58%</div>
+        </div>
+
+        <div class="kpi-card third-width">
+            <div class="kpi-label">Net Promoter Score</div>
+            <div class="kpi-value">45</div>
+            <div class="kpi-change positive">
+                <span aria-label="improved">▲</span> +3 from Q3
+            </div>
+            <div class="kpi-context">Target: 40+</div>
+        </div>
+
+        <!-- Alert Section (if any) -->
+        <div class="alert-banner alert-warning">
+            <strong>⚠ Attention Required:</strong> SMB customer acquisition down 12% vs plan. 
+            <a href="#details">View details →</a>
+        </div>
+
+        <!-- Primary Trend Chart -->
+        <div class="chart-container full-width">
+            <h2 class="chart-title">Revenue Trend - Last 12 Months</h2>
+            <p class="chart-subtitle">Showing consistent 15-18% month-over-month growth</p>
+            <div class="chart-area" role="img" aria-label="Line chart showing revenue growing from $10M to $12.3M over 12 months">
+                <!-- Chart Library (D3, Chart.js, etc.) -->
+                <div style="height: 300px; display: flex; align-items: center; justify-content: center; color: #999;">
+                    [Chart Placeholder - Use your preferred charting library]
+                </div>
+            </div>
+        </div>
+
+        <!-- Breakdown Charts -->
+        <div class="chart-container half-width">
+            <h2 class="chart-title">Revenue by Segment</h2>
+            <div class="chart-area">
+                <ul style="list-style: none; padding: 0;">
+                    <li style="margin-bottom: 12px;">
+                        <strong>Enterprise</strong>
+                        <div style="display: flex; align-items: center; margin-top: 4px;">
+                            <div style="width: 80%; height: 24px; background: #4D4D4D; border-radius: 4px;"></div>
+                            <span style="margin-left: 12px; font-weight: 600;">$5.2M (+40%)</span>
+                        </div>
+                    </li>
+                    <li style="margin-bottom: 12px;">
+                        <strong>Mid-Market</strong>
+                        <div style="display: flex; align-items: center; margin-top: 4px;">
+                            <div style="width: 60%; height: 24px; background: #4D4D4D; border-radius: 4px;"></div>
+                            <span style="margin-left: 12px; font-weight: 600;">$4.1M (+15%)</span>
+                        </div>
+                    </li>
+                    <li style="margin-bottom: 12px;">
+                        <strong>SMB</strong>
+                        <div style="display: flex; align-items: center; margin-top: 4px;">
+                            <div style="width: 50%; height: 24px; background: #FAA43A; border-radius: 4px;"></div>
+                            <span style="margin-left: 12px; font-weight: 600;">$3.0M (-5%)</span>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="chart-container half-width">
+            <h2 class="chart-title">Key Initiatives Status</h2>
+            <div class="chart-area">
+                <table style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr style="border-bottom: 2px solid #E0E0E0;">
+                            <th style="text-align: left; padding: 8px; font-weight: 600;">Initiative</th>
+                            <th style="text-align: center; padding: 8px; font-weight: 600;">Status</th>
+                            <th style="text-align: right; padding: 8px; font-weight: 600;">Progress</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr style="border-bottom: 1px solid #E0E0E0;">
+                            <td style="padding: 8px;">Enterprise Expansion</td>
+                            <td style="text-align: center; padding: 8px;"><span style="color: #60BD68;">✓</span></td>
+                            <td style="text-align: right; padding: 8px;">120%</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #E0E0E0;">
+                            <td style="padding: 8px;">Product Launch</td>
+                            <td style="text-align: center; padding: 8px;"><span style="color: #60BD68;">✓</span></td>
+                            <td style="text-align: right; padding: 8px;">100%</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #E0E0E0;">
+                            <td style="padding: 8px;">SMB Self-Service</td>
+                            <td style="text-align: center; padding: 8px;"><span style="color: #FAA43A;">⚠</span></td>
+                            <td style="text-align: right; padding: 8px;">75%</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Call to Action / Next Steps -->
+        <div class="kpi-card full-width" style="background: #E3F2FD;">
+            <h3 style="margin-bottom: 12px; color: #1976D2;">🎯 Q1 2025 Priorities</h3>
+            <ol style="margin: 0; padding-left: 20px;">
+                <li style="margin-bottom: 8px;"><strong>Accelerate SMB self-service launch</strong> to restore acquisition growth</li>
+                <li style="margin-bottom: 8px;"><strong>Expand enterprise sales team</strong> to capitalize on momentum</li>
+                <li style="margin-bottom: 8px;"><strong>Launch European market pilot</strong> in Q1</li>
+            </ol>
+        </div>
+
+    </div>
+</body>
+</html>

@@ -1,0 +1,28 @@
+{
+  "dashboard": {
+    "title": "Real-Time Analytics",
+    "panels": [
+      {
+        "title": "Event Throughput",
+        "targets": [{
+          "expr": "rate(events_processed_total[5m])"
+        }],
+        "type": "graph"
+      },
+      {
+        "title": "Processing Latency P95",
+        "targets": [{
+          "expr": "histogram_quantile(0.95, processing_latency_seconds)"
+        }],
+        "type": "graph"
+      },
+      {
+        "title": "Consumer Lag",
+        "targets": [{
+          "expr": "consumer_lag_messages"
+        }],
+        "type": "graph"
+      }
+    ]
+  }
+}

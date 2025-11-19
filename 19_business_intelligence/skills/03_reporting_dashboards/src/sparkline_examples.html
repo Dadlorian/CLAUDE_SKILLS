@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sparkline Examples (Tufte)</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .sparkline-example {
+            margin: 20px 0;
+            padding: 16px;
+            border: 1px solid #E0E0E0;
+            border-radius: 4px;
+        }
+        
+        .sparkline-label {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 8px;
+        }
+        
+        .sparkline-value {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .sparkline-svg {
+            display: inline-block;
+            vertical-align: middle;
+            margin-left: 12px;
+        }
+        
+        .metric-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #F0F0F0;
+        }
+        
+        .metric-label {
+            font-size: 14px;
+            color: #333;
+        }
+        
+        .metric-value {
+            font-size: 16px;
+            font-weight: 600;
+            margin-right: 8px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Sparkline Examples (Edward Tufte)</h1>
+    <p>"Data-intense, design-simple, word-sized graphics"</p>
+
+    <!-- Example 1: Basic Line Sparkline -->
+    <div class="sparkline-example">
+        <div class="sparkline-label">Revenue (Last 12 Months)</div>
+        <span class="sparkline-value">$1.2M</span>
+        <svg class="sparkline-svg" width="100" height="20" viewBox="0 0 100 20" role="img" aria-label="Revenue trend showing steady growth">
+            <polyline 
+                points="0,15 10,14 20,13 30,12 40,10 50,9 60,8 70,6 80,4 90,2 100,1"
+                fill="none"
+                stroke="#2171B5"
+                stroke-width="1.5"
+            />
+            <!-- Highlight last point -->
+            <circle cx="100" cy="1" r="2" fill="#2171B5"/>
+        </svg>
+    </div>
+
+    <!-- Example 2: Sparkline with Min/Max Highlighted -->
+    <div class="sparkline-example">
+        <div class="sparkline-label">Customer Acquisition</div>
+        <span class="sparkline-value">234 new</span>
+        <svg class="sparkline-svg" width="100" height="20" viewBox="0 0 100 20">
+            <polyline 
+                points="0,10 10,8 20,12 30,6 40,14 50,4 60,11 70,7 80,9 90,5 100,8"
+                fill="none"
+                stroke="#666"
+                stroke-width="1.5"
+            />
+            <!-- Min point (red) -->
+            <circle cx="50" cy="4" r="2" fill="#E74C3C"/>
+            <!-- Max point (blue) -->
+            <circle cx="40" cy="14" r="2" fill="#2171B5"/>
+            <!-- Current point -->
+            <circle cx="100" cy="8" r="2" fill="#666"/>
+        </svg>
+    </div>
+
+    <!-- Example 3: Area Sparkline -->
+    <div class="sparkline-example">
+        <div class="sparkline-label">Daily Active Users</div>
+        <span class="sparkline-value">12,345</span>
+        <svg class="sparkline-svg" width="100" height="20" viewBox="0 0 100 20">
+            <polygon 
+                points="0,20 0,10 10,8 20,12 30,6 40,14 50,4 60,11 70,7 80,9 90,5 100,8 100,20"
+                fill="#2171B5"
+                fill-opacity="0.2"
+                stroke="#2171B5"
+                stroke-width="1"
+            />
+        </svg>
+    </div>
+
+    <!-- Example 4: Bar Sparkline -->
+    <div class="sparkline-example">
+        <div class="sparkline-label">Weekly Orders</div>
+        <span class="sparkline-value">1,234</span>
+        <svg class="sparkline-svg" width="100" height="20" viewBox="0 0 100 20">
+            <!-- Bars for last 10 weeks -->
+            <rect x="0" y="8" width="8" height="12" fill="#CCCCCC"/>
+            <rect x="10" y="6" width="8" height="14" fill="#CCCCCC"/>
+            <rect x="20" y="10" width="8" height="10" fill="#CCCCCC"/>
+            <rect x="30" y="4" width="8" height="16" fill="#CCCCCC"/>
+            <rect x="40" y="12" width="8" height="8" fill="#CCCCCC"/>
+            <rect x="50" y="2" width="8" height="18" fill="#CCCCCC"/>
+            <rect x="60" y="7" width="8" height="13" fill="#CCCCCC"/>
+            <rect x="70" y="5" width="8" height="15" fill="#CCCCCC"/>
+            <rect x="80" y="9" width="8" height="11" fill="#CCCCCC"/>
+            <!-- Current week highlighted -->
+            <rect x="90" y="6" width="8" height="14" fill="#2171B5"/>
+        </svg>
+    </div>
+
+    <!-- Example 5: Win/Loss Sparkline -->
+    <div class="sparkline-example">
+        <div class="sparkline-label">Win Rate (Last 20 Deals)</div>
+        <span class="sparkline-value">75%</span>
+        <svg class="sparkline-svg" width="100" height="20" viewBox="0 0 100 20">
+            <!-- Green for wins, red for losses -->
+            <rect x="0" y="0" width="4" height="20" fill="#27AE60"/>
+            <rect x="5" y="0" width="4" height="20" fill="#27AE60"/>
+            <rect x="10" y="0" width="4" height="20" fill="#E74C3C"/>
+            <rect x="15" y="0" width="4" height="20" fill="#27AE60"/>
+            <rect x="20" y="0" width="4" height="20" fill="#27AE60"/>
+            <rect x="25" y="0" width="4" height="20" fill="#27AE60"/>
+            <rect x="30" y="0" width="4" height="20" fill="#27AE60"/>
+            <rect x="35" y="0" width="4" height="20" fill="#E74C3C"/>
+            <rect x="40" y="0" width="4" height="20" fill="#27AE60"/>
+            <rect x="45" y="0" width="4" height="20" fill="#27AE60"/>
+            <rect x="50" y="0" width="4" height="20" fill="#E74C3C"/>
+            <rect x="55" y="0" width="4" height="20" fill="#27AE60"/>
+            <rect x="60" y="0" width="4" height="20" fill="#27AE60"/>
+            <rect x="65" y="0" width="4" height="20" fill="#27AE60"/>
+            <rect x="70" y="0" width="4" height="20" fill="#E74C3C"/>
+            <rect x="75" y="0" width="4" height="20" fill="#27AE60"/>
+            <rect x="80" y="0" width="4" height="20" fill="#27AE60"/>
+            <rect x="85" y="0" width="4" height="20" fill="#27AE60"/>
+            <rect x="90" y="0" width="4" height="20" fill="#27AE60"/>
+            <rect x="95" y="0" width="4" height="20" fill="#E74C3C"/>
+        </svg>
+    </div>
+
+    <!-- Example 6: Table with Embedded Sparklines -->
+    <h2>Products with Embedded Sparklines</h2>
+    <table style="width: 100%; border-collapse: collapse;">
+        <thead>
+            <tr style="border-bottom: 2px solid #333;">
+                <th style="text-align: left; padding: 8px;">Product</th>
+                <th style="text-align: right; padding: 8px;">Revenue</th>
+                <th style="text-align: center; padding: 8px;">Trend</th>
+                <th style="text-align: right; padding: 8px;">Change</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr class="metric-row">
+                <td class="metric-label">Product A</td>
+                <td class="metric-value" style="text-align: right;">$500K</td>
+                <td style="text-align: center;">
+                    <svg width="60" height="15" viewBox="0 0 60 15">
+                        <polyline points="0,12 10,10 20,8 30,6 40,4 50,2 60,1" fill="none" stroke="#2171B5" stroke-width="1.5"/>
+                    </svg>
+                </td>
+                <td style="text-align: right; color: #27AE60;">+15%</td>
+            </tr>
+            <tr class="metric-row">
+                <td class="metric-label">Product B</td>
+                <td class="metric-value" style="text-align: right;">$400K</td>
+                <td style="text-align: center;">
+                    <svg width="60" height="15" viewBox="0 0 60 15">
+                        <polyline points="0,6 10,7 20,6 30,7 40,6 50,7 60,6" fill="none" stroke="#666" stroke-width="1.5"/>
+                    </svg>
+                </td>
+                <td style="text-align: right; color: #666;">+2%</td>
+            </tr>
+            <tr class="metric-row">
+                <td class="metric-label">Product C</td>
+                <td class="metric-value" style="text-align: right;">$300K</td>
+                <td style="text-align: center;">
+                    <svg width="60" height="15" viewBox="0 0 60 15">
+                        <polyline points="0,2 10,4 20,6 30,8 40,10 50,12 60,14" fill="none" stroke="#E74C3C" stroke-width="1.5"/>
+                    </svg>
+                </td>
+                <td style="text-align: right; color: #E74C3C;">-8%</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h2>JavaScript Sparkline Generator</h2>
+    <pre style="background: #F7F7F7; padding: 16px; border-radius: 4px; overflow-x: auto;"><code>function generateSparkline(data, width = 100, height = 20) {
+    const max = Math.max(...data);
+    const min = Math.min(...data);
+    const range = max - min || 1;
+    
+    const points = data.map((value, index) => {
+        const x = (index / (data.length - 1)) * width;
+        const y = height - ((value - min) / range) * height;
+        return `${x},${y}`;
+    }).join(' ');
+    
+    return `
+        &lt;svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"&gt;
+            &lt;polyline 
+                points="${points}"
+                fill="none"
+                stroke="#2171B5"
+                stroke-width="1.5"
+            /&gt;
+        &lt;/svg&gt;
+    `;
+}
+
+// Usage:
+const revenueData = [100, 110, 105, 120, 115, 130, 125, 140, 135, 150];
+const sparkline = generateSparkline(revenueData);
+    </code></pre>
+</body>
+</html>

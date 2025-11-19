@@ -1,0 +1,74 @@
+version: 2
+
+sources:
+  - name: postgres
+    description: Production PostgreSQL database
+    database: raw_data
+    schema: public
+    
+    freshness:
+      warn_after: {count: 12, period: hour}
+      error_after: {count: 24, period: hour}
+    
+    loaded_at_field: _loaded_at
+
+    tables:
+      - name: customers
+        description: Customer records from application
+        columns:
+          - name: id
+            description: Primary key
+            tests:
+              - unique
+              - not_null
+
+          - name: email
+            description: Customer email address
+            tests:
+              - unique
+
+          - name: created_at
+            description: Account creation timestamp
+
+      - name: orders
+        description: Order transactions
+        columns:
+          - name: id
+            description: Primary key
+            tests:
+              - unique
+              - not_null
+
+          - name: customer_id
+            description: Foreign key to customers
+            tests:
+              - not_null
+              - relationships:
+                  to: source('postgres', 'customers')
+                  field: id
+
+          - name: amount
+            description: Order total amount
+            tests:
+              - not_null
+              - dbt_expectations.expect_column_values_to_be_between:
+                  min_value: 0
+                  max_value: 1000000
+
+      - name: products
+        description: Product catalog
+        columns:
+          - name: id
+            tests:
+              - unique
+              - not_null
+
+          - name: name
+            tests:
+              - not_null
+
+          - name: price
+            tests:
+              - not_null
+              - dbt_expectations.expect_column_values_to_be_between:
+                  min_value: 0

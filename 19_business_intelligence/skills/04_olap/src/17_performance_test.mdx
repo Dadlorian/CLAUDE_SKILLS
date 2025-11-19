@@ -1,0 +1,51 @@
+-- Performance Testing MDX Queries
+-- Benchmark queries for performance validation
+
+-- Test 1: Simple Aggregation
+SELECT
+    [Measures].[Sales Amount] ON 0
+FROM [Sales];
+
+-- Test 2: Single Dimension
+SELECT
+    [Measures].[Sales Amount] ON 0,
+    [Product].[Category].MEMBERS ON 1
+FROM [Sales];
+
+-- Test 3: CrossJoin (2 dimensions)
+SELECT
+    [Measures].[Sales Amount] ON 0,
+    NON EMPTY CROSSJOIN(
+        [Product].[Category].MEMBERS,
+        [Date].[Calendar].[Year].MEMBERS
+    ) ON 1
+FROM [Sales];
+
+-- Test 4: Year-over-Year Calculation
+WITH MEMBER [Measures].[Sales LY] AS
+    ([Measures].[Sales Amount], PARALLELPERIOD([Date].[Calendar].[Year], 1))
+SELECT
+    {[Measures].[Sales Amount], [Measures].[Sales LY]} ON 0,
+    [Date].[Calendar].[Month].MEMBERS ON 1
+FROM [Sales]
+WHERE [Date].[Calendar].[2024];
+
+-- Test 5: Top N
+SELECT
+    [Measures].[Sales Amount] ON 0,
+    TOPCOUNT([Product].[Product].MEMBERS, 100, [Measures].[Sales Amount]) ON 1
+FROM [Sales];
+
+-- Test 6: Complex Calculation
+WITH
+MEMBER [Measures].[YTD Sales] AS
+    AGGREGATE(PERIODSTODATE([Date].[Calendar].[Year]), [Measures].[Sales Amount])
+MEMBER [Measures].[3 Month MA] AS
+    AVG(LASTPERIODS(3, [Date].[Calendar].CURRENTMEMBER), [Measures].[Sales Amount])
+MEMBER [Measures].[Running Total] AS
+    SUM([Date].[Calendar].MEMBERS.ITEM(0) : [Date].[Calendar].CURRENTMEMBER, [Measures].[Sales Amount])
+SELECT
+    {[Measures].[Sales Amount], [Measures].[YTD Sales], [Measures].[3 Month MA], [Measures].[Running Total]} ON 0,
+    [Date].[Calendar].[Month].MEMBERS ON 1
+FROM [Sales]
+WHERE [Date].[Calendar].[2024];

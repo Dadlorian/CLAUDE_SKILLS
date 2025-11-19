@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mobile Executive Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #F7F7F7;
+        }
+        
+        .mobile-dashboard {
+            max-width: 480px;
+            margin: 0 auto;
+            background: #FFFFFF;
+        }
+        
+        .mobile-header {
+            background: #2C3E50;
+            color: #FFFFFF;
+            padding: 16px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .mobile-header h1 {
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        .mobile-header .update-time {
+            font-size: 12px;
+            color: #CCCCCC;
+            margin-top: 4px;
+        }
+        
+        .mobile-kpi {
+            background: #FFFFFF;
+            border-bottom: 1px solid #E0E0E0;
+            padding: 20px 16px;
+        }
+        
+        .mobile-kpi.primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #FFFFFF;
+        }
+        
+        .mobile-kpi-label {
+            font-size: 12px;
+            color: inherit;
+            opacity: 0.7;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .mobile-kpi-value {
+            font-size: 36px;
+            font-weight: 700;
+            margin: 8px 0;
+        }
+        
+        .mobile-kpi-change {
+            font-size: 16px;
+            font-weight: 600;
+        }
+        
+        .mobile-kpi-change.positive {
+            color: #27AE60;
+        }
+        
+        .mobile-kpi-change.negative {
+            color: #E74C3C;
+        }
+        
+        .mobile-kpi.primary .mobile-kpi-change {
+            color: #FFFFFF;
+            opacity: 0.9;
+        }
+        
+        .mobile-sparkline {
+            height: 30px;
+            margin-top: 12px;
+        }
+        
+        .mobile-chart {
+            padding: 20px 16px;
+            background: #FFFFFF;
+            border-bottom: 1px solid #E0E0E0;
+        }
+        
+        .mobile-chart-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #2C3E50;
+            margin-bottom: 16px;
+        }
+        
+        .mobile-alert {
+            background: #FFF3E0;
+            border-left: 4px solid #F57C00;
+            padding: 12px 16px;
+            margin: 16px;
+            border-radius: 4px;
+            font-size: 14px;
+            color: #E65100;
+        }
+        
+        .mobile-cta {
+            padding: 16px;
+            background: #E3F2FD;
+            margin: 16px;
+            border-radius: 8px;
+        }
+        
+        .mobile-cta h3 {
+            font-size: 14px;
+            color: #1976D2;
+            margin-bottom: 8px;
+        }
+        
+        .mobile-cta ol {
+            font-size: 13px;
+            color: #0D47A1;
+            padding-left: 20px;
+        }
+        
+        .mobile-cta li {
+            margin-bottom: 4px;
+        }
+        
+        .mobile-footer {
+            padding: 16px;
+            text-align: center;
+            font-size: 12px;
+            color: #999999;
+        }
+        
+        .mobile-btn {
+            display: block;
+            width: 100%;
+            padding: 14px;
+            margin: 16px 0;
+            background: #2171B5;
+            color: #FFFFFF;
+            text-align: center;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="mobile-dashboard">
+        <!-- Header -->
+        <header class="mobile-header">
+            <h1>Q4 Executive Summary</h1>
+            <div class="update-time">Updated 5 min ago</div>
+        </header>
+
+        <!-- Primary KPI (Hero) -->
+        <div class="mobile-kpi primary">
+            <div class="mobile-kpi-label">Annual Recurring Revenue</div>
+            <div class="mobile-kpi-value">$12.3M</div>
+            <div class="mobile-kpi-change positive">
+                ▲ 20% vs $10.2M target
+            </div>
+            <div class="mobile-sparkline">
+                <svg width="100%" height="30" viewBox="0 0 300 30">
+                    <polyline points="0,25 50,23 100,20 150,18 200,15 250,12 300,10" 
+                              stroke="white" stroke-width="2" fill="none" opacity="0.8"/>
+                </svg>
+            </div>
+        </div>
+
+        <!-- Alert (if any) -->
+        <div class="mobile-alert">
+            <strong>⚠ Attention:</strong> SMB acquisition down 12%
+        </div>
+
+        <!-- Supporting KPIs -->
+        <div class="mobile-kpi">
+            <div class="mobile-kpi-label">New Customers</div>
+            <div class="mobile-kpi-value">1,234</div>
+            <div class="mobile-kpi-change positive">▲ 15% vs plan</div>
+        </div>
+
+        <div class="mobile-kpi">
+            <div class="mobile-kpi-label">Gross Margin</div>
+            <div class="mobile-kpi-value">62%</div>
+            <div class="mobile-kpi-change positive">✓ Above 60% target</div>
+        </div>
+
+        <div class="mobile-kpi">
+            <div class="mobile-kpi-label">Net Promoter Score</div>
+            <div class="mobile-kpi-value">45</div>
+            <div class="mobile-kpi-change positive">▲ +3 from Q3</div>
+        </div>
+
+        <!-- Simplified Chart Placeholder -->
+        <div class="mobile-chart">
+            <div class="mobile-chart-title">Revenue Trend (12 mo)</div>
+            <div style="height: 150px; background: #F0F0F0; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #999;">
+                [Simplified Mobile Chart]
+            </div>
+        </div>
+
+        <!-- Priorities/Action Items -->
+        <div class="mobile-cta">
+            <h3>🎯 Q1 2025 Priorities</h3>
+            <ol>
+                <li>Accelerate SMB self-service launch</li>
+                <li>Expand enterprise sales team</li>
+                <li>Launch European market pilot</li>
+            </ol>
+        </div>
+
+        <!-- Link to Full Dashboard -->
+        <a href="/dashboard/full" class="mobile-btn">
+            View Full Dashboard →
+        </a>
+
+        <footer class="mobile-footer">
+            Data as of Dec 19, 2024 2:45 PM
+        </footer>
+    </div>
+</body>
+</html>

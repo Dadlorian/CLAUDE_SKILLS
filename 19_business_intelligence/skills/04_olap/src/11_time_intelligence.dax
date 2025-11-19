@@ -1,0 +1,218 @@
+// =============================================
+// Time Intelligence Calculations Library
+// Comprehensive production-ready time functions
+// =============================================
+
+// === Period-to-Date Calculations ===
+
+YTD =
+CALCULATE(
+    [Sales Amount],
+    DATESYTD('Date'[Date])
+)
+
+QTD =
+CALCULATE(
+    [Sales Amount],
+    DATESQTD('Date'[Date])
+)
+
+MTD =
+CALCULATE(
+    [Sales Amount],
+    DATESMTD('Date'[Date])
+)
+
+WTD =
+VAR LastDate = MAX('Date'[Date])
+VAR WeekStart = LastDate - WEEKDAY(LastDate, 2) + 1
+RETURN
+    CALCULATE(
+        [Sales Amount],
+        DATESBETWEEN('Date'[Date], WeekStart, LastDate)
+    )
+
+// === Fiscal Period-to-Date ===
+
+Fiscal YTD =
+VAR FiscalYearStartMonth = 7
+VAR CurrentDate = MAX('Date'[Date])
+VAR CurrentFiscalYear = 
+    IF(
+        MONTH(CurrentDate) >= FiscalYearStartMonth,
+        YEAR(CurrentDate) + 1,
+        YEAR(CurrentDate)
+    )
+VAR FiscalYearStart = 
+    DATE(CurrentFiscalYear - 1, FiscalYearStartMonth, 1)
+RETURN
+    CALCULATE(
+        [Sales Amount],
+        DATESBETWEEN('Date'[Date], FiscalYearStart, CurrentDate)
+    )
+
+// === Prior Period Comparisons ===
+
+Sales LY =
+CALCULATE(
+    [Sales Amount],
+    SAMEPERIODLASTYEAR('Date'[Date])
+)
+
+Sales LM =
+CALCULATE(
+    [Sales Amount],
+    DATEADD('Date'[Date], -1, MONTH)
+)
+
+Sales LQ =
+CALCULATE(
+    [Sales Amount],
+    DATEADD('Date'[Date], -1, QUARTER)
+)
+
+Sales L7D =
+CALCULATE(
+    [Sales Amount],
+    DATEADD('Date'[Date], -7, DAY)
+)
+
+// === Growth Calculations ===
+
+YoY Growth % =
+VAR CurrentPeriod = [Sales Amount]
+VAR PriorPeriod = [Sales LY]
+RETURN
+    DIVIDE(CurrentPeriod - PriorPeriod, PriorPeriod, 0)
+
+YoY Growth Abs = [Sales Amount] - [Sales LY]
+
+YTD vs LY % =
+DIVIDE([YTD] - CALCULATE([YTD], SAMEPERIODLASTYEAR('Date'[Date])), CALCULATE([YTD], SAMEPERIODLASTYEAR('Date'[Date])), 0)
+
+MoM Growth % =
+DIVIDE([Sales Amount] - [Sales LM], [Sales LM], 0)
+
+// === Moving Calculations ===
+
+3 Month Moving Avg =
+AVERAGEX(
+    DATESINPERIOD('Date'[Date], LASTDATE('Date'[Date]), -3, MONTH),
+    [Sales Amount]
+)
+
+12 Month Moving Avg =
+AVERAGEX(
+    DATESINPERIOD('Date'[Date], LASTDATE('Date'[Date]), -12, MONTH),
+    [Sales Amount]
+)
+
+30 Day Moving Avg =
+AVERAGEX(
+    DATESINPERIOD('Date'[Date], LASTDATE('Date'[Date]), -30, DAY),
+    [Sales Amount]
+)
+
+Rolling 12 Months =
+CALCULATE(
+    [Sales Amount],
+    DATESINPERIOD('Date'[Date], LASTDATE('Date'[Date]), -12, MONTH)
+)
+
+// === Running Totals ===
+
+Running Total =
+CALCULATE(
+    [Sales Amount],
+    FILTER(
+        ALL('Date'[Date]),
+        'Date'[Date] <= MAX('Date'[Date])
+    )
+)
+
+Running Total YTD =
+VAR MaxDate = MAX('Date'[Date])
+VAR CurrentYear = YEAR(MaxDate)
+RETURN
+    CALCULATE(
+        [Sales Amount],
+        FILTER(
+            ALL('Date'),
+            'Date'[Date] <= MaxDate &&
+            YEAR('Date'[Date]) = CurrentYear
+        )
+    )
+
+// === Business Days ===
+
+Business Days in Period =
+CALCULATE(
+    COUNTROWS('Date'),
+    'Date'[IsBusinessDay] = TRUE()
+)
+
+Sales per Business Day =
+DIVIDE([Sales Amount], [Business Days in Period], 0)
+
+// === Complete Period Calculations ===
+
+Prior Complete Month =
+VAR LastCompleteMonth = EOMONTH(MAX('Date'[Date]), -1)
+VAR MonthStart = DATE(YEAR(LastCompleteMonth), MONTH(LastCompleteMonth), 1)
+RETURN
+    CALCULATE(
+        [Sales Amount],
+        DATESBETWEEN('Date'[Date], MonthStart, LastCompleteMonth)
+    )
+
+Prior Complete Quarter =
+VAR CurrentQuarter = QUARTER(MAX('Date'[Date]))
+VAR CurrentYear = YEAR(MAX('Date'[Date]))
+VAR PriorQuarter = IF(CurrentQuarter = 1, 4, CurrentQuarter - 1)
+VAR PriorYear = IF(CurrentQuarter = 1, CurrentYear - 1, CurrentYear)
+VAR QuarterStart = DATE(PriorYear, (PriorQuarter - 1) * 3 + 1, 1)
+VAR QuarterEnd = EOMONTH(QuarterStart, 2)
+RETURN
+    CALCULATE(
+        [Sales Amount],
+        DATESBETWEEN('Date'[Date], QuarterStart, QuarterEnd)
+    )
+
+// === Custom Periods ===
+
+Last 90 Days =
+CALCULATE(
+    [Sales Amount],
+    DATESINPERIOD('Date'[Date], MAX('Date'[Date]), -90, DAY)
+)
+
+Last 12 Weeks =
+CALCULATE(
+    [Sales Amount],
+    DATESINPERIOD('Date'[Date], MAX('Date'[Date]), -12*7, DAY)
+)
+
+// === Dynamic Time Intelligence ===
+
+Dynamic Period =
+VAR SelectedPeriod = SELECTEDVALUE('Period Selection'[Period])
+RETURN
+    SWITCH(
+        SelectedPeriod,
+        "MTD", [MTD],
+        "QTD", [QTD],
+        "YTD", [YTD],
+        "L12M", [Rolling 12 Months],
+        [Sales Amount]
+    )
+
+Dynamic Comparison =
+VAR SelectedComparison = SELECTEDVALUE('Comparison Selection'[Comparison])
+RETURN
+    SWITCH(
+        SelectedComparison,
+        "LY", [Sales LY],
+        "LM", [Sales LM],
+        "LQ", [Sales LQ],
+        BLANK()
+    )

@@ -1,0 +1,102 @@
+# Qlik Sense Set Analysis Examples
+
+# ================================================
+# BASIC SET ANALYSIS
+# ================================================
+
+# Current year sales (ignore all filters except current selections)
+Sum({<Year={$(=Max(Year))}>} Sales)
+
+# Specific year (ignore year filter)
+Sum({<Year={2024}>} Sales)
+
+# Multiple values
+Sum({<Region={'East','West'}>} Sales)
+
+# Exclude values
+Sum({<Status-={'Cancelled'}>} Sales)
+
+# All data (ignore all selections)
+Sum({1} Sales)
+
+# ================================================
+# TIME-BASED ANALYSIS
+# ================================================
+
+# Year-to-Date
+Sum({<
+    Year={$(=Max(Year))},
+    MonthNum={"<=$(=Max(MonthNum))"}
+>} Sales)
+
+# Prior Year
+Sum({<Year={$(=Max(Year)-1)}>} Sales)
+
+# Year-over-Year Growth %
+(Sum({<Year={$(=Max(Year))}>} Sales) - 
+ Sum({<Year={$(=Max(Year)-1)}>} Sales)) /
+Sum({<Year={$(=Max(Year)-1)}>} Sales)
+
+# Last 12 Months
+Sum({<OrderDate={">=$(=AddMonths(Today(),-12))<=$(=Today())"}>} Sales)
+
+# Same Month Last Year
+Sum({<
+    Year={$(=Max(Year)-1)},
+    Month={$(=Max(Month))}
+>} Sales)
+
+# ================================================
+# ADVANCED PATTERNS
+# ================================================
+
+# Top 10 Products (using P function)
+Sum({<Product=P({<Year={$(=Max(Year))}>} DISTINCT Product)>} Sales)
+
+# Customers who bought Product A
+Count({<CustomerID=P({<Product={'Product A'}>} DISTINCT CustomerID)>} DISTINCT CustomerID)
+
+# Customers who bought A but not B (set difference)
+Count({<
+    CustomerID=P({<Product={'Product A'}>} DISTINCT CustomerID) -
+               P({<Product={'Product B'}>} DISTINCT CustomerID)
+>} DISTINCT CustomerID)
+
+# Customers who bought both A and B (set intersection)
+Count({<
+    CustomerID=P({<Product={'Product A'}>} DISTINCT CustomerID) *
+               P({<Product={'Product B'}>} DISTINCT CustomerID)
+>} DISTINCT CustomerID)
+
+# ================================================
+# COMPARATIVE ANALYSIS
+# ================================================
+
+# This Region vs All Regions
+Sum(Sales) / Sum({<Region=>} Sales)
+
+# This Product vs Category Average
+Sum(Sales) / Avg({<Product=>} TOTAL <Category> Sales)
+
+# Selected Items vs Total
+Sum(Sales) / Sum({1} Sales)
+
+# ================================================
+# VARIABLES WITH SET ANALYSIS
+# ================================================
+
+# Variable: vCurrentYear = Max(Year)
+# Variable: vPriorYear = $(vCurrentYear) - 1
+
+# Use in expression
+Sum({<Year={"$(vCurrentYear)"}>} Sales)
+
+# ================================================
+# CONDITIONAL SET ANALYSIS
+# ================================================
+
+# If selection exists, use it; otherwise show all
+Sum({<Region=$(=if(GetSelectedCount(Region)>0, GetFieldSelections(Region,'|',''), '*'))>} Sales)
+
+# Show current + prior year
+Sum({<Year={"$(=Max(Year))", "$(=Max(Year)-1)"}>} Sales)

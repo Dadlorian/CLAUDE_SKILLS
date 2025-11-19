@@ -1,0 +1,208 @@
+<Batch xmlns="http://schemas.microsoft.com/analysisservices/2003/engine">
+  <Create xmlns="http://schemas.microsoft.com/analysisservices/2003/engine">
+    <ParentObject>
+      <ServerID>localhost</ServerID>
+    </ParentObject>
+    <ObjectDefinition>
+      <Database xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+        <ID>SalesCube</ID>
+        <Name>Sales Cube</Name>
+        <CreatedTimestamp>2024-01-01T00:00:00Z</CreatedTimestamp>
+        <LastSchemaUpdate>2024-01-01T00:00:00Z</LastSchemaUpdate>
+        <LastProcessed>0001-01-01T00:00:00Z</LastProcessed>
+        <State>Unprocessed</State>
+        
+        <DataSources>
+          <DataSource xsi:type="RelationalDataSource">
+            <ID>SalesDB</ID>
+            <Name>Sales Database</Name>
+            <ConnectionString>Provider=SQLNCLI11;Data Source=SQLServer;Integrated Security=SSPI;Initial Catalog=SalesDW</ConnectionString>
+            <ImpersonationInfo>
+              <ImpersonationMode>ImpersonateServiceAccount</ImpersonationMode>
+            </ImpersonationInfo>
+          </DataSource>
+        </DataSources>
+        
+        <DataSourceViews>
+          <DataSourceView>
+            <ID>SalesDSV</ID>
+            <Name>Sales Data Source View</Name>
+            <DataSourceID>SalesDB</DataSourceID>
+            <Schema>
+              <!-- DSV schema definition -->
+            </Schema>
+          </DataSourceView>
+        </DataSourceViews>
+        
+        <Dimensions>
+          <Dimension>
+            <ID>Date</ID>
+            <Name>Date</Name>
+            <Type>Time</Type>
+            <Source xsi:type="DataSourceViewBinding">
+              <DataSourceViewID>SalesDSV</DataSourceViewID>
+            </Source>
+            <StorageMode>Molap</StorageMode>
+            <Attributes>
+              <Attribute>
+                <ID>Date</ID>
+                <Name>Date</Name>
+                <Usage>Key</Usage>
+                <Type>Days</Type>
+                <KeyColumns>
+                  <KeyColumn>
+                    <Source xsi:type="ColumnBinding">
+                      <TableID>dbo_DimDate</TableID>
+                      <ColumnID>DateKey</ColumnID>
+                    </Source>
+                  </KeyColumn>
+                </KeyColumns>
+                <NameColumn>
+                  <Source xsi:type="ColumnBinding">
+                    <TableID>dbo_DimDate</TableID>
+                    <ColumnID>Date</ColumnID>
+                  </Source>
+                </NameColumn>
+              </Attribute>
+              <Attribute>
+                <ID>Year</ID>
+                <Name>Year</Name>
+                <KeyColumns>
+                  <KeyColumn>
+                    <Source xsi:type="ColumnBinding">
+                      <TableID>dbo_DimDate</TableID>
+                      <ColumnID>Year</ColumnID>
+                    </Source>
+                  </KeyColumn>
+                </KeyColumns>
+              </Attribute>
+            </Attributes>
+            <Hierarchies>
+              <Hierarchy>
+                <ID>Calendar</ID>
+                <Name>Calendar</Name>
+                <AllMemberName>All Years</AllMemberName>
+                <Levels>
+                  <Level>
+                    <ID>Year</ID>
+                    <Name>Year</Name>
+                    <SourceAttributeID>Year</SourceAttributeID>
+                  </Level>
+                  <Level>
+                    <ID>Month</ID>
+                    <Name>Month</Name>
+                    <SourceAttributeID>Month</SourceAttributeID>
+                  </Level>
+                  <Level>
+                    <ID>Date</ID>
+                    <Name>Date</Name>
+                    <SourceAttributeID>Date</SourceAttributeID>
+                  </Level>
+                </Levels>
+              </Hierarchy>
+            </Hierarchies>
+          </Dimension>
+          
+          <Dimension>
+            <ID>Product</ID>
+            <Name>Product</Name>
+            <Source xsi:type="DataSourceViewBinding">
+              <DataSourceViewID>SalesDSV</DataSourceViewID>
+            </Source>
+            <StorageMode>Molap</StorageMode>
+            <Attributes>
+              <Attribute>
+                <ID>Product</ID>
+                <Name>Product</Name>
+                <Usage>Key</Usage>
+                <KeyColumns>
+                  <KeyColumn>
+                    <Source xsi:type="ColumnBinding">
+                      <TableID>dbo_DimProduct</TableID>
+                      <ColumnID>ProductKey</ColumnID>
+                    </Source>
+                  </KeyColumn>
+                </KeyColumns>
+                <NameColumn>
+                  <Source xsi:type="ColumnBinding">
+                    <TableID>dbo_DimProduct</TableID>
+                    <ColumnID>ProductName</ColumnID>
+                  </Source>
+                </NameColumn>
+                <AttributeRelationships>
+                  <AttributeRelationship>
+                    <AttributeID>Subcategory</AttributeID>
+                    <RelationshipType>Rigid</RelationshipType>
+                  </AttributeRelationship>
+                </AttributeRelationships>
+              </Attribute>
+              <Attribute>
+                <ID>Category</ID>
+                <Name>Category</Name>
+                <KeyColumns>
+                  <KeyColumn>
+                    <Source xsi:type="ColumnBinding">
+                      <TableID>dbo_DimProduct</TableID>
+                      <ColumnID>Category</ColumnID>
+                    </Source>
+                  </KeyColumn>
+                </KeyColumns>
+              </Attribute>
+            </Attributes>
+          </Dimension>
+        </Dimensions>
+        
+        <Cubes>
+          <Cube>
+            <ID>Sales</ID>
+            <Name>Sales</Name>
+            <Dimensions>
+              <Dimension>
+                <ID>Date</ID>
+                <Name>Date</Name>
+                <DimensionID>Date</DimensionID>
+              </Dimension>
+              <Dimension>
+                <ID>Product</ID>
+                <Name>Product</Name>
+                <DimensionID>Product</DimensionID>
+              </Dimension>
+            </Dimensions>
+            <MeasureGroups>
+              <MeasureGroup>
+                <ID>Sales</ID>
+                <Name>Sales</Name>
+                <Measures>
+                  <Measure>
+                    <ID>SalesAmount</ID>
+                    <Name>Sales Amount</Name>
+                    <AggregateFunction>Sum</AggregateFunction>
+                    <FormatString>Currency</FormatString>
+                    <Source>
+                      <Source xsi:type="ColumnBinding">
+                        <TableID>dbo_FactSales</TableID>
+                        <ColumnID>SalesAmount</ColumnID>
+                      </Source>
+                    </Source>
+                  </Measure>
+                </Measures>
+                <StorageMode>Molap</StorageMode>
+                <Partitions>
+                  <Partition>
+                    <ID>Sales_2024</ID>
+                    <Name>Sales 2024</Name>
+                    <Source xsi:type="QueryBinding">
+                      <DataSourceID>SalesDB</DataSourceID>
+                      <QueryDefinition>SELECT * FROM FactSales WHERE DateKey >= 20240101 AND DateKey < 20250101</QueryDefinition>
+                    </Source>
+                    <StorageMode>Molap</StorageMode>
+                  </Partition>
+                </Partitions>
+              </MeasureGroup>
+            </MeasureGroups>
+          </Cube>
+        </Cubes>
+      </Database>
+    </ObjectDefinition>
+  </Create>
+</Batch>

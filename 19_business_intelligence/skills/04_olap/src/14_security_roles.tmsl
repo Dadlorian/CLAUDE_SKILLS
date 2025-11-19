@@ -1,0 +1,27 @@
+{
+  "createOrReplace": {
+    "object": {
+      "database": "SalesCube",
+      "role": "SalesManagers"
+    },
+    "role": {
+      "name": "SalesManagers",
+      "modelPermission": "read",
+      "members": [
+        {
+          "memberName": "DOMAIN\\SalesManagersGroup"
+        }
+      ],
+      "tablePermissions": [
+        {
+          "name": "Sales",
+          "filterExpression": "'Date'[Year] >= YEAR(TODAY()) - 2"
+        },
+        {
+          "name": "Customer",
+          "filterExpression": "VAR UserEmail = USERPRINCIPALNAME() VAR UserRegion = LOOKUPVALUE(UserSecurity[Region], UserSecurity[Email], UserEmail) RETURN Customer[Region] = UserRegion"
+        }
+      ]
+    }
+  }
+}

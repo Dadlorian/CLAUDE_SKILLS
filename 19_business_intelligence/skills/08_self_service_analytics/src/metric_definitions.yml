@@ -1,0 +1,373 @@
+# dbt Semantic Layer - Metric Definitions
+# Provides self-serve metrics for business users
+# Version: 2.0
+# Reference: https://docs.getdbt.com/docs/build/semantic-layer
+
+version: 2
+
+semantics:
+  - name: orders
+    description: Order metrics and dimensions
+
+    defaults:
+      agg_time_dimension: order_date
+
+    entities:
+      - name: order
+        type: primary
+        expr: order_id
+
+      - name: customer
+        type: foreign
+        expr: customer_id
+
+      - name: product
+        type: foreign
+        expr: product_id
+
+    measures:
+      - name: revenue
+        description: Total order revenue (gross)
+        agg: sum
+        expr: order_amount
+        filters:
+          - expr: "{{ is_true('order_status = complete') }}"
+        non_additive_dimension: order_date
+
+      - name: revenue_net
+        description: Revenue after refunds and adjustments
+        agg: sum
+        expr: "CASE WHEN order_status = 'complete' THEN order_amount ELSE -order_amount END"
+
+      - name: profit
+        description: Order profit margin
+        agg: sum
+        expr: profit_amount
+
+      - name: profit_margin
+        description: Profit as percentage of revenue
+        agg: custom
+        expr: "{{ semantic_layer.profit }} / {{ semantic_layer.revenue }}"
+
+      - name: order_count
+        description: Total number of orders
+        agg: count
+        expr: order_id
+        filters:
+          - expr: "{{ is_true('order_status != cancelled') }}"
+
+      - name: order_count_new
+        description: Orders from new customers (first purchase)
+        agg: count_distinct
+        expr: order_id
+        filters:
+          - expr: "is_first_order = true"
+
+      - name: average_order_value
+        description: Mean order amount (AOV)
+        agg: average
+        expr: order_amount
+
+      - name: refund_amount
+        description: Total refunded amounts
+        agg: sum
+        expr: "CASE WHEN order_status = 'refunded' THEN order_amount ELSE 0 END"
+
+      - name: refund_rate
+        description: Percentage of orders refunded
+        agg: custom
+        expr: "COUNT(CASE WHEN order_status = 'refunded' THEN 1 END) / COUNT(*) * 100"
+
+    dimensions:
+      - name: order_date
+        type: time
+        time_granularities: [day, week, month, quarter, year]
+        expr: order_date
+
+      - name: order_status
+        type: categorical
+        expr: order_status
+
+      - name: order_channel
+        type: categorical
+        expr: channel
+        values: [web, mobile, phone, retail]
+
+      - name: region
+        type: categorical
+        expr: region
+
+      - name: product_category
+        type: categorical
+        expr: product_category
+
+  - name: customers
+    description: Customer metrics and dimensions
+
+    defaults:
+      agg_time_dimension: signup_date
+
+    entities:
+      - name: customer
+        type: primary
+        expr: customer_id
+
+    measures:
+      - name: customer_count
+        description: Total number of customers
+        agg: count_distinct
+        expr: customer_id
+
+      - name: customer_count_active
+        description: Customers with activity in last 30 days
+        agg: count_distinct
+        expr: customer_id
+        filters:
+          - expr: "last_activity_date >= current_date - 30"
+
+      - name: new_customers
+        description: Customers acquired in period
+        agg: count_distinct
+        expr: customer_id
+        filters:
+          - expr: "signup_date = __time_window__"
+
+      - name: returning_customers
+        description: Customers with multiple purchases
+        agg: count_distinct
+        expr: customer_id
+        filters:
+          - expr: "customer_lifetime_orders > 1"
+
+      - name: customer_acquisition_cost
+        description: Marketing spend per new customer
+        agg: custom
+        expr: "SUM(marketing_spend) / COUNT(DISTINCT CASE WHEN is_new_customer THEN customer_id END)"
+
+      - name: customer_lifetime_value
+        description: Total revenue per customer
+        agg: sum
+        expr: lifetime_revenue
+
+      - name: churn_count
+        description: Customers that churned in period
+        agg: count_distinct
+        expr: customer_id
+        filters:
+          - expr: "churned_date = __time_window__"
+
+    dimensions:
+      - name: signup_date
+        type: time
+        time_granularities: [day, week, month, quarter, year]
+        expr: signup_date
+
+      - name: customer_segment
+        type: categorical
+        expr: segment
+        values: [enterprise, mid_market, smb, startup]
+
+      - name: customer_tier
+        type: categorical
+        expr: tier
+        values: [gold, silver, bronze]
+
+      - name: acquisition_channel
+        type: categorical
+        expr: acquisition_channel
+        values: [organic, paid_search, paid_social, affiliate, partner]
+
+      - name: country
+        type: categorical
+        expr: country
+
+      - name: industry
+        type: categorical
+        expr: industry
+
+  - name: product
+    description: Product performance metrics
+
+    defaults:
+      agg_time_dimension: created_date
+
+    entities:
+      - name: product
+        type: primary
+        expr: product_id
+
+    measures:
+      - name: product_revenue
+        description: Total revenue by product
+        agg: sum
+        expr: revenue
+
+      - name: product_units_sold
+        description: Total units sold
+        agg: sum
+        expr: quantity
+
+      - name: product_order_count
+        description: Number of orders containing product
+        agg: count_distinct
+        expr: order_id
+
+      - name: product_gross_margin
+        description: Gross profit margin
+        agg: custom
+        expr: "SUM(gross_profit) / SUM(revenue) * 100"
+
+      - name: product_return_rate
+        description: Percentage of units returned
+        agg: custom
+        expr: "SUM(returns) / SUM(quantity) * 100"
+
+    dimensions:
+      - name: product_category
+        type: categorical
+        expr: category
+
+      - name: product_type
+        type: categorical
+        expr: product_type
+
+      - name: created_date
+        type: time
+        time_granularities: [month, quarter, year]
+        expr: created_date
+
+  - name: marketing
+    description: Marketing campaign and spend metrics
+
+    defaults:
+      agg_time_dimension: campaign_date
+
+    entities:
+      - name: campaign
+        type: primary
+        expr: campaign_id
+
+      - name: customer
+        type: foreign
+        expr: customer_id
+
+    measures:
+      - name: marketing_spend
+        description: Total marketing spend
+        agg: sum
+        expr: spend_amount
+
+      - name: marketing_impressions
+        description: Total ad impressions
+        agg: sum
+        expr: impressions
+
+      - name: marketing_clicks
+        description: Total ad clicks
+        agg: sum
+        expr: clicks
+
+      - name: marketing_conversions
+        description: Conversions from campaign
+        agg: sum
+        expr: conversions
+
+      - name: marketing_ctr
+        description: Click-through rate
+        agg: custom
+        expr: "SUM(clicks) / SUM(impressions) * 100"
+
+      - name: marketing_conversion_rate
+        description: Conversion rate percentage
+        agg: custom
+        expr: "SUM(conversions) / SUM(clicks) * 100"
+
+      - name: marketing_roi
+        description: Return on marketing investment
+        agg: custom
+        expr: "(SUM(revenue_attributed) - SUM(spend_amount)) / SUM(spend_amount) * 100"
+
+    dimensions:
+      - name: campaign_date
+        type: time
+        time_granularities: [day, week, month, quarter]
+        expr: campaign_date
+
+      - name: channel
+        type: categorical
+        expr: channel
+        values: [email, paid_search, social, display, affiliate]
+
+      - name: campaign_type
+        type: categorical
+        expr: campaign_type
+        values: [awareness, consideration, conversion, retention]
+
+# Composite Metrics (derived from base metrics)
+composite_metrics:
+  - name: ltv_cac_ratio
+    description: Lifetime value to customer acquisition cost ratio
+    numerator: customer_lifetime_value
+    denominator: customer_acquisition_cost
+    label: "LTV:CAC Ratio"
+    format: "number"
+
+  - name: marketing_efficiency_ratio
+    description: Revenue per marketing dollar spent
+    numerator: revenue
+    denominator: marketing_spend
+    label: "Marketing Efficiency Ratio"
+    format: "currency"
+
+  - name: customer_payback_period
+    description: Months to recover CAC (CAC / Monthly Profit)
+    numerator: customer_acquisition_cost
+    denominator: "revenue / 12"
+    label: "Payback Period (Months)"
+    format: "number"
+
+  - name: net_revenue_retention
+    description: Revenue retention including expansion
+    numerator: "starting_revenue + expansion - churn"
+    denominator: starting_revenue
+    label: "NRR %"
+    format: "percentage"
+
+# Metric Groups for Dashboard Organization
+metric_groups:
+  - name: revenue_metrics
+    description: All revenue-related metrics
+    metrics:
+      - revenue
+      - revenue_net
+      - profit
+      - product_revenue
+      - customer_lifetime_value
+
+  - name: customer_metrics
+    description: Customer acquisition and retention
+    metrics:
+      - customer_count
+      - new_customers
+      - returning_customers
+      - churn_count
+      - customer_acquisition_cost
+
+  - name: efficiency_metrics
+    description: Operational efficiency metrics
+    metrics:
+      - average_order_value
+      - marketing_roi
+      - marketing_efficiency_ratio
+      - ltv_cac_ratio
+      - profit_margin
+
+# Metric Availability Configuration
+metric_availability:
+  default_time_dimension: order_date
+  required_filters:
+    - customer_segment
+  optional_filters:
+    - region
+    - channel
+    - product_category

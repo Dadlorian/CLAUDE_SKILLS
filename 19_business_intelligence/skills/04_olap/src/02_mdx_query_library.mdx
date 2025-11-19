@@ -1,0 +1,189 @@
+-- =========================================
+-- MDX Query Library
+-- Production-ready query examples
+-- =========================================
+
+-- Basic Queries
+-- =========================================
+
+-- Top 10 Products by Sales
+SELECT
+  [Measures].[Sales Amount] ON COLUMNS,
+  TOPCOUNT(
+    [Product].[Product].MEMBERS,
+    10,
+    [Measures].[Sales Amount]
+  ) ON ROWS
+FROM [Sales]
+WHERE [Date].[Calendar].[2024]
+
+-- Year-over-Year Comparison
+WITH MEMBER [Measures].[Sales LY] AS
+  (
+    PARALLELPERIOD([Date].[Calendar].[Year], 1),
+    [Measures].[Sales Amount]
+  ),
+  FORMAT_STRING = "Currency"
+
+MEMBER [Measures].[YoY Change] AS
+  [Measures].[Sales Amount] - [Measures].[Sales LY],
+  FORMAT_STRING = "Currency"
+
+MEMBER [Measures].[YoY % Change] AS
+  IIF(
+    [Measures].[Sales LY] = 0,
+    NULL,
+    ([Measures].[Sales Amount] - [Measures].[Sales LY]) / [Measures].[Sales LY]
+  ),
+  FORMAT_STRING = "Percent"
+
+SELECT
+  {
+    [Measures].[Sales Amount],
+    [Measures].[Sales LY],
+    [Measures].[YoY Change],
+    [Measures].[YoY % Change]
+  } ON COLUMNS,
+  [Date].[Calendar].[Month].MEMBERS ON ROWS
+FROM [Sales]
+WHERE [Date].[Calendar].[2024]
+
+-- Period-to-Date Calculations
+-- =========================================
+
+-- Year-to-Date Sales
+WITH MEMBER [Measures].[YTD Sales] AS
+  AGGREGATE(
+    PERIODSTODATE(
+      [Date].[Calendar].[Year],
+      [Date].[Calendar].CURRENTMEMBER
+    ),
+    [Measures].[Sales Amount]
+  ),
+  FORMAT_STRING = "Currency"
+
+MEMBER [Measures].[YTD LY] AS
+  (
+    PARALLELPERIOD([Date].[Calendar].[Year], 1),
+    [Measures].[YTD Sales]
+  ),
+  FORMAT_STRING = "Currency"
+
+MEMBER [Measures].[YTD vs LY %] AS
+  IIF(
+    [Measures].[YTD LY] = 0,
+    NULL,
+    ([Measures].[YTD Sales] - [Measures].[YTD LY]) / [Measures].[YTD LY]
+  ),
+  FORMAT_STRING = "Percent"
+
+SELECT
+  {[Measures].[YTD Sales], [Measures].[YTD LY], [Measures].[YTD vs LY %]} ON COLUMNS,
+  [Date].[Calendar].[Month].MEMBERS ON ROWS
+FROM [Sales]
+WHERE [Date].[Calendar].[2024]
+
+-- Moving Averages
+-- =========================================
+
+-- 3 Month Moving Average
+WITH MEMBER [Measures].[3 Month MA] AS
+  AVG(
+    LASTPERIODS(3, [Date].[Calendar].CURRENTMEMBER),
+    [Measures].[Sales Amount]
+  ),
+  FORMAT_STRING = "Currency"
+
+SELECT
+  {[Measures].[Sales Amount], [Measures].[3 Month MA]} ON COLUMNS,
+  [Date].[Calendar].[Month].MEMBERS ON ROWS
+FROM [Sales]
+
+-- Advanced Analytics
+-- =========================================
+
+-- ABC Analysis with Running Total
+WITH MEMBER [Measures].[Running Total] AS
+  SUM(
+    [Product].[Product].MEMBERS.ITEM(0) : [Product].[Product].CURRENTMEMBER,
+    [Measures].[Sales Amount]
+  ),
+  FORMAT_STRING = "Currency"
+
+MEMBER [Measures].[% of Total] AS
+  [Measures].[Sales Amount] /
+  ([Measures].[Sales Amount], [Product].[Product].[All]),
+  FORMAT_STRING = "Percent"
+
+MEMBER [Measures].[Running % of Total] AS
+  [Measures].[Running Total] /
+  ([Measures].[Sales Amount], [Product].[Product].[All]),
+  FORMAT_STRING = "Percent"
+
+MEMBER [Measures].[ABC Class] AS
+  IIF(
+    [Measures].[Running % of Total] <= 0.80,
+    "A",
+    IIF(
+      [Measures].[Running % of Total] <= 0.95,
+      "B",
+      "C"
+    )
+  )
+
+SELECT
+  {
+    [Measures].[Sales Amount],
+    [Measures].[% of Total],
+    [Measures].[Running Total],
+    [Measures].[Running % of Total],
+    [Measures].[ABC Class]
+  } ON COLUMNS,
+  ORDER(
+    [Product].[Product].MEMBERS,
+    [Measures].[Sales Amount],
+    BDESC
+  ) ON ROWS
+FROM [Sales]
+
+-- Ranking and Top N
+-- =========================================
+
+-- Product Ranking within Category
+WITH MEMBER [Measures].[Rank in Category] AS
+  RANK(
+    [Product].[Product].CURRENTMEMBER,
+    ORDER(
+      FILTER(
+        [Product].[Product].MEMBERS,
+        [Product].[Product].CURRENTMEMBER.PARENT = [Product].[Category].CURRENTMEMBER
+      ),
+      [Measures].[Sales Amount],
+      BDESC
+    )
+  )
+
+SELECT
+  {[Measures].[Sales Amount], [Measures].[Rank in Category]} ON COLUMNS,
+  NON EMPTY [Product].[Product].MEMBERS ON ROWS
+FROM [Sales]
+
+-- Customer Cohort Analysis
+-- =========================================
+
+-- Sales by Customer Cohort (First Purchase Month)
+WITH SET [Cohorts] AS
+  CROSSJOIN(
+    [Customer].[First Purchase Month].MEMBERS,
+    [Date].[Calendar].[Month].MEMBERS
+  )
+
+MEMBER [Measures].[Months Since First Purchase] AS
+  ([Date].[Calendar].CURRENTMEMBER.MEMBER_VALUE -
+   [Customer].[First Purchase Month].CURRENTMEMBER.MEMBER_VALUE) / 30
+
+SELECT
+  [Customer].[First Purchase Month].MEMBERS ON ROWS,
+  [Date].[Calendar].[Month].MEMBERS ON COLUMNS
+FROM [Sales]
+WHERE [Measures].[Sales Amount]

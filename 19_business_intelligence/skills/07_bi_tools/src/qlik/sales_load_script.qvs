@@ -1,0 +1,134 @@
+// Qlik Sense Load Script Example
+
+// ================================================
+// VARIABLES
+// ================================================
+
+SET vToday = Today();
+SET vYesterday = Today() - 1;
+SET vDataPath = 'lib://DataFiles/';
+
+// ================================================
+// CALENDAR TABLE
+// ================================================
+
+Calendar:
+LOAD
+    Date AS %Date,
+    Week(Date) AS Week,
+    Year(Date) AS Year,
+    Month(Date) AS Month,
+    Day(Date) AS Day,
+    WeekDay(Date) AS WeekDay,
+    'Q' & Ceil(Month(Date)/3) AS Quarter,
+    Week(Date) & '-' & Year(Date) AS WeekYear;
+LOAD
+    Date(MinDate + IterNo() - 1) AS Date,
+    MinDate,
+    MaxDate
+WHILE MinDate + IterNo() - 1 <= MaxDate;
+LOAD
+    Date(Min(OrderDate)) AS MinDate,
+    Date(Max(OrderDate)) AS MaxDate
+RESIDENT Orders;
+
+// ================================================
+// DATA LOADING WITH QVD LAYERS
+// ================================================
+
+// Layer 1: Extract (from source)
+Orders_Extract:
+LOAD
+    OrderID,
+    CustomerID,
+    ProductID,
+    OrderDate,
+    Quantity,
+    UnitPrice,
+    Status
+FROM [lib://Database/Orders]
+WHERE OrderDate >= AddYears(Today(), -2);
+
+STORE Orders_Extract INTO [$(vDataPath)Extract/Orders.qvd] (qvd);
+DROP TABLE Orders_Extract;
+
+// Layer 2: Transform (cleaned and calculated)
+Orders:
+LOAD
+    OrderID,
+    CustomerID,
+    ProductID,
+    Date(OrderDate) AS OrderDate,
+    Quantity,
+    UnitPrice,
+    Quantity * UnitPrice AS Revenue,
+    Year(OrderDate) AS Year,
+    Month(OrderDate) AS Month,
+    Status
+FROM [$(vDataPath)Extract/Orders.qvd] (qvd);
+
+STORE Orders INTO [$(vDataPath)Transform/Orders.qvd] (qvd);
+
+// ================================================
+// AGGREGATED FACTS TABLE
+// ================================================
+
+Orders_Monthly:
+LOAD
+    Year & '-' & Month AS YearMonth,
+    CustomerID,
+    ProductID,
+    Sum(Quantity) AS TotalQuantity,
+    Sum(Revenue) AS TotalRevenue,
+    Count(OrderID) AS OrderCount
+RESIDENT Orders
+GROUP BY Year, Month, CustomerID, ProductID;
+
+STORE Orders_Monthly INTO [$(vDataPath)Agg/Orders_Monthly.qvd] (qvd);
+
+// ================================================
+// DIMENSION TABLES
+// ================================================
+
+Customers:
+LOAD
+    CustomerID,
+    CustomerName,
+    Email,
+    Region,
+    Segment
+FROM [lib://Database/Customers];
+
+Products:
+LOAD
+    ProductID,
+    ProductName,
+    Category,
+    SubCategory,
+    Cost,
+    ListPrice
+FROM [lib://Database/Products];
+
+// ================================================
+// SECTION ACCESS (Row-Level Security)
+// ================================================
+
+Section Access;
+ACCESS:
+LOAD * INLINE [
+    ACCESS, USERID, REGION, OMIT
+    ADMIN, INTERNAL\admin, *, *
+    USER, INTERNAL\john.doe, West, Revenue
+    USER, INTERNAL\jane.smith, East, Cost
+];
+
+Section Application;
+
+// ================================================
+// EXIT SCRIPT
+// ================================================
+
+LET vScriptEnd = Now();
+LET vScriptDuration = Interval(vScriptEnd - vScriptStart, 'hh:mm:ss');
+
+TRACE Script completed in $(vScriptDuration);

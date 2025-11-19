@@ -1,0 +1,55 @@
+# Airbyte Connection Configuration
+# Use via Airbyte API or UI
+
+sourceDefinitionId: "decd338e-5647-4c0b-adf4-da0e75f5a750"  # PostgreSQL
+destinationDefinitionId: "424892c4-daac-4491-b35d-c6688ba547ba"  # Snowflake
+
+sourceConfiguration:
+  host: "database.example.com"
+  port: 5432
+  database: "production"
+  username: "airbyte_user"
+  password: "${POSTGRES_PASSWORD}"
+  schemas:
+    - public
+  replication_method:
+    method: "CDC"
+    plugin: "pgoutput"
+    publication: "airbyte_publication"
+    replication_slot: "airbyte_slot"
+
+destinationConfiguration:
+  host: "xy12345.us-east-1.snowflakecomputing.com"
+  role: "AIRBYTE_ROLE"
+  warehouse: "AIRBYTE_WH"
+  database: "RAW_DATA"
+  schema: "public"
+  username: "airbyte_user"
+  credentials:
+    password: "${SNOWFLAKE_PASSWORD}"
+
+syncCatalog:
+  streams:
+    - stream:
+        name: "customers"
+        namespace: "public"
+      config:
+        syncMode: "incremental"
+        cursorField: ["updated_at"]
+        destinationSyncMode: "append_dedup"
+        primaryKey: [["id"]]
+
+    - stream:
+        name: "orders"
+        namespace: "public"
+      config:
+        syncMode: "incremental"
+        cursorField: ["updated_at"]
+        destinationSyncMode: "append_dedup"
+        primaryKey: [["id"]]
+
+scheduleType: "basic"
+scheduleData:
+  basicSchedule:
+    timeUnit: "hours"
+    units: 1

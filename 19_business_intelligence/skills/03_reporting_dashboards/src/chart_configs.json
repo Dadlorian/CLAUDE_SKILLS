@@ -1,0 +1,203 @@
+{
+  "few_tufte_chart_configs": {
+    "description": "Pre-configured chart settings following Few-Tufte principles",
+    
+    "line_chart": {
+      "type": "line",
+      "background": "#FFFFFF",
+      "gridlines": {
+        "show": false,
+        "color": "#E0E0E0",
+        "width": 0.5
+      },
+      "axes": {
+        "x": {
+          "show": true,
+          "color": "#666666",
+          "fontSize": 11,
+          "title": {
+            "show": false
+          }
+        },
+        "y": {
+          "show": true,
+          "color": "#666666",
+          "fontSize": 11,
+          "gridlines": false,
+          "title": {
+            "show": false
+          }
+        }
+      },
+      "series": {
+        "lineWidth": 2,
+        "pointSize": 0,
+        "colors": ["#2171B5"],
+        "strokeLinecap": "round",
+        "strokeLinejoin": "round"
+      },
+      "legend": {
+        "show": false,
+        "position": "none"
+      },
+      "tooltip": {
+        "show": true,
+        "backgroundColor": "#FFFFFF",
+        "borderColor": "#CCCCCC",
+        "fontSize": 12
+      }
+    },
+    
+    "bar_chart": {
+      "type": "bar",
+      "orientation": "horizontal",
+      "background": "#FFFFFF",
+      "gridlines": {
+        "show": false
+      },
+      "axes": {
+        "x": {
+          "show": true,
+          "startAtZero": true,
+          "color": "#666666"
+        },
+        "y": {
+          "show": true,
+          "color": "#333333",
+          "fontSize": 12
+        }
+      },
+      "bars": {
+        "colors": ["#4D4D4D"],
+        "highlightColor": "#2171B5",
+        "spacing": 0.2,
+        "borderRadius": 0
+      },
+      "dataLabels": {
+        "show": true,
+        "position": "outside",
+        "fontSize": 11,
+        "color": "#666666"
+      },
+      "legend": {
+        "show": false
+      },
+      "sorting": "descending"
+    },
+    
+    "bullet_chart": {
+      "type": "bullet",
+      "background": "#FFFFFF",
+      "ranges": {
+        "poor": {
+          "color": "#F0F0F0",
+          "max": 0.6
+        },
+        "satisfactory": {
+          "color": "#D0D0D0",
+          "max": 0.8
+        },
+        "good": {
+          "color": "#B0B0B0",
+          "max": 1.0
+        }
+      },
+      "measure": {
+        "color": "#2C3E50",
+        "height": 0.5
+      },
+      "target": {
+        "color": "#E74C3C",
+        "width": 2
+      },
+      "axis": {
+        "show": true,
+        "fontSize": 10,
+        "color": "#666666"
+      }
+    },
+    
+    "sparkline": {
+      "type": "sparkline",
+      "width": 100,
+      "height": 20,
+      "line": {
+        "color": "#2171B5",
+        "width": 1.5
+      },
+      "points": {
+        "show": false,
+        "highlightLast": true,
+        "lastPointColor": "#2171B5",
+        "lastPointSize": 2
+      },
+      "area": {
+        "show": false,
+        "fillOpacity": 0.1
+      },
+      "axes": {
+        "show": false
+      }
+    },
+    
+    "heatmap": {
+      "type": "heatmap",
+      "colorScheme": "sequential",
+      "colors": {
+        "low": "#EFF3FF",
+        "high": "#084594"
+      },
+      "cells": {
+        "borderColor": "#FFFFFF",
+        "borderWidth": 1
+      },
+      "dataLabels": {
+        "show": true,
+        "fontSize": 10,
+        "color": "auto"
+      },
+      "legend": {
+        "show": true,
+        "position": "bottom",
+        "height": 20
+      }
+    }
+  },
+  
+  "responsive_breakpoints": {
+    "mobile": {
+      "maxWidth": 767,
+      "chartHeight": 200,
+      "fontSize": {
+        "title": 14,
+        "axis": 10,
+        "dataLabel": 9
+      },
+      "simplifications": {
+        "maxDataPoints": 20,
+        "maxSeries": 2,
+        "hideLegend": true,
+        "hideGridlines": true
+      }
+    },
+    "tablet": {
+      "minWidth": 768,
+      "maxWidth": 1023,
+      "chartHeight": 300,
+      "fontSize": {
+        "title": 16,
+        "axis": 11,
+        "dataLabel": 10
+      }
+    },
+    "desktop": {
+      "minWidth": 1024,
+      "chartHeight": 400,
+      "fontSize": {
+        "title": 18,
+        "axis": 12,
+        "dataLabel": 11
+      }
+    }
+  }
+}

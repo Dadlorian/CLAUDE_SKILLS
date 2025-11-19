@@ -1,0 +1,201 @@
+{
+  "dashboard_parameters": {
+    "description": "Reusable parameter configurations for dashboard filters",
+    
+    "date_range": {
+      "type": "date_range",
+      "default": "last_30_days",
+      "presets": [
+        {"value": "today", "label": "Today"},
+        {"value": "yesterday", "label": "Yesterday"},
+        {"value": "last_7_days", "label": "Last 7 Days"},
+        {"value": "last_30_days", "label": "Last 30 Days"},
+        {"value": "this_month", "label": "This Month"},
+        {"value": "last_month", "label": "Last Month"},
+        {"value": "this_quarter", "label": "This Quarter"},
+        {"value": "this_year", "label": "This Year"},
+        {"value": "custom", "label": "Custom Range"}
+      ],
+      "allow_custom": true,
+      "format": "yyyy-MM-dd"
+    },
+    
+    "region": {
+      "type": "single_select",
+      "default": "all",
+      "options": [
+        {"value": "all", "label": "All Regions"},
+        {"value": "north", "label": "North"},
+        {"value": "south", "label": "South"},
+        {"value": "east", "label": "East"},
+        {"value": "west", "label": "West"}
+      ],
+      "allow_multiple": false
+    },
+    
+    "customer_segment": {
+      "type": "multi_select",
+      "default": ["enterprise", "mid_market", "smb"],
+      "options": [
+        {"value": "enterprise", "label": "Enterprise"},
+        {"value": "mid_market", "label": "Mid-Market"},
+        {"value": "smb", "label": "SMB"}
+      ],
+      "allow_select_all": true,
+      "search_enabled": false
+    },
+    
+    "product_category": {
+      "type": "multi_select_searchable",
+      "default": [],
+      "data_source": "/api/parameters/product-categories",
+      "search_enabled": true,
+      "min_search_length": 2,
+      "max_selections": 10,
+      "show_count": true
+    },
+    
+    "metric_comparison": {
+      "type": "single_select",
+      "default": "vs_target",
+      "options": [
+        {"value": "vs_target", "label": "vs Target"},
+        {"value": "vs_previous_period", "label": "vs Previous Period"},
+        {"value": "vs_last_year", "label": "vs Last Year"},
+        {"value": "vs_industry_avg", "label": "vs Industry Average"}
+      ]
+    },
+    
+    "time_granularity": {
+      "type": "single_select",
+      "default": "monthly",
+      "options": [
+        {"value": "daily", "label": "Daily"},
+        {"value": "weekly", "label": "Weekly"},
+        {"value": "monthly", "label": "Monthly"},
+        {"value": "quarterly", "label": "Quarterly"},
+        {"value": "yearly", "label": "Yearly"}
+      ],
+      "depends_on": "date_range"
+    }
+  },
+  
+  "cascading_filters": {
+    "description": "Filter dependencies and hierarchies",
+    
+    "geography_hierarchy": {
+      "levels": ["region", "state", "city"],
+      "filters": {
+        "region": {
+          "type": "single_select",
+          "data_source": "/api/filters/regions"
+        },
+        "state": {
+          "type": "multi_select",
+          "data_source": "/api/filters/states",
+          "depends_on": ["region"],
+          "disabled_when_parent_empty": true
+        },
+        "city": {
+          "type": "multi_select_searchable",
+          "data_source": "/api/filters/cities",
+          "depends_on": ["region", "state"],
+          "disabled_when_parent_empty": true,
+          "search_enabled": true
+        }
+      }
+    },
+    
+    "product_hierarchy": {
+      "levels": ["category", "subcategory", "product"],
+      "filters": {
+        "category": {
+          "type": "single_select",
+          "data_source": "/api/filters/categories"
+        },
+        "subcategory": {
+          "type": "multi_select",
+          "data_source": "/api/filters/subcategories",
+          "depends_on": ["category"]
+        },
+        "product": {
+          "type": "multi_select_searchable",
+          "data_source": "/api/filters/products",
+          "depends_on": ["category", "subcategory"],
+          "search_enabled": true
+        }
+      }
+    }
+  },
+  
+  "filter_presets": {
+    "description": "Saved filter combinations for common use cases",
+    
+    "presets": [
+      {
+        "id": "ytd_all_regions",
+        "name": "Year to Date - All Regions",
+        "filters": {
+          "date_range": "this_year",
+          "region": "all",
+          "customer_segment": ["enterprise", "mid_market", "smb"]
+        }
+      },
+      {
+        "id": "last_month_north",
+        "name": "Last Month - North Region",
+        "filters": {
+          "date_range": "last_month",
+          "region": "north",
+          "customer_segment": ["enterprise", "mid_market", "smb"]
+        }
+      },
+      {
+        "id": "enterprise_quarterly",
+        "name": "Enterprise - This Quarter",
+        "filters": {
+          "date_range": "this_quarter",
+          "region": "all",
+          "customer_segment": ["enterprise"]
+        }
+      }
+    ]
+  },
+  
+  "validation_rules": {
+    "description": "Parameter validation and constraints",
+    
+    "date_range": {
+      "max_days": 730,
+      "error_message": "Date range cannot exceed 2 years"
+    },
+    
+    "product_category": {
+      "max_selections": 10,
+      "error_message": "Maximum 10 product categories can be selected"
+    },
+    
+    "custom_validations": [
+      {
+        "rule": "end_date_after_start_date",
+        "applies_to": "date_range",
+        "error_message": "End date must be after start date"
+      },
+      {
+        "rule": "at_least_one_segment",
+        "applies_to": "customer_segment",
+        "error_message": "At least one customer segment must be selected"
+      }
+    ]
+  },
+  
+  "performance_settings": {
+    "description": "Settings for filter performance optimization",
+    
+    "auto_apply_delay_ms": 500,
+    "max_filter_options": 1000,
+    "enable_search_after": 50,
+    "cache_filter_data": true,
+    "cache_ttl_minutes": 15
+  }
+}

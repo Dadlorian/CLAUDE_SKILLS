@@ -1,0 +1,158 @@
+{
+  "description": "Dashboard Color Schemes - Few/Tufte Compliant",
+  "version": "1.0",
+
+  "few_recommended": {
+    "name": "Stephen Few's Recommended Palette (Color-blind safe)",
+    "colors": {
+      "gray": "#4D4D4D",
+      "blue": "#5DA5DA",
+      "orange": "#FAA43A",
+      "green": "#60BD68",
+      "pink": "#F17CB0",
+      "brown": "#B2912F",
+      "purple": "#B276B2",
+      "yellow": "#DECF3F",
+      "red": "#F15854"
+    },
+    "usage": {
+      "primary_data": "#4D4D4D",
+      "highlight": "#5DA5DA",
+      "warning": "#FAA43A",
+      "critical": "#F15854",
+      "success": "#60BD68"
+    }
+  },
+
+  "sequential_palettes": {
+    "blue": {
+      "name": "Blue Sequential",
+      "colors": ["#EFF3FF", "#C6DBEF", "#9ECAE1", "#6BAED6", "#4292C6", "#2171B5", "#084594"],
+      "use_for": "Quantitative data, low to high"
+    },
+    "gray": {
+      "name": "Gray Sequential",
+      "colors": ["#F7F7F7", "#D9D9D9", "#BDBDBD", "#969696", "#737373", "#525252", "#252525"],
+      "use_for": "Monochrome visualizations"
+    },
+    "green": {
+      "name": "Green Sequential",
+      "colors": ["#EDF8E9", "#C7E9C0", "#A1D99B", "#74C476", "#41AB5D", "#238B45", "#005A32"],
+      "use_for": "Growth, positive metrics"
+    }
+  },
+
+  "diverging_palettes": {
+    "red_blue": {
+      "name": "Red-White-Blue (Recommended)",
+      "colors": ["#CA0020", "#F4A582", "#FFFFFF", "#92C5DE", "#0571B0"],
+      "use_for": "Above/below target, positive/negative"
+    },
+    "orange_blue": {
+      "name": "Orange-Gray-Blue (Color-blind safe)",
+      "colors": ["#D95F0E", "#FEC44F", "#F7F7F7", "#91BFDB", "#4575B4"],
+      "use_for": "Diverging data, accessible alternative"
+    },
+    "purple_green": {
+      "name": "Purple-White-Green",
+      "colors": ["#762A83", "#C2A5CF", "#F7F7F7", "#A6DBA0", "#1B7837"],
+      "use_for": "Diverging data (avoid if red-green preference)"
+    }
+  },
+
+  "categorical_palettes": {
+    "tableau_10": {
+      "name": "Tableau 10 (Industry Standard)",
+      "colors": [
+        "#1F77B4",
+        "#FF7F0E",
+        "#2CA02C",
+        "#D62728",
+        "#9467BD",
+        "#8C564B",
+        "#E377C2",
+        "#7F7F7F",
+        "#BCBD22",
+        "#17BECF"
+      ],
+      "use_for": "Categorical data, no inherent order"
+    },
+    "colorblind_safe": {
+      "name": "Paul Tol's Color-blind Safe Palette",
+      "colors": [
+        "#332288",
+        "#88CCEE",
+        "#44AA99",
+        "#117733",
+        "#999933",
+        "#DDCC77",
+        "#CC6677",
+        "#882255",
+        "#AA4499"
+      ],
+      "use_for": "Accessible categorical data"
+    }
+  },
+
+  "status_colors": {
+    "accessible": {
+      "critical": {"color": "#DC143C", "icon": "⚠️", "shape": "square"},
+      "warning": {"color": "#FF8C00", "icon": "⚡", "shape": "triangle"},
+      "ok": {"color": "#2E8B57", "icon": "✓", "shape": "circle"},
+      "info": {"color": "#4682B4", "icon": "ℹ️", "shape": "circle"},
+      "neutral": {"color": "#696969", "icon": "●", "shape": "circle"}
+    }
+  },
+
+  "dashboard_themes": {
+    "executive": {
+      "name": "Executive Dashboard Theme",
+      "background": "#FFFFFF",
+      "text_primary": "#2C3E50",
+      "text_secondary": "#95A5A6",
+      "data_primary": "#2C3E50",
+      "highlight": "#E74C3C",
+      "gridlines": "#E0E0E0"
+    },
+    "operational": {
+      "name": "Operational Dashboard Theme",
+      "background": "#ECF0F1",
+      "text_primary": "#2C3E50",
+      "data_normal": "#7F8C8D",
+      "warning": "#F39C12",
+      "critical": "#E74C3C",
+      "good": "#27AE60"
+    },
+    "analytical": {
+      "name": "Analytical Dashboard Theme",
+      "background": "#FFFFFF",
+      "text_primary": "#2C3E50",
+      "primary": "#3498DB",
+      "secondary": "#95A5A6",
+      "tertiary": "#E67E22",
+      "gridlines": "#E0E0E0"
+    }
+  },
+
+  "contrast_ratios": {
+    "wcag_aa": {
+      "normal_text": 4.5,
+      "large_text": 3.0,
+      "ui_components": 3.0
+    },
+    "verified_combinations": [
+      {"foreground": "#000000", "background": "#FFFFFF", "ratio": 21.0},
+      {"foreground": "#FFFFFF", "background": "#0066CC", "ratio": 4.5},
+      {"foreground": "#595959", "background": "#FFFFFF", "ratio": 7.0},
+      {"foreground": "#FFFFFF", "background": "#CC0000", "ratio": 5.3}
+    ]
+  },
+
+  "usage_guidelines": {
+    "grayscale_first": "Design dashboard in grayscale, add color only for emphasis",
+    "color_limit": "Use maximum 6-7 colors per dashboard",
+    "color_purpose": "Reserve color for: alerts, selected items, exceptions",
+    "accessibility": "Always provide alternative to color (shape, text, icon)",
+    "percentage_rule": "95% of dashboard in grayscale, 5% in color"
+  }
+}
