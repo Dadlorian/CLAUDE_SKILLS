@@ -1,0 +1,2 @@
+# Attribution Modeling Reference
+First-touch, last-touch, linear, time-decay, position-based, data-driven attribution. When to use each model, implementation in GA4, marketing mix modeling (MMM), incrementality testing. Includes calculation formulas and examples.

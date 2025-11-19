@@ -1,0 +1,2 @@
+# Keyword Research Automation
+Python tool integrating Ahrefs/SEMrush APIs for bulk keyword analysis. Calculate difficulty scores, search volume trends, SERP feature opportunities. Generate topic clusters and content briefs automatically.

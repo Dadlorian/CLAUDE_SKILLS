@@ -1,0 +1,2 @@
+# Lead Scoring Models
+Demographic scoring (title, company size, industry), behavioral scoring (email opens, website visits, content downloads), negative scoring, score decay, MQL/SQL thresholds. Platform-specific setup for HubSpot, Marketo, Pardot.

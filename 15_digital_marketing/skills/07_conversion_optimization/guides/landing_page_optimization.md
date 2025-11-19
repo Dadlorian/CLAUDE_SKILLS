@@ -1,0 +1,2 @@
+# Landing Page Optimization Guide
+Hero section best practices, value proposition clarity, social proof placement, CTA optimization, form field reduction, mobile optimization, page speed, trust signals. Includes before/after examples and testing roadmap.

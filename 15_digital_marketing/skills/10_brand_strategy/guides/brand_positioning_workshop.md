@@ -1,0 +1,2 @@
+# Brand Positioning Workshop Guide
+Facilitation guide for brand positioning exercises: competitive analysis, perceptual mapping, value proposition canvas, positioning statement creation, messaging architecture, brand story development. Includes templates and timelines.

@@ -1,0 +1,2 @@
+# Platform-Specific Social Strategy
+LinkedIn B2B thought leadership, Instagram e-commerce tactics, TikTok viral growth, Twitter real-time engagement. Algorithm optimization, best posting times, content formats, hashtag strategies, paid social integration.

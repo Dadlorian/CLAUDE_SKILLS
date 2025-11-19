@@ -1,0 +1,2 @@
+# SEO Content Analysis Tool
+JavaScript tool analyzing content against top-ranking competitors. Checks keyword density, readability score, internal links, meta tags, content length. Provides optimization recommendations and missing topics.

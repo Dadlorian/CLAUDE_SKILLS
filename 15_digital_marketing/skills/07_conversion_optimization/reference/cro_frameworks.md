@@ -1,0 +1,2 @@
+# CRO Framework Reference
+ResearchXL methodology, LIFT model, PIE prioritization, hypothesis templates, user research methods (heatmaps, session recordings, surveys), funnel analysis, form optimization, persuasion principles (Cialdini), behavioral psychology.

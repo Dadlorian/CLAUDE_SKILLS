@@ -1,0 +1,2 @@
+# Content Templates Library
+Ready-to-use templates: Ultimate Guide, How-To Post, Listicle, Case Study, Comparison Guide, Pillar Page. Each includes SEO-optimized structure, word count targets, internal linking strategy, and conversion CTAs.

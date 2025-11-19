@@ -1,0 +1,2 @@
+# HubSpot API Integration
+Python library for HubSpot Marketing Hub: create contacts, update properties, enroll in workflows, trigger campaigns, sync CRM data, export analytics. Includes error handling, rate limiting, and batch operations.

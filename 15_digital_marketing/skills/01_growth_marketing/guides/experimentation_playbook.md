@@ -1,0 +1,2 @@
+# Growth Experimentation Playbook
+Build systematic testing culture: hypothesis → test design → execution → analysis → scale winners. Covers ICE/RICE prioritization, sample size calculation, statistical significance, velocity optimization. Include experiment templates, success criteria, and learning documentation frameworks.

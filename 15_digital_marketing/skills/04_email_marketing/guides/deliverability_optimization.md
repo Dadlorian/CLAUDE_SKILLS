@@ -1,0 +1,2 @@
+# Email Deliverability Guide
+Master sender reputation, SPF/DKIM/DMARC authentication, IP warm-up, list hygiene, spam trigger avoidance. Troubleshoot Gmail/Outlook deliverability issues. Monitor sender score, bounce rates, and inbox placement.

@@ -1,0 +1,2 @@
+# Influencer Marketing ROI Calculator
+Calculate EMV (Earned Media Value), engagement rate, cost per engagement, conversions via promo codes, brand lift. Compare influencer tiers (nano, micro, macro). Export reports with recommendations.
