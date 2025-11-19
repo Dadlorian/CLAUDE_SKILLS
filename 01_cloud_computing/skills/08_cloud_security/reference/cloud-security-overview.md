@@ -303,6 +303,645 @@ Five core functions:
 - **Container Security**: Snyk, Aqua, Twistlock
 - **Policy as Code**: Open Policy Agent, HashiCorp Sentinel
 
+## Practical Implementation Examples
+
+### Example 1: Least Privilege IAM Policy (AWS)
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllowS3ReadSpecificBucket",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:ListBucket"
+      ],
+      "Resource": [
+        "arn:aws:s3:::my-app-bucket",
+        "arn:aws:s3:::my-app-bucket/*"
+      ],
+      "Condition": {
+        "IpAddress": {
+          "aws:SourceIp": ["10.0.0.0/8"]
+        }
+      }
+    },
+    {
+      "Sid": "AllowDynamoDBReadWrite",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:GetItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:Query"
+      ],
+      "Resource": "arn:aws:dynamodb:us-east-1:123456789012:table/MyAppTable"
+    }
+  ]
+}
+```
+
+### Example 2: Secure Security Group Configuration (AWS Terraform)
+
+```hcl
+# Application Load Balancer Security Group
+resource "aws_security_group" "alb" {
+  name_description = "Security group for ALB - only HTTPS from internet"
+  vpc_id      = aws_vpc.main.id
+
+  # HTTPS from internet
+  ingress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "HTTPS from internet"
+  }
+
+  # HTTP redirect (optional)
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "HTTP redirect to HTTPS"
+  }
+
+  # Egress to application tier only
+  egress {
+    from_port       = 8080
+    to_port         = 8080
+    protocol        = "tcp"
+    security_groups = [aws_security_group.app.id]
+    description     = "To application tier"
+  }
+
+  tags = {
+    Name        = "alb-sg"
+    Environment = "production"
+    Compliance  = "pci-dss"
+  }
+}
+
+# Application Tier Security Group
+resource "aws_security_group" "app" {
+  name_description = "Security group for application tier"
+  vpc_id      = aws_vpc.main.id
+
+  # Only from ALB
+  ingress {
+    from_port       = 8080
+    to_port         = 8080
+    protocol        = "tcp"
+    security_groups = [aws_security_group.alb.id]
+    description     = "From ALB only"
+  }
+
+  # Egress to database tier only
+  egress {
+    from_port       = 5432
+    to_port         = 5432
+    protocol        = "tcp"
+    security_groups = [aws_security_group.database.id]
+    description     = "To database tier"
+  }
+
+  # HTTPS for external API calls
+  egress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "HTTPS for external APIs"
+  }
+
+  tags = {
+    Name        = "app-sg"
+    Environment = "production"
+  }
+}
+
+# Database Tier Security Group
+resource "aws_security_group" "database" {
+  name_description = "Security group for database tier"
+  vpc_id      = aws_vpc.main.id
+
+  # Only from application tier
+  ingress {
+    from_port       = 5432
+    to_port         = 5432
+    protocol        = "tcp"
+    security_groups = [aws_security_group.app.id]
+    description     = "PostgreSQL from app tier only"
+  }
+
+  # No egress needed for database
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow all outbound (for updates)"
+  }
+
+  tags = {
+    Name        = "database-sg"
+    Environment = "production"
+  }
+}
+```
+
+### Example 3: Encryption at Rest Configuration (AWS)
+
+```python
+import boto3
+import json
+
+def create_encrypted_s3_bucket(bucket_name, kms_key_id, region='us-east-1'):
+    """
+    Create S3 bucket with encryption, versioning, and public access block
+    """
+    s3_client = boto3.client('s3', region_name=region)
+
+    # Create bucket
+    if region == 'us-east-1':
+        s3_client.create_bucket(Bucket=bucket_name)
+    else:
+        s3_client.create_bucket(
+            Bucket=bucket_name,
+            CreateBucketConfiguration={'LocationConstraint': region}
+        )
+
+    # Enable default encryption with KMS
+    s3_client.put_bucket_encryption(
+        Bucket=bucket_name,
+        ServerSideEncryptionConfiguration={
+            'Rules': [{
+                'ApplyServerSideEncryptionByDefault': {
+                    'SSEAlgorithm': 'aws:kms',
+                    'KMSMasterKeyID': kms_key_id
+                },
+                'BucketKeyEnabled': True
+            }]
+        }
+    )
+
+    # Enable versioning
+    s3_client.put_bucket_versioning(
+        Bucket=bucket_name,
+        VersioningConfiguration={'Status': 'Enabled'}
+    )
+
+    # Block all public access
+    s3_client.put_public_access_block(
+        Bucket=bucket_name,
+        PublicAccessBlockConfiguration={
+            'BlockPublicAcls': True,
+            'IgnorePublicAcls': True,
+            'BlockPublicPolicy': True,
+            'RestrictPublicBuckets': True
+        }
+    )
+
+    # Enable access logging
+    s3_client.put_bucket_logging(
+        Bucket=bucket_name,
+        BucketLoggingStatus={
+            'LoggingEnabled': {
+                'TargetBucket': f'{bucket_name}-logs',
+                'TargetPrefix': 'access-logs/'
+            }
+        }
+    )
+
+    # Add bucket policy requiring encryption
+    bucket_policy = {
+        'Version': '2012-10-17',
+        'Statement': [{
+            'Sid': 'DenyUnencryptedObjectUploads',
+            'Effect': 'Deny',
+            'Principal': '*',
+            'Action': 's3:PutObject',
+            'Resource': f'arn:aws:s3:::{bucket_name}/*',
+            'Condition': {
+                'StringNotEquals': {
+                    's3:x-amz-server-side-encryption': 'aws:kms'
+                }
+            }
+        }]
+    }
+
+    s3_client.put_bucket_policy(
+        Bucket=bucket_name,
+        Policy=json.dumps(bucket_policy)
+    )
+
+    print(f"Secure bucket {bucket_name} created successfully")
+    return True
+
+# Usage
+kms_key_arn = 'arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012'
+create_encrypted_s3_bucket('my-secure-app-bucket', kms_key_arn)
+```
+
+### Example 4: Secrets Management with AWS Secrets Manager
+
+```python
+import boto3
+import json
+from botocore.exceptions import ClientError
+
+def store_database_credentials(secret_name, username, password, host, port=5432):
+    """
+    Store database credentials in AWS Secrets Manager with automatic rotation
+    """
+    secrets_client = boto3.client('secretsmanager', region_name='us-east-1')
+
+    secret_value = {
+        'username': username,
+        'password': password,
+        'engine': 'postgres',
+        'host': host,
+        'port': port,
+        'dbname': 'production_db'
+    }
+
+    try:
+        response = secrets_client.create_secret(
+            Name=secret_name,
+            Description='Production database credentials',
+            SecretString=json.dumps(secret_value),
+            Tags=[
+                {'Key': 'Environment', 'Value': 'production'},
+                {'Key': 'Application', 'Value': 'web-app'},
+                {'Key': 'Compliance', 'Value': 'pci-dss'}
+            ]
+        )
+
+        # Enable automatic rotation (requires Lambda function)
+        secrets_client.rotate_secret(
+            SecretId=secret_name,
+            RotationLambdaARN='arn:aws:lambda:us-east-1:123456789012:function:RotateRDSSecret',
+            RotationRules={'AutomaticallyAfterDays': 30}
+        )
+
+        print(f"Secret created: {response['ARN']}")
+        return response['ARN']
+
+    except ClientError as e:
+        if e.response['Error']['Code'] == 'ResourceExistsException':
+            print(f"Secret {secret_name} already exists")
+        raise
+
+def retrieve_secret(secret_name):
+    """
+    Retrieve secret from AWS Secrets Manager
+    """
+    secrets_client = boto3.client('secretsmanager', region_name='us-east-1')
+
+    try:
+        response = secrets_client.get_secret_value(SecretId=secret_name)
+        secret = json.loads(response['SecretString'])
+        return secret
+    except ClientError as e:
+        print(f"Error retrieving secret: {e}")
+        raise
+
+# Usage in application
+def get_database_connection():
+    """
+    Get database connection using credentials from Secrets Manager
+    """
+    import psycopg2
+
+    secret = retrieve_secret('prod/database/credentials')
+
+    connection = psycopg2.connect(
+        host=secret['host'],
+        port=secret['port'],
+        database=secret['dbname'],
+        user=secret['username'],
+        password=secret['password'],
+        sslmode='require'
+    )
+
+    return connection
+```
+
+### Example 5: Security Scanning Automation
+
+```python
+import boto3
+import json
+from datetime import datetime
+
+def scan_security_configuration():
+    """
+    Automated security configuration scanner
+    """
+    findings = []
+
+    # Check S3 buckets
+    s3_client = boto3.client('s3')
+    buckets = s3_client.list_buckets()['Buckets']
+
+    for bucket in buckets:
+        bucket_name = bucket['Name']
+
+        # Check encryption
+        try:
+            encryption = s3_client.get_bucket_encryption(Bucket=bucket_name)
+        except:
+            findings.append({
+                'severity': 'HIGH',
+                'resource': bucket_name,
+                'issue': 'S3 bucket not encrypted',
+                'remediation': 'Enable default encryption with KMS'
+            })
+
+        # Check public access block
+        try:
+            public_block = s3_client.get_public_access_block(Bucket=bucket_name)
+            config = public_block['PublicAccessBlockConfiguration']
+            if not all([config['BlockPublicAcls'], config['BlockPublicPolicy'],
+                       config['IgnorePublicAcls'], config['RestrictPublicBuckets']]):
+                findings.append({
+                    'severity': 'CRITICAL',
+                    'resource': bucket_name,
+                    'issue': 'S3 bucket may allow public access',
+                    'remediation': 'Enable all public access block settings'
+                })
+        except:
+            findings.append({
+                'severity': 'CRITICAL',
+                'resource': bucket_name,
+                'issue': 'No public access block configured',
+                'remediation': 'Configure S3 public access block'
+            })
+
+    # Check EC2 security groups
+    ec2_client = boto3.client('ec2')
+    security_groups = ec2_client.describe_security_groups()['SecurityGroups']
+
+    for sg in security_groups:
+        for rule in sg['IpPermissions']:
+            for ip_range in rule.get('IpRanges', []):
+                if ip_range.get('CidrIp') == '0.0.0.0/0':
+                    if rule.get('FromPort') not in [80, 443]:  # Allow HTTP/HTTPS
+                        findings.append({
+                            'severity': 'HIGH',
+                            'resource': sg['GroupId'],
+                            'issue': f"Security group allows port {rule.get('FromPort')} from 0.0.0.0/0",
+                            'remediation': 'Restrict source IP ranges'
+                        })
+
+    # Check IAM users without MFA
+    iam_client = boto3.client('iam')
+    users = iam_client.list_users()['Users']
+
+    for user in users:
+        username = user['UserName']
+        mfa_devices = iam_client.list_mfa_devices(UserName=username)['MFADevices']
+
+        if not mfa_devices:
+            findings.append({
+                'severity': 'MEDIUM',
+                'resource': username,
+                'issue': 'IAM user without MFA enabled',
+                'remediation': 'Enable MFA for this user'
+            })
+
+    # Generate report
+    report = {
+        'scan_time': datetime.now().isoformat(),
+        'total_findings': len(findings),
+        'critical': len([f for f in findings if f['severity'] == 'CRITICAL']),
+        'high': len([f for f in findings if f['severity'] == 'HIGH']),
+        'medium': len([f for f in findings if f['severity'] == 'MEDIUM']),
+        'findings': findings
+    }
+
+    return report
+
+# Run scan and send to SNS
+def run_security_scan():
+    report = scan_security_configuration()
+
+    # Send to SNS if critical findings
+    if report['critical'] > 0:
+        sns_client = boto3.client('sns')
+        sns_client.publish(
+            TopicArn='arn:aws:sns:us-east-1:123456789012:security-alerts',
+            Subject='CRITICAL: Security Configuration Issues Detected',
+            Message=json.dumps(report, indent=2)
+        )
+
+    return report
+```
+
+### Example 6: Network Security with AWS Network Firewall (Terraform)
+
+```hcl
+resource "aws_networkfirewall_firewall_policy" "production" {
+  name = "production-firewall-policy"
+
+  firewall_policy {
+    stateless_default_actions          = ["aws:forward_to_sfe"]
+    stateless_fragment_default_actions = ["aws:forward_to_sfe"]
+
+    stateful_rule_group_reference {
+      resource_arn = aws_networkfirewall_rule_group.block_malicious_domains.arn
+    }
+
+    stateful_rule_group_reference {
+      resource_arn = aws_networkfirewall_rule_group.allow_approved_domains.arn
+    }
+  }
+}
+
+resource "aws_networkfirewall_rule_group" "block_malicious_domains" {
+  capacity = 100
+  name     = "block-malicious-domains"
+  type     = "STATEFUL"
+
+  rule_group {
+    rules_source {
+      rules_source_list {
+        generated_rules_type = "DENYLIST"
+        target_types         = ["HTTP_HOST", "TLS_SNI"]
+        targets              = [
+          ".malicious-domain.com",
+          ".phishing-site.net",
+          "known-bad-actor.org"
+        ]
+      }
+    }
+
+    stateful_rule_options {
+      rule_order = "STRICT_ORDER"
+    }
+  }
+}
+
+resource "aws_networkfirewall_rule_group" "allow_approved_domains" {
+  capacity = 100
+  name     = "allow-approved-domains"
+  type     = "STATEFUL"
+
+  rule_group {
+    rules_source {
+      stateful_rule {
+        action = "PASS"
+        header {
+          destination      = "api.approved-service.com"
+          destination_port = "443"
+          direction        = "FORWARD"
+          protocol         = "TCP"
+          source           = "10.0.0.0/8"
+          source_port      = "ANY"
+        }
+        rule_option {
+          keyword = "sid:1"
+        }
+      }
+    }
+  }
+}
+
+resource "aws_networkfirewall_firewall" "production" {
+  name                = "production-firewall"
+  firewall_policy_arn = aws_networkfirewall_firewall_policy.production.arn
+  vpc_id              = aws_vpc.main.id
+
+  dynamic "subnet_mapping" {
+    for_each = aws_subnet.firewall[*].id
+    content {
+      subnet_id = subnet_mapping.value
+    }
+  }
+
+  tags = {
+    Environment = "production"
+    Compliance  = "pci-dss"
+  }
+}
+```
+
+### Example 7: CloudTrail Security Monitoring (Python)
+
+```python
+import boto3
+import json
+from datetime import datetime, timedelta
+
+def monitor_security_events():
+    """
+    Monitor CloudTrail for security-related events
+    """
+    cloudtrail = boto3.client('cloudtrail')
+    sns = boto3.client('sns')
+
+    # Define critical events to monitor
+    critical_events = [
+        'DeleteBucket',
+        'PutBucketPolicy',
+        'DeleteDBInstance',
+        'AuthorizeSecurityGroupIngress',
+        'CreateAccessKey',
+        'DeleteAccessKey',
+        'PutUserPolicy',
+        'AttachUserPolicy',
+        'CreateRole',
+        'PutRolePolicy',
+        'UpdateAccountPasswordPolicy',
+        'DeactivateMFADevice'
+    ]
+
+    # Look for events in last hour
+    end_time = datetime.now()
+    start_time = end_time - timedelta(hours=1)
+
+    alerts = []
+
+    response = cloudtrail.lookup_events(
+        StartTime=start_time,
+        EndTime=end_time,
+        MaxResults=50
+    )
+
+    for event in response['Events']:
+        event_name = event['EventName']
+
+        if event_name in critical_events:
+            cloud_trail_event = json.loads(event['CloudTrailEvent'])
+
+            # Check for root account usage
+            if cloud_trail_event.get('userIdentity', {}).get('type') == 'Root':
+                alerts.append({
+                    'severity': 'CRITICAL',
+                    'event': event_name,
+                    'time': event['EventTime'].isoformat(),
+                    'user': 'ROOT ACCOUNT',
+                    'source_ip': cloud_trail_event.get('sourceIPAddress'),
+                    'message': 'Root account used for API call'
+                })
+
+            # Check for console login without MFA
+            if event_name == 'ConsoleLogin':
+                mfa_used = cloud_trail_event.get('additionalEventData', {}).get('MFAUsed')
+                if mfa_used != 'Yes':
+                    alerts.append({
+                        'severity': 'HIGH',
+                        'event': event_name,
+                        'time': event['EventTime'].isoformat(),
+                        'user': cloud_trail_event.get('userIdentity', {}).get('userName'),
+                        'source_ip': cloud_trail_event.get('sourceIPAddress'),
+                        'message': 'Console login without MFA'
+                    })
+
+            # Check for failed authentication
+            if cloud_trail_event.get('errorCode') in ['UnauthorizedOperation', 'AccessDenied']:
+                alerts.append({
+                    'severity': 'MEDIUM',
+                    'event': event_name,
+                    'time': event['EventTime'].isoformat(),
+                    'user': cloud_trail_event.get('userIdentity', {}).get('userName'),
+                    'source_ip': cloud_trail_event.get('sourceIPAddress'),
+                    'message': 'Unauthorized API call attempted'
+                })
+
+    # Send alerts if any found
+    if alerts:
+        message = f"Security Events Detected:\n\n"
+        for alert in alerts:
+            message += f"[{alert['severity']}] {alert['event']}\n"
+            message += f"  User: {alert['user']}\n"
+            message += f"  IP: {alert['source_ip']}\n"
+            message += f"  Time: {alert['time']}\n"
+            message += f"  Details: {alert['message']}\n\n"
+
+        sns.publish(
+            TopicArn='arn:aws:sns:us-east-1:123456789012:security-alerts',
+            Subject=f'Security Alert: {len(alerts)} events detected',
+            Message=message
+        )
+
+    return alerts
+
+# Lambda handler for scheduled execution
+def lambda_handler(event, context):
+    alerts = monitor_security_events()
+    return {
+        'statusCode': 200,
+        'body': json.dumps({
+            'alerts_found': len(alerts),
+            'alerts': alerts
+        })
+    }
+```
+
 ## Resources and References
 
 ### Official Documentation

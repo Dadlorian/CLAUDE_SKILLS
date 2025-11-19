@@ -1,0 +1,172 @@
+---
+# Production-ready inventory with multiple environments
+# Usage: ansible-playbook -i inventory.yml playbooks/web_server_setup.yml --limit production
+
+all:
+  vars:
+    # Global variables for all hosts
+    ansible_user: deploy
+    ansible_python_interpreter: /usr/bin/python3
+    ntp_servers:
+      - 0.pool.ntp.org
+      - 1.pool.ntp.org
+    dns_servers:
+      - 8.8.8.8
+      - 8.8.4.4
+
+  children:
+    # Development Environment
+    development:
+      vars:
+        env: dev
+        domain: dev.example.com
+        db_host: dev-db.example.com
+        redis_host: dev-redis.example.com
+        log_level: DEBUG
+        app_replicas: 1
+      hosts:
+        dev-web-01:
+          ansible_host: 10.0.1.10
+          datacenter: us-east-1
+        dev-web-02:
+          ansible_host: 10.0.1.11
+          datacenter: us-east-1
+
+    # Staging Environment
+    staging:
+      vars:
+        env: staging
+        domain: staging.example.com
+        db_host: staging-db.example.com
+        redis_host: staging-redis.example.com
+        log_level: INFO
+        app_replicas: 2
+      hosts:
+        staging-web-01:
+          ansible_host: 10.0.2.10
+          datacenter: us-east-1
+        staging-web-02:
+          ansible_host: 10.0.2.11
+          datacenter: us-east-1
+        staging-web-03:
+          ansible_host: 10.0.2.12
+          datacenter: us-west-2
+
+    # Production Environment
+    production:
+      vars:
+        env: prod
+        domain: example.com
+        db_host: prod-db.example.com
+        redis_host: prod-redis.example.com
+        log_level: WARNING
+        app_replicas: 5
+      hosts:
+        prod-web-01:
+          ansible_host: 10.0.3.10
+          datacenter: us-east-1
+          region: us-east
+        prod-web-02:
+          ansible_host: 10.0.3.11
+          datacenter: us-east-1
+          region: us-east
+        prod-web-03:
+          ansible_host: 10.0.3.12
+          datacenter: us-west-2
+          region: us-west
+        prod-web-04:
+          ansible_host: 10.0.3.13
+          datacenter: us-west-2
+          region: us-west
+        prod-web-05:
+          ansible_host: 10.0.3.14
+          datacenter: eu-west-1
+          region: eu-west
+
+    # Database Servers
+    databases:
+      vars:
+        ansible_user: dbadmin
+        postgres_version: 14
+        max_connections: 200
+      children:
+        postgres_primary:
+          hosts:
+            prod-db-primary:
+              ansible_host: 10.0.4.10
+              postgres_role: primary
+        postgres_replicas:
+          hosts:
+            prod-db-replica-01:
+              ansible_host: 10.0.4.11
+              postgres_role: replica
+            prod-db-replica-02:
+              ansible_host: 10.0.4.12
+              postgres_role: replica
+
+    # Cache Servers
+    cache_servers:
+      vars:
+        redis_version: 7
+        redis_maxmemory: 4gb
+      hosts:
+        prod-redis-01:
+          ansible_host: 10.0.5.10
+          redis_mode: standalone
+        prod-redis-02:
+          ansible_host: 10.0.5.11
+          redis_mode: sentinel
+        prod-redis-03:
+          ansible_host: 10.0.5.12
+          redis_mode: sentinel
+
+    # Load Balancers
+    load_balancers:
+      vars:
+        nginx_version: latest
+        ssl_cert_path: /etc/nginx/ssl
+      hosts:
+        prod-lb-01:
+          ansible_host: 10.0.6.10
+          public_ip: 203.0.113.10
+        prod-lb-02:
+          ansible_host: 10.0.6.11
+          public_ip: 203.0.113.11
+
+    # Monitoring Servers
+    monitoring:
+      hosts:
+        prometheus-01:
+          ansible_host: 10.0.7.10
+          monitoring_role: prometheus
+        grafana-01:
+          ansible_host: 10.0.7.11
+          monitoring_role: grafana
+        elk-01:
+          ansible_host: 10.0.7.12
+          monitoring_role: elasticsearch
+
+    # Group definitions for easier targeting
+    web_servers:
+      children:
+        - development
+        - staging
+        - production
+
+    east_coast:
+      vars:
+        timezone: America/New_York
+      children:
+        production:
+          hosts:
+            prod-web-01:
+            prod-web-02:
+
+    west_coast:
+      vars:
+        timezone: America/Los_Angeles
+      children:
+        production:
+          hosts:
+            prod-web-03:
+            prod-web-04:

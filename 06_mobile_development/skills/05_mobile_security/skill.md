@@ -511,4 +511,204 @@ fun isRooted(): Boolean {
 
 ---
 
+## Advanced Security Implementation
+
+### Runtime Application Self-Protection (RASP)
+```swift
+// iOS: Runtime integrity checks
+class IntegrityChecker {
+    static func checkDebugger() -> Bool {
+        var info = kinfo_proc()
+        var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_PID, getpid()]
+        var size = MemoryLayout<kinfo_proc>.stride
+        let result = sysctl(&mib, u_int(mib.count), &info, &size, nil, 0)
+        return (info.kp_proc.p_flag & P_TRACED) != 0
+    }
+
+    static func checkTampered() -> Bool {
+        guard let executablePath = Bundle.main.executablePath else { return true }
+        // Check code signature
+        return checkCodeSignature(executablePath)
+    }
+
+    static func detectProxy() -> Bool {
+        guard let proxySettings = CFNetworkCopySystemProxySettings()?.takeRetainedValue() as? [String: Any] else {
+            return false
+        }
+        return proxySettings["HTTPEnable"] as? Int == 1 || proxySettings["HTTPSEnable"] as? Int == 1
+    }
+}
+```
+
+```kotlin
+// Android: Runtime protection
+class SecurityChecker {
+    fun checkEmulator(context: Context): Boolean {
+        val indicators = listOf(
+            Build.FINGERPRINT.contains("generic"),
+            Build.MODEL.contains("google_sdk"),
+            Build.MODEL.contains("Emulator"),
+            Build.MODEL.contains("Android SDK"),
+            Build.HARDWARE == "goldfish",
+            Build.HARDWARE == "ranchu"
+        )
+        return indicators.any { it }
+    }
+
+    fun detectDebugger(): Boolean {
+        return Debug.isDebuggerConnected() || Debug.waitingForDebugger()
+    }
+
+    fun checkAppSignature(context: Context, expectedSignature: String): Boolean {
+        val packageInfo = context.packageManager.getPackageInfo(
+            context.packageName,
+            PackageManager.GET_SIGNATURES
+        )
+        val currentSignature = packageInfo.signatures[0].toCharsString()
+        return currentSignature == expectedSignature
+    }
+
+    fun detectFrida(): Boolean {
+        val suspiciousFiles = listOf(
+            "/data/local/tmp/frida-server",
+            "/data/local/tmp/re.frida.server"
+        )
+        return suspiciousFiles.any { File(it).exists() }
+    }
+}
+```
+
+### Secure API Communication
+```swift
+// iOS: Request signing and encryption
+class SecureAPIClient {
+    func signRequest(_ request: URLRequest) -> URLRequest {
+        var signedRequest = request
+
+        let timestamp = String(Date().timeIntervalSince1970)
+        let nonce = UUID().uuidString
+        let signature = generateHMAC(
+            data: "\(request.httpMethod ?? ""):\(request.url?.path ?? ""):\(timestamp):\(nonce)",
+            key: apiSecret
+        )
+
+        signedRequest.setValue(timestamp, forHTTPHeaderField: "X-Timestamp")
+        signedRequest.setValue(nonce, forHTTPHeaderField: "X-Nonce")
+        signedRequest.setValue(signature, forHTTPHeaderField: "X-Signature")
+
+        return signedRequest
+    }
+
+    private func generateHMAC(data: String, key: String) -> String {
+        let keyData = key.data(using: .utf8)!
+        let messageData = data.data(using: .utf8)!
+
+        var hmac = [UInt8](repeating: 0, count: Int(CC_SHA256_DIGEST_LENGTH))
+        keyData.withUnsafeBytes { keyBytes in
+            messageData.withUnsafeBytes { messageBytes in
+                CCHmac(CCHmacAlgorithm(kCCHmacAlgSHA256),
+                       keyBytes.baseAddress, keyData.count,
+                       messageBytes.baseAddress, messageData.count,
+                       &hmac)
+            }
+        }
+
+        return Data(hmac).base64EncodedString()
+    }
+}
+```
+
+### Secure Data Storage Implementations
+```dart
+// Flutter: Complete encryption solution
+import 'package:encrypt/encrypt.dart' as encrypt;
+
+class SecureStorage {
+  late final encrypt.Encrypter _encrypter;
+  final _secureStorage = FlutterSecureStorage();
+
+  Future<void> initialize() async {
+    // Get or generate encryption key
+    String? keyString = await _secureStorage.read(key: 'encryption_key');
+
+    if (keyString == null) {
+      final key = encrypt.Key.fromSecureRandom(32);
+      keyString = base64Encode(key.bytes);
+      await _secureStorage.write(key: 'encryption_key', value: keyString);
+    }
+
+    final key = encrypt.Key(base64Decode(keyString));
+    _encrypter = encrypt.Encrypter(encrypt.AES(key, mode: encrypt.AESMode.gcm));
+  }
+
+  Future<void> saveEncrypted(String key, String value) async {
+    final iv = encrypt.IV.fromSecureRandom(16);
+    final encrypted = _encrypter.encrypt(value, iv: iv);
+
+    await _secureStorage.write(
+      key: key,
+      value: '${iv.base64}:${encrypted.base64}',
+    );
+  }
+
+  Future<String?> readEncrypted(String key) async {
+    final stored = await _secureStorage.read(key: key);
+    if (stored == null) return null;
+
+    final parts = stored.split(':');
+    final iv = encrypt.IV.fromBase64(parts[0]);
+    final encrypted = encrypt.Encrypted.fromBase64(parts[1]);
+
+    return _encrypter.decrypt(encrypted, iv: iv);
+  }
+}
+```
+
+### Penetration Testing Checklist
+```yaml
+# Mobile App Security Test Plan
+
+authentication:
+  - Test weak password policies
+  - Verify session timeout implementation
+  - Check for account lockout after failed attempts
+  - Test biometric bypass techniques
+  - Verify token expiration and refresh
+
+data_storage:
+  - Check for sensitive data in logs
+  - Verify encryption at rest
+  - Test backup data security
+  - Check clipboard data exposure
+  - Verify cache security
+
+network:
+  - Test certificate pinning
+  - Verify SSL/TLS version
+  - Check for hardcoded secrets
+  - Test for man-in-the-middle vulnerabilities
+  - Verify API authentication
+
+code_security:
+  - Check for code obfuscation
+  - Test for reverse engineering vulnerabilities
+  - Verify anti-tampering mechanisms
+  - Check for hardcoded credentials
+  - Test debug mode detection
+
+platform_specific:
+  ios:
+    - Test Keychain security
+    - Verify URL scheme validation
+    - Check for jailbreak detection
+    - Test App Transport Security
+  android:
+    - Test Keystore security
+    - Verify content provider security
+    - Check for root detection
+    - Test intent filter security
+```
+
+---
+
 Ready to build secure mobile applications!

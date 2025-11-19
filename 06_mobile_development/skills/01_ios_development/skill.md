@@ -411,4 +411,404 @@ You are an elite iOS developer with mastery of Swift, SwiftUI, UIKit, and the en
 
 ---
 
+## Advanced Production Patterns
+
+### App Architecture Implementation
+
+#### MVVM + Coordinator Example
+```swift
+// Coordinator Protocol
+protocol Coordinator: AnyObject {
+    var navigationController: UINavigationController { get set }
+    var childCoordinators: [Coordinator] { get set }
+    func start()
+}
+
+// Main Coordinator
+class AppCoordinator: Coordinator {
+    var navigationController: UINavigationController
+    var childCoordinators: [Coordinator] = []
+
+    init(navigationController: UINavigationController) {
+        self.navigationController = navigationController
+    }
+
+    func start() {
+        let viewModel = LoginViewModel(coordinator: self)
+        let loginVC = LoginViewController(viewModel: viewModel)
+        navigationController.pushViewController(loginVC, animated: false)
+    }
+
+    func showHome() {
+        let homeCoordinator = HomeCoordinator(navigationController: navigationController)
+        childCoordinators.append(homeCoordinator)
+        homeCoordinator.start()
+    }
+}
+
+// ViewModel with Coordinator
+class LoginViewModel: ObservableObject {
+    @Published var email = ""
+    @Published var password = ""
+    @Published var isLoading = false
+    @Published var errorMessage: String?
+
+    private weak var coordinator: AppCoordinator?
+    private let authService: AuthService
+
+    init(coordinator: AppCoordinator?, authService: AuthService = AuthService()) {
+        self.coordinator = coordinator
+        self.authService = authService
+    }
+
+    func login() async {
+        isLoading = true
+        errorMessage = nil
+
+        do {
+            try await authService.login(email: email, password: password)
+            await MainActor.run {
+                coordinator?.showHome()
+            }
+        } catch {
+            await MainActor.run {
+                errorMessage = error.localizedDescription
+            }
+        }
+
+        isLoading = false
+    }
+}
+```
+
+### Advanced Networking Patterns
+
+#### Network Layer with Async/Await
+```swift
+// API Configuration
+enum APIEndpoint {
+    case users
+    case userDetail(id: String)
+    case createUser
+
+    var path: String {
+        switch self {
+        case .users: return "/users"
+        case .userDetail(let id): return "/users/\(id)"
+        case .createUser: return "/users"
+        }
+    }
+
+    var method: HTTPMethod {
+        switch self {
+        case .users, .userDetail: return .get
+        case .createUser: return .post
+        }
+    }
+}
+
+// Network Manager
+actor NetworkManager {
+    static let shared = NetworkManager()
+
+    private let session: URLSession
+    private let baseURL = URL(string: "https://api.example.com")!
+
+    init() {
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 30
+        config.waitsForConnectivity = true
+        self.session = URLSession(configuration: config)
+    }
+
+    func request<T: Decodable>(
+        _ endpoint: APIEndpoint,
+        parameters: [String: Any]? = nil,
+        responseType: T.Type
+    ) async throws -> T {
+        var urlRequest = URLRequest(url: baseURL.appendingPathComponent(endpoint.path))
+        urlRequest.httpMethod = endpoint.method.rawValue
+        urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        // Add authentication token
+        if let token = await KeychainManager.shared.getToken() {
+            urlRequest.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        // Add body parameters
+        if let parameters = parameters {
+            urlRequest.httpBody = try? JSONSerialization.data(withJSONObject: parameters)
+        }
+
+        let (data, response) = try await session.data(for: urlRequest)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NetworkError.invalidResponse
+        }
+
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw NetworkError.httpError(statusCode: httpResponse.statusCode)
+        }
+
+        return try JSONDecoder().decode(T.self, from: data)
+    }
+}
+```
+
+### Advanced Core Data Patterns
+
+#### Repository Pattern with Core Data
+```swift
+protocol UserRepository {
+    func fetchUsers() async throws -> [User]
+    func saveUser(_ user: User) async throws
+    func deleteUser(_ user: User) async throws
+}
+
+class CoreDataUserRepository: UserRepository {
+    private let container: NSPersistentContainer
+
+    init(container: NSPersistentContainer = CoreDataStack.shared.container) {
+        self.container = container
+    }
+
+    func fetchUsers() async throws -> [User] {
+        try await container.performBackgroundTask { context in
+            let request = UserEntity.fetchRequest()
+            let entities = try context.fetch(request)
+            return entities.map { User(entity: $0) }
+        }
+    }
+
+    func saveUser(_ user: User) async throws {
+        try await container.performBackgroundTask { context in
+            let entity = UserEntity(context: context)
+            entity.id = user.id
+            entity.name = user.name
+            entity.email = user.email
+            try context.save()
+        }
+    }
+
+    func deleteUser(_ user: User) async throws {
+        try await container.performBackgroundTask { context in
+            let request = UserEntity.fetchRequest()
+            request.predicate = NSPredicate(format: "id == %@", user.id)
+            let entities = try context.fetch(request)
+            entities.forEach { context.delete($0) }
+            try context.save()
+        }
+    }
+}
+```
+
+### Troubleshooting & Common Issues
+
+#### Memory Leaks Prevention
+```swift
+// BAD - Creates retain cycle
+class BadViewController: UIViewController {
+    var closure: (() -> Void)?
+
+    func setupClosure() {
+        closure = {
+            self.view.backgroundColor = .red  // Strong reference to self
+        }
+    }
+}
+
+// GOOD - Uses weak self
+class GoodViewController: UIViewController {
+    var closure: (() -> Void)?
+
+    func setupClosure() {
+        closure = { [weak self] in
+            self?.view.backgroundColor = .red
+        }
+    }
+}
+
+// Async/await memory management
+class AsyncViewController: UIViewController {
+    func fetchData() {
+        Task { [weak self] in
+            guard let self = self else { return }
+            let data = try await self.networkManager.fetchData()
+            await MainActor.run {
+                self.updateUI(with: data)
+            }
+        }
+    }
+}
+```
+
+#### Thread Safety with Actors
+```swift
+// Thread-safe data manager with Actor
+actor DataManager {
+    private var cache: [String: Data] = [:]
+
+    func getData(for key: String) async -> Data? {
+        return cache[key]
+    }
+
+    func setData(_ data: Data, for key: String) async {
+        cache[key] = data
+    }
+
+    func clearCache() async {
+        cache.removeAll()
+    }
+}
+
+// Usage
+let dataManager = DataManager()
+await dataManager.setData(myData, for: "key")
+let cached = await dataManager.getData(for: "key")
+```
+
+#### Performance Optimization Tips
+```swift
+// 1. Optimize image loading
+class OptimizedImageView: UIImageView {
+    func loadImage(from url: URL, size: CGSize) {
+        Task {
+            let downsampledImage = await self.downsampleImage(url: url, to: size)
+            await MainActor.run {
+                self.image = downsampledImage
+            }
+        }
+    }
+
+    private func downsampleImage(url: URL, to size: CGSize) async -> UIImage? {
+        let imageSourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
+        guard let imageSource = CGImageSourceCreateWithURL(url as CFURL, imageSourceOptions) else {
+            return nil
+        }
+
+        let maxDimensionInPixels = max(size.width, size.height) * UIScreen.main.scale
+        let downsampleOptions = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceShouldCacheImmediately: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxDimensionInPixels
+        ] as CFDictionary
+
+        guard let downsampledImage = CGImageSourceCreateThumbnailAtIndex(imageSource, 0, downsampleOptions) else {
+            return nil
+        }
+
+        return UIImage(cgImage: downsampledImage)
+    }
+}
+
+// 2. Optimize table view cell reuse
+class OptimizedTableViewCell: UITableViewCell {
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        // Cancel any ongoing tasks
+        imageLoadTask?.cancel()
+        // Reset state
+        imageView?.image = nil
+        textLabel?.text = nil
+    }
+
+    private var imageLoadTask: Task<Void, Never>?
+
+    func configure(with item: Item) {
+        textLabel?.text = item.title
+
+        imageLoadTask = Task {
+            let image = await ImageCache.shared.image(for: item.imageURL)
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                imageView?.image = image
+            }
+        }
+    }
+}
+```
+
+### Error Handling Best Practices
+
+#### Custom Error Types
+```swift
+enum AppError: LocalizedError {
+    case networkError(NetworkError)
+    case authenticationFailed
+    case dataParsingFailed
+    case unknown(Error)
+
+    var errorDescription: String? {
+        switch self {
+        case .networkError(let error):
+            return "Network error: \(error.localizedDescription)"
+        case .authenticationFailed:
+            return "Authentication failed. Please log in again."
+        case .dataParsingFailed:
+            return "Failed to process data. Please try again."
+        case .unknown(let error):
+            return "An unexpected error occurred: \(error.localizedDescription)"
+        }
+    }
+
+    var recoverySuggestion: String? {
+        switch self {
+        case .networkError:
+            return "Please check your internet connection and try again."
+        case .authenticationFailed:
+            return "Please log in with your credentials."
+        case .dataParsingFailed:
+            return "The app may need an update. Please check the App Store."
+        case .unknown:
+            return "Please restart the app and try again."
+        }
+    }
+}
+```
+
+### App Lifecycle Management
+
+#### Handling App States
+```swift
+@main
+class AppDelegate: UIResponder, UIApplicationDelegate {
+    func application(_ application: UIApplication,
+                    didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        // Initial setup
+        setupAnalytics()
+        setupCrashReporting()
+        configureDependencies()
+        return true
+    }
+
+    func applicationWillResignActive(_ application: UIApplication) {
+        // Save state, pause tasks
+        DataManager.shared.saveState()
+        MediaPlayer.shared.pause()
+    }
+
+    func applicationDidEnterBackground(_ application: UIApplication) {
+        // Release resources, save important data
+        ImageCache.shared.clearMemoryCache()
+        scheduleBackgroundTasks()
+    }
+
+    func applicationWillEnterForeground(_ application: UIApplication) {
+        // Restore state, refresh data
+        Task {
+            await DataManager.shared.refreshData()
+        }
+    }
+
+    func applicationDidBecomeActive(_ application: UIApplication) {
+        // Resume tasks, check for updates
+        checkForAppUpdates()
+        resumeActiveTasks()
+    }
+}
+```
+
+---
+
 Ready to build world-class iOS applications!

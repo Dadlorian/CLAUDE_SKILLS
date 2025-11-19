@@ -1,0 +1,252 @@
+---
+# Complete web server setup playbook
+# This playbook demonstrates comprehensive configuration management for a production web server
+# Usage: ansible-playbook -i inventory web_server_setup.yml
+
+- name: Configure Web Servers
+  hosts: web_servers
+  become: yes
+  vars:
+    app_name: "mywebapp"
+    app_version: "1.0.0"
+    app_user: "webapp"
+    app_home: "/opt/{{ app_name }}"
+    nginx_port: 80
+    app_port: 8080
+    log_dir: "/var/log/{{ app_name }}"
+
+  tasks:
+    # System Setup
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+      when: ansible_os_family == "Debian"
+
+    - name: Install required system packages
+      apt:
+        name:
+          - nginx
+          - python3
+          - python3-pip
+          - python3-venv
+          - ufw
+          - fail2ban
+          - logrotate
+        state: present
+      when: ansible_os_family == "Debian"
+
+    # User Management
+    - name: Create application user
+      user:
+        name: "{{ app_user }}"
+        home: "{{ app_home }}"
+        shell: /bin/bash
+        createhome: yes
+        system: yes
+
+    - name: Create application directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: '0755'
+      loop:
+        - "{{ app_home }}"
+        - "{{ app_home }}/releases"
+        - "{{ app_home }}/shared"
+        - "{{ app_home }}/shared/config"
+        - "{{ app_home }}/shared/logs"
+        - "{{ log_dir }}"
+
+    # Application Deployment
+    - name: Download application artifact
+      get_url:
+        url: "https://artifactory.example.com/releases/{{ app_name }}-{{ app_version }}.tar.gz"
+        dest: "{{ app_home }}/releases/{{ app_name }}-{{ app_version }}.tar.gz"
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: '0644'
+
+    - name: Extract application
+      unarchive:
+        src: "{{ app_home }}/releases/{{ app_name }}-{{ app_version }}.tar.gz"
+        dest: "{{ app_home }}/releases/"
+        remote_src: yes
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+
+    - name: Create symlink to current release
+      file:
+        src: "{{ app_home }}/releases/{{ app_name }}-{{ app_version }}"
+        dest: "{{ app_home }}/current"
+        state: link
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+
+    # Configuration Management
+    - name: Copy application configuration from Vault
+      template:
+        src: templates/app_config.yml.j2
+        dest: "{{ app_home }}/shared/config/application.yml"
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: '0600'
+      notify: restart application
+
+    - name: Create environment file
+      template:
+        src: templates/app.env.j2
+        dest: "{{ app_home }}/shared/config/.env"
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: '0600'
+      notify: restart application
+
+    # Nginx Configuration
+    - name: Remove default nginx site
+      file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+      notify: reload nginx
+
+    - name: Configure nginx for application
+      template:
+        src: templates/nginx_site.conf.j2
+        dest: "/etc/nginx/sites-available/{{ app_name }}"
+        owner: root
+        group: root
+        mode: '0644'
+      notify: reload nginx
+
+    - name: Enable nginx site
+      file:
+        src: "/etc/nginx/sites-available/{{ app_name }}"
+        dest: "/etc/nginx/sites-enabled/{{ app_name }}"
+        state: link
+      notify: reload nginx
+
+    - name: Test nginx configuration
+      command: nginx -t
+      changed_when: false
+
+    # Systemd Service
+    - name: Create systemd service file
+      template:
+        src: templates/app.service.j2
+        dest: "/etc/systemd/system/{{ app_name }}.service"
+        owner: root
+        group: root
+        mode: '0644'
+      notify: restart application
+
+    - name: Enable and start application service
+      systemd:
+        name: "{{ app_name }}"
+        enabled: yes
+        state: started
+        daemon_reload: yes
+
+    # Security Configuration
+    - name: Configure UFW firewall rules
+      ufw:
+        rule: allow
+        port: "{{ item }}"
+        proto: tcp
+      loop:
+        - "22"  # SSH
+        - "80"  # HTTP
+        - "443" # HTTPS
+
+    - name: Enable UFW
+      ufw:
+        state: enabled
+        policy: deny
+
+    - name: Configure fail2ban for nginx
+      copy:
+        src: files/fail2ban-nginx.conf
+        dest: /etc/fail2ban/jail.d/nginx.conf
+        owner: root
+        group: root
+        mode: '0644'
+      notify: restart fail2ban
+
+    # Log Management
+    - name: Configure logrotate for application
+      template:
+        src: templates/logrotate.conf.j2
+        dest: "/etc/logrotate.d/{{ app_name }}"
+        owner: root
+        group: root
+        mode: '0644'
+
+    # Health Check
+    - name: Wait for application to be ready
+      uri:
+        url: "http://localhost:{{ app_port }}/health"
+        status_code: 200
+      register: result
+      until: result.status == 200
+      retries: 30
+      delay: 2
+
+    - name: Verify nginx is serving application
+      uri:
+        url: "http://localhost/health"
+        status_code: 200
+      register: nginx_result
+      until: nginx_result.status == 200
+      retries: 5
+      delay: 2
+
+  handlers:
+    - name: restart application
+      systemd:
+        name: "{{ app_name }}"
+        state: restarted
+
+    - name: reload nginx
+      systemd:
+        name: nginx
+        state: reloaded
+
+    - name: restart fail2ban
+      systemd:
+        name: fail2ban
+        state: restarted
+
+# Post-deployment tasks
+- name: Post-Deployment Verification
+  hosts: web_servers
+  become: yes
+  tasks:
+    - name: Gather service facts
+      service_facts:
+
+    - name: Verify services are running
+      assert:
+        that:
+          - "ansible_facts.services['{{ app_name }}.service'].state == 'running'"
+          - "ansible_facts.services['nginx.service'].state == 'running'"
+        fail_msg: "Critical services are not running"
+        success_msg: "All services are operational"
+
+    - name: Check disk usage
+      shell: df -h / | tail -1 | awk '{print $5}' | sed 's/%//'
+      register: disk_usage
+      changed_when: false
+
+    - name: Warn if disk usage is high
+      debug:
+        msg: "WARNING: Disk usage is {{ disk_usage.stdout }}%"
+      when: disk_usage.stdout|int > 80
+
+    - name: Display deployment summary
+      debug:
+        msg:
+          - "Deployment completed successfully!"
+          - "Application: {{ app_name }} v{{ app_version }}"
+          - "Endpoint: http://{{ inventory_hostname }}"
+          - "Health check: http://{{ inventory_hostname }}/health"

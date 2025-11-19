@@ -444,6 +444,197 @@ class PrivacyPreservingAnalytics:
 5. **Action-Oriented**: Focus analytics on decisions instructors/students will make
 6. **Feedback Loops**: Continuously improve interventions based on outcomes
 
+### Production Analytics Pipeline
+
+**Real-Time Stream Processing with Kafka**:
+```python
+from kafka import KafkaConsumer, KafkaProducer
+import json
+from datetime import datetime
+
+class RealTimeAnalyticsPipeline:
+    """
+    Process learning events in real-time for immediate insights.
+    Kafka consumers process xAPI events as they arrive.
+    """
+
+    def __init__(self):
+        self.consumer = KafkaConsumer(
+            'learning-events',
+            bootstrap_servers=['kafka:9092'],
+            value_deserializer=lambda m: json.loads(m.decode('utf-8')),
+            group_id='analytics-processor'
+        )
+
+        self.producer = KafkaProducer(
+            bootstrap_servers=['kafka:9092'],
+            value_serializer=lambda v: json.dumps(v).encode('utf-8')
+        )
+
+    def process_events(self):
+        """
+        Consume learning events and generate real-time analytics.
+        """
+        for message in self.consumer:
+            event = message.value
+
+            # Update engagement metrics
+            if event['verb'] == 'accessed':
+                self.update_engagement_metric(event['student_id'])
+
+            # Check for at-risk triggers
+            if event['verb'] == 'failed':
+                risk_score = self.calculate_risk_score(event['student_id'])
+                if risk_score > 0.7:
+                    self.trigger_intervention(event['student_id'], risk_score)
+
+            # Update real-time dashboards
+            self.update_dashboard_metrics(event)
+
+    def calculate_risk_score(self, student_id):
+        """
+        Real-time at-risk calculation using streaming data.
+        """
+        recent_events = self.get_recent_events(student_id, hours=24)
+
+        features = {
+            'failed_attempts': sum(1 for e in recent_events if e['verb'] == 'failed'),
+            'days_since_login': self.days_since_last_login(student_id),
+            'completion_rate': self.get_recent_completion_rate(student_id)
+        }
+
+        # Simple rule-based or load ML model
+        risk_score = (
+            features['failed_attempts'] * 0.3 +
+            min(features['days_since_login'] / 7, 1.0) * 0.4 +
+            (1 - features['completion_rate']) * 0.3
+        )
+
+        return risk_score
+
+    def trigger_intervention(self, student_id, risk_score):
+        """
+        Automatically trigger intervention when risk detected.
+        """
+        intervention = {
+            'student_id': student_id,
+            'risk_score': risk_score,
+            'timestamp': datetime.utcnow().isoformat(),
+            'actions': [
+                'email_instructor',
+                'send_student_resources',
+                'schedule_tutoring_invite'
+            ]
+        }
+
+        # Publish to interventions topic
+        self.producer.send('interventions', intervention)
+```
+
+**dbt Models for Data Transformation**:
+```sql
+-- models/marts/student_performance.sql
+-- Transform raw events into student performance metrics
+
+{{ config(
+    materialized='incremental',
+    unique_key='student_id',
+    partition_by={
+      'field': 'date',
+      'data_type': 'date'
+    }
+) }}
+
+WITH engagement_events AS (
+    SELECT
+        student_id,
+        DATE(timestamp) as date,
+        COUNT(*) as interactions,
+        SUM(CASE WHEN verb = 'completed' THEN 1 ELSE 0 END) as completions,
+        SUM(CASE WHEN verb = 'scored' THEN score ELSE 0 END) as total_score,
+        COUNT(DISTINCT course_id) as courses_active
+    FROM {{ source('raw', 'xapi_statements') }}
+    {% if is_incremental() %}
+        WHERE DATE(timestamp) >= (SELECT MAX(date) FROM {{ this }})
+    {% endif %}
+    GROUP BY 1, 2
+),
+
+risk_indicators AS (
+    SELECT
+        student_id,
+        date,
+        CASE
+            WHEN interactions < 5 THEN 1  -- Low engagement
+            ELSE 0
+        END as low_engagement_flag,
+        CASE
+            WHEN completions / NULLIF(interactions, 0) < 0.3 THEN 1
+            ELSE 0
+        END as low_completion_flag
+    FROM engagement_events
+)
+
+SELECT
+    e.student_id,
+    e.date,
+    e.interactions,
+    e.completions,
+    e.total_score,
+    e.courses_active,
+    r.low_engagement_flag,
+    r.low_completion_flag,
+    (r.low_engagement_flag + r.low_completion_flag) / 2.0 as risk_score
+FROM engagement_events e
+JOIN risk_indicators r
+    ON e.student_id = r.student_id
+    AND e.date = r.date
+```
+
+**Data Quality Monitoring**:
+```python
+import great_expectations as ge
+
+class AnalyticsDataQuality:
+    """
+    Validate data quality before analytics processing.
+    Catch data issues early (missing values, outliers, schema changes).
+    """
+
+    def validate_student_events(self, df):
+        """
+        Great Expectations validations for event data.
+        """
+        df_ge = ge.from_pandas(df)
+
+        # Required columns exist
+        df_ge.expect_table_columns_to_match_ordered_list([
+            'student_id', 'event_type', 'timestamp', 'course_id', 'score'
+        ])
+
+        # No nulls in required fields
+        df_ge.expect_column_values_to_not_be_null('student_id')
+        df_ge.expect_column_values_to_not_be_null('timestamp')
+
+        # Value ranges
+        df_ge.expect_column_values_to_be_between('score', min_value=0, max_value=100)
+
+        # Timestamp is recent (no old data leaking in)
+        df_ge.expect_column_values_to_be_between(
+            'timestamp',
+            min_value=datetime.now() - timedelta(days=90),
+            max_value=datetime.now() + timedelta(days=1)
+        )
+
+        # Get validation results
+        results = df_ge.validate()
+
+        if not results['success']:
+            self.alert_data_quality_issue(results)
+
+        return results
+```
+
 ---
 
 **Version**: 2.0

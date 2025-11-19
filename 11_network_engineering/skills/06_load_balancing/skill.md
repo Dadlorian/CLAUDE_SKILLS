@@ -203,6 +203,348 @@ Master enterprise-grade load balancing and application delivery across all netwo
 - **Troubleshooting Guides**: Problem diagnosis and resolution
 - **Comparison Tools**: Platform selection and feature comparison
 
+## Troubleshooting Guide
+
+### Common Issue 1: Backend Health Check Failures
+
+**Symptoms**:
+- Load balancer marks healthy backends as down
+- Intermittent 502/503 errors
+- Backends flapping between up/down states
+
+**Diagnostic Steps**:
+1. Check health check configuration
+   ```bash
+   # HAProxy
+   show servers state
+
+   # NGINX Plus
+   curl http://localhost/api/6/http/upstreams/backend1
+
+   # F5 BIG-IP
+   tmsh show ltm pool <pool-name> members
+   ```
+
+2. Verify health check endpoint accessibility
+   ```bash
+   # Test from load balancer
+   curl -v http://backend-server:port/health
+
+   # Check response time
+   time curl http://backend-server:port/health
+   ```
+
+3. Review health check parameters
+   - Interval: Too frequent can overload backends
+   - Timeout: Too short for slow responses
+   - Rise/Fall thresholds: Too sensitive causes flapping
+   - Expected response: Check for 200 OK vs other codes
+
+**Solutions**:
+- Increase health check interval: `interval 10s` instead of `interval 2s`
+- Adjust timeout: `timeout 5s` for slower applications
+- Modify thresholds: `rise 3 fall 3` to reduce flapping
+- Use HTTP health checks instead of TCP for application-level validation
+- Implement custom health check scripts for complex validation
+
+### Common Issue 2: Session Persistence Not Working
+
+**Symptoms**:
+- Users logged out unexpectedly
+- Shopping carts cleared
+- Application state lost between requests
+
+**Diagnostic Steps**:
+1. Verify persistence method
+   ```bash
+   # Check cookie-based persistence
+   curl -v http://lb-vip/ | grep Set-Cookie
+
+   # Verify source IP persistence
+   curl -H "X-Forwarded-For: 192.168.1.100" http://lb-vip/
+   ```
+
+2. Inspect persistence table
+   ```bash
+   # HAProxy
+   echo "show table" | socat stdio /var/run/haproxy.sock
+
+   # F5 BIG-IP
+   tmsh show ltm persistence persist-records
+   ```
+
+3. Test backend affinity
+   ```bash
+   # Make multiple requests and check backend
+   for i in {1..10}; do
+     curl -b cookies.txt -c cookies.txt http://lb-vip/ | grep "Server:"
+   done
+   ```
+
+**Solutions**:
+- Switch to cookie-based persistence for HTTP applications
+- Increase persistence timeout: `timeout 1h` instead of `timeout 30m`
+- Enable session mirroring/synchronization between backends
+- Use application-controlled cookies instead of load balancer cookies
+- Implement session storage in Redis/Memcached for stateless backends
+
+### Common Issue 3: SSL/TLS Certificate Issues
+
+**Symptoms**:
+- SSL handshake failures
+- Certificate warnings in browsers
+- "SSL certificate verify failed" errors
+
+**Diagnostic Steps**:
+1. Verify certificate installation
+   ```bash
+   # Check certificate validity
+   openssl s_client -connect lb-vip:443 -servername domain.com
+
+   # Verify certificate chain
+   openssl s_client -showcerts -connect lb-vip:443
+
+   # Check certificate expiration
+   echo | openssl s_client -connect lb-vip:443 2>/dev/null | \
+     openssl x509 -noout -dates
+   ```
+
+2. Validate SNI configuration
+   ```bash
+   # Test SNI support
+   openssl s_client -connect lb-vip:443 -servername www.example.com
+   ```
+
+3. Check cipher compatibility
+   ```bash
+   # Test cipher suites
+   nmap --script ssl-enum-ciphers -p 443 lb-vip
+   ```
+
+**Solutions**:
+- Install complete certificate chain (intermediate + root CA)
+- Configure SNI for multiple domains on single IP
+- Update cipher suites for modern browsers: `ECDHE-RSA-AES256-GCM-SHA384`
+- Enable TLS 1.2/1.3, disable SSLv3/TLS 1.0
+- Renew certificates before expiration (use Let's Encrypt automation)
+- Verify private key matches certificate
+
+### Common Issue 4: Uneven Load Distribution
+
+**Symptoms**:
+- Some backends heavily loaded while others idle
+- Response times vary significantly
+- CPU/memory imbalance across backends
+
+**Diagnostic Steps**:
+1. Check algorithm and weights
+   ```bash
+   # HAProxy
+   echo "show stat" | socat stdio /var/run/haproxy.sock
+
+   # NGINX
+   curl http://localhost/api/6/http/upstreams/backend1
+   ```
+
+2. Monitor connection distribution
+   ```bash
+   # Check active connections per backend
+   netstat -an | grep :80 | grep ESTABLISHED | awk '{print $5}' | \
+     cut -d: -f1 | sort | uniq -c
+   ```
+
+3. Analyze request patterns
+   ```bash
+   # Review access logs for distribution
+   tail -f /var/log/nginx/access.log | awk '{print $12}'
+   ```
+
+**Solutions**:
+- Change algorithm: Switch from `round-robin` to `least-connections`
+- Adjust server weights based on capacity
+  ```nginx
+  upstream backend {
+      least_conn;
+      server backend1:80 weight=3;
+      server backend2:80 weight=1;  # Lower capacity
+  }
+  ```
+- Enable connection draining for graceful shutdown
+- Implement slow-start for new backends
+- Use consistent hashing for cache affinity
+
+### Common Issue 5: High Latency and Performance
+
+**Symptoms**:
+- Slow response times through load balancer
+- Direct backend connections faster than through LB
+- Timeouts under load
+
+**Diagnostic Steps**:
+1. Measure latency at each hop
+   ```bash
+   # Time to load balancer
+   curl -w "@curl-format.txt" -o /dev/null -s http://lb-vip/
+
+   # Time to backend directly
+   curl -w "@curl-format.txt" -o /dev/null -s http://backend:80/
+   ```
+
+2. Check load balancer resource utilization
+   ```bash
+   # CPU and memory
+   top -p $(pidof haproxy)
+
+   # Network throughput
+   iftop -i eth0
+   ```
+
+3. Analyze connection timeouts
+   ```bash
+   # Check timeout settings
+   grep timeout /etc/haproxy/haproxy.cfg
+   ```
+
+**Solutions**:
+- Enable HTTP keep-alive and connection reuse
+  ```haproxy
+  option http-keep-alive
+  option http-server-close
+  ```
+- Increase connection pool sizes
+- Enable TCP Fast Open (TFO)
+- Optimize buffer sizes: `tune.bufsize 32768`
+- Use connection multiplexing (HTTP/2)
+- Scale load balancer (add more instances or upgrade hardware)
+- Enable caching for static content
+- Tune OS network stack parameters
+  ```bash
+  sysctl -w net.core.somaxconn=4096
+  sysctl -w net.ipv4.tcp_max_syn_backlog=8192
+  ```
+
+## Configuration Examples
+
+### HAProxy Production Configuration
+
+```haproxy
+global
+    log /dev/log local0
+    maxconn 50000
+    user haproxy
+    group haproxy
+    daemon
+
+    # SSL/TLS tuning
+    ssl-default-bind-ciphers ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-SHA256
+    ssl-default-bind-options ssl-min-ver TLSv1.2 no-tls-tickets
+    tune.ssl.default-dh-param 2048
+
+defaults
+    log global
+    mode http
+    option httplog
+    option dontlognull
+    option http-server-close
+    option forwardfor except 127.0.0.0/8
+    retries 3
+    timeout connect 5s
+    timeout client 50s
+    timeout server 50s
+    timeout http-keep-alive 10s
+
+frontend web_frontend
+    bind *:80
+    bind *:443 ssl crt /etc/ssl/certs/website.pem
+    http-request redirect scheme https unless { ssl_fc }
+
+    # Rate limiting
+    stick-table type ip size 100k expire 30s store http_req_rate(10s)
+    http-request track-sc0 src
+    http-request deny if { sc_http_req_rate(0) gt 100 }
+
+    default_backend web_backend
+
+backend web_backend
+    balance leastconn
+    option httpchk GET /health HTTP/1.1\r\nHost:\ example.com
+    http-check expect status 200
+
+    # Cookie-based persistence
+    cookie SERVERID insert indirect nocache
+
+    # Backend servers
+    server web1 192.168.1.10:80 check cookie web1 weight 100
+    server web2 192.168.1.11:80 check cookie web2 weight 100
+    server web3 192.168.1.12:80 check cookie web3 weight 50
+```
+
+### NGINX Plus Advanced Configuration
+
+```nginx
+upstream backend_pool {
+    least_conn;
+
+    # Health checks
+    zone backend 64k;
+
+    # Slow start for new servers
+    server 192.168.1.10:80 max_fails=3 fail_timeout=30s slow_start=30s;
+    server 192.168.1.11:80 max_fails=3 fail_timeout=30s slow_start=30s;
+
+    # Active health check
+    health_check interval=5s fails=2 passes=2 uri=/health match=health_ok;
+
+    # Session persistence
+    sticky cookie srv_id expires=1h path=/;
+}
+
+match health_ok {
+    status 200;
+    body ~ "\"status\":\"healthy\"";
+}
+
+server {
+    listen 80;
+    listen 443 ssl http2;
+    server_name example.com;
+
+    ssl_certificate /etc/nginx/ssl/cert.pem;
+    ssl_certificate_key /etc/nginx/ssl/key.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers on;
+
+    # Connection timeout tuning
+    keepalive_timeout 65;
+    keepalive_requests 100;
+
+    # Rate limiting
+    limit_req_zone $binary_remote_addr zone=one:10m rate=10r/s;
+    limit_req zone=one burst=20 nodelay;
+
+    location / {
+        proxy_pass http://backend_pool;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Timeouts
+        proxy_connect_timeout 5s;
+        proxy_send_timeout 30s;
+        proxy_read_timeout 30s;
+    }
+
+    # API for monitoring
+    location /api {
+        api write=on;
+        allow 127.0.0.1;
+        deny all;
+    }
+}
+```
+
 ## Related Skills
 
 - **Network Design**: Infrastructure planning

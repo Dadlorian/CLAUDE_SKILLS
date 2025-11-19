@@ -439,4 +439,322 @@ You are an elite React Native developer with mastery of JavaScript/TypeScript, R
 
 ---
 
+## Advanced Production Patterns
+
+### Custom Hooks Library
+```typescript
+// useDebounce hook for search optimization
+function useDebounce<T>(value: T, delay: number): T {
+    const [debouncedValue, setDebouncedValue] = useState<T>(value);
+
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            setDebouncedValue(value);
+        }, delay);
+
+        return () => {
+            clearTimeout(handler);
+        };
+    }, [value, delay]);
+
+    return debouncedValue;
+}
+
+// useAsyncStorage hook
+function useAsyncStorage<T>(key: string, initialValue: T) {
+    const [storedValue, setStoredValue] = useState<T>(initialValue);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        AsyncStorage.getItem(key)
+            .then(value => {
+                if (value) setStoredValue(JSON.parse(value));
+            })
+            .finally(() => setLoading(false));
+    }, [key]);
+
+    const setValue = async (value: T) => {
+        try {
+            setStoredValue(value);
+            await AsyncStorage.setItem(key, JSON.stringify(value));
+        } catch (error) {
+            console.error('AsyncStorage error:', error);
+        }
+    };
+
+    return [storedValue, setValue, loading] as const;
+}
+
+// useKeyboard hook
+function useKeyboard() {
+    const [keyboardHeight, setKeyboardHeight] = useState(0);
+    const [isKeyboardVisible, setKeyboardVisible] = useState(false);
+
+    useEffect(() => {
+        const showSubscription = Keyboard.addListener('keyboardDidShow', (e) => {
+            setKeyboardHeight(e.endCoordinates.height);
+            setKeyboardVisible(true);
+        });
+
+        const hideSubscription = Keyboard.addListener('keyboardDidHide', () => {
+            setKeyboardHeight(0);
+            setKeyboardVisible(false);
+        });
+
+        return () => {
+            showSubscription.remove();
+            hideSubscription.remove();
+        };
+    }, []);
+
+    return { keyboardHeight, isKeyboardVisible };
+}
+```
+
+### Advanced Navigation Patterns
+```typescript
+// Type-safe navigation with TypeScript
+type RootStackParamList = {
+    Home: undefined;
+    Profile: { userId: string };
+    Settings: { section?: string };
+};
+
+type HomeScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Home'>;
+type ProfileScreenRouteProp = RouteProp<RootStackParamList, 'Profile'>;
+
+// Screen with typed navigation
+const HomeScreen: React.FC = () => {
+    const navigation = useNavigation<HomeScreenNavigationProp>();
+
+    const goToProfile = (userId: string) => {
+        navigation.navigate('Profile', { userId });
+    };
+
+    return <View>...</View>;
+};
+
+// Deep linking configuration
+const linking: LinkingOptions<RootStackParamList> = {
+    prefixes: ['myapp://', 'https://myapp.com'],
+    config: {
+        screens: {
+            Home: '',
+            Profile: 'user/:userId',
+            Settings: 'settings/:section?',
+        },
+    },
+};
+```
+
+### Performance Optimization Patterns
+```typescript
+// 1. Memoized components
+const MemoizedListItem = React.memo<{ item: Item; onPress: (id: string) => void }>(
+    ({ item, onPress }) => {
+        return (
+            <TouchableOpacity onPress={() => onPress(item.id)}>
+                <Text>{item.title}</Text>
+            </TouchableOpacity>
+        );
+    },
+    (prevProps, nextProps) => {
+        return prevProps.item.id === nextProps.item.id;
+    }
+);
+
+// 2. Optimized FlatList
+const OptimizedList: React.FC<{ data: Item[] }> = ({ data }) => {
+    const renderItem = useCallback(({ item }: { item: Item }) => {
+        return <MemoizedListItem item={item} onPress={handlePress} />;
+    }, []);
+
+    const keyExtractor = useCallback((item: Item) => item.id, []);
+
+    const getItemLayout = useCallback(
+        (data: Item[] | null | undefined, index: number) => ({
+            length: ITEM_HEIGHT,
+            offset: ITEM_HEIGHT * index,
+            index,
+        }),
+        []
+    );
+
+    return (
+        <FlatList
+            data={data}
+            renderItem={renderItem}
+            keyExtractor={keyExtractor}
+            getItemLayout={getItemLayout}
+            removeClippedSubviews={true}
+            maxToRenderPerBatch={10}
+            updateCellsBatchingPeriod={50}
+            initialNumToRender={10}
+            windowSize={5}
+        />
+    );
+};
+
+// 3. Image optimization
+import FastImage from 'react-native-fast-image';
+
+const OptimizedImage: React.FC<{ uri: string }> = ({ uri }) => {
+    return (
+        <FastImage
+            source={{
+                uri,
+                priority: FastImage.priority.normal,
+                cache: FastImage.cacheControl.immutable,
+            }}
+            style={{ width: 200, height: 200 }}
+            resizeMode={FastImage.resizeMode.cover}
+        />
+    );
+};
+```
+
+### State Management with Redux Toolkit
+```typescript
+// Redux slice with async thunks
+import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
+
+interface UserState {
+    users: User[];
+    loading: boolean;
+    error: string | null;
+}
+
+export const fetchUsers = createAsyncThunk(
+    'users/fetchUsers',
+    async (_, { rejectWithValue }) => {
+        try {
+            const response = await api.getUsers();
+            return response.data;
+        } catch (error) {
+            return rejectWithValue(error.message);
+        }
+    }
+);
+
+const userSlice = createSlice({
+    name: 'users',
+    initialState: {
+        users: [],
+        loading: false,
+        error: null,
+    } as UserState,
+    reducers: {
+        addUser: (state, action: PayloadAction<User>) => {
+            state.users.push(action.payload);
+        },
+        removeUser: (state, action: PayloadAction<string>) => {
+            state.users = state.users.filter(u => u.id !== action.payload);
+        },
+    },
+    extraReducers: (builder) => {
+        builder
+            .addCase(fetchUsers.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+            })
+            .addCase(fetchUsers.fulfilled, (state, action) => {
+                state.loading = false;
+                state.users = action.payload;
+            })
+            .addCase(fetchUsers.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload as string;
+            });
+    },
+});
+
+// Usage in component
+const UserList: React.FC = () => {
+    const dispatch = useAppDispatch();
+    const { users, loading, error } = useAppSelector(state => state.users);
+
+    useEffect(() => {
+        dispatch(fetchUsers());
+    }, [dispatch]);
+
+    return <View>...</View>;
+};
+```
+
+### Error Boundaries
+```typescript
+class ErrorBoundary extends React.Component<
+    { children: React.ReactNode },
+    { hasError: boolean; error: Error | null }
+> {
+    constructor(props: { children: React.ReactNode }) {
+        super(props);
+        this.state = { hasError: false, error: null };
+    }
+
+    static getDerivedStateFromError(error: Error) {
+        return { hasError: true, error };
+    }
+
+    componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+        console.error('Error caught by boundary:', error, errorInfo);
+        // Log to error reporting service
+        crashlytics().recordError(error);
+    }
+
+    render() {
+        if (this.state.hasError) {
+            return (
+                <View style={styles.errorContainer}>
+                    <Text>Something went wrong</Text>
+                    <Button
+                        title="Try Again"
+                        onPress={() => this.setState({ hasError: false, error: null })}
+                    />
+                </View>
+            );
+        }
+
+        return this.props.children;
+    }
+}
+```
+
+### Native Module Integration
+```typescript
+// TypeScript definition for native module
+interface NativeBiometrics {
+    authenticate(reason: string): Promise<{ success: boolean }>;
+    isAvailable(): Promise<boolean>;
+}
+
+// Import native module
+import { NativeModules } from 'react-native';
+const { Biometrics } = NativeModules as { Biometrics: NativeBiometrics };
+
+// Usage
+const BiometricsScreen: React.FC = () => {
+    const authenticate = async () => {
+        try {
+            const isAvailable = await Biometrics.isAvailable();
+            if (!isAvailable) {
+                Alert.alert('Biometrics not available');
+                return;
+            }
+
+            const result = await Biometrics.authenticate('Authenticate to continue');
+            if (result.success) {
+                // Handle success
+            }
+        } catch (error) {
+            console.error('Biometrics error:', error);
+        }
+    };
+
+    return <Button title="Authenticate" onPress={authenticate} />;
+};
+```
+
+---
+
 Ready to build cross-platform mobile apps!

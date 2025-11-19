@@ -588,4 +588,360 @@ You are an elite Flutter developer with mastery of Dart, widgets, and cross-plat
 
 ---
 
+## Advanced Production Patterns
+
+### Clean Architecture Implementation
+```dart
+// Domain layer - Use Case
+abstract class UseCase<Type, Params> {
+  Future<Either<Failure, Type>> call(Params params);
+}
+
+class GetUserUseCase implements UseCase<User, String> {
+  final UserRepository repository;
+
+  GetUserUseCase(this.repository);
+
+  @override
+  Future<Either<Failure, User>> call(String userId) async {
+    return await repository.getUser(userId);
+  }
+}
+
+// Repository interface (Domain)
+abstract class UserRepository {
+  Future<Either<Failure, User>> getUser(String id);
+  Future<Either<Failure, List<User>>> getUsers();
+}
+
+// Repository implementation (Data)
+class UserRepositoryImpl implements UserRepository {
+  final UserRemoteDataSource remoteDataSource;
+  final UserLocalDataSource localDataSource;
+  final NetworkInfo networkInfo;
+
+  UserRepositoryImpl({
+    required this.remoteDataSource,
+    required this.localDataSource,
+    required this.networkInfo,
+  });
+
+  @override
+  Future<Either<Failure, User>> getUser(String id) async {
+    if (await networkInfo.isConnected) {
+      try {
+        final user = await remoteDataSource.getUser(id);
+        await localDataSource.cacheUser(user);
+        return Right(user);
+      } catch (e) {
+        return Left(ServerFailure());
+      }
+    } else {
+      try {
+        final user = await localDataSource.getCachedUser(id);
+        return Right(user);
+      } catch (e) {
+        return Left(CacheFailure());
+      }
+    }
+  }
+}
+```
+
+### BLoC Pattern with Freezed
+```dart
+// Event
+@freezed
+class UserEvent with _$UserEvent {
+  const factory UserEvent.load() = LoadUsers;
+  const factory UserEvent.refresh() = RefreshUsers;
+  const factory UserEvent.delete(String id) = DeleteUser;
+}
+
+// State
+@freezed
+class UserState with _$UserState {
+  const factory UserState.initial() = _Initial;
+  const factory UserState.loading() = _Loading;
+  const factory UserState.loaded(List<User> users) = _Loaded;
+  const factory UserState.error(String message) = _Error;
+}
+
+// BLoC
+class UserBloc extends Bloc<UserEvent, UserState> {
+  final GetUsersUseCase getUsersUseCase;
+  final DeleteUserUseCase deleteUserUseCase;
+
+  UserBloc({
+    required this.getUsersUseCase,
+    required this.deleteUserUseCase,
+  }) : super(const UserState.initial()) {
+    on<LoadUsers>(_onLoadUsers);
+    on<DeleteUser>(_onDeleteUser);
+  }
+
+  Future<void> _onLoadUsers(LoadUsers event, Emitter<UserState> emit) async {
+    emit(const UserState.loading());
+
+    final result = await getUsersUseCase(NoParams());
+
+    result.fold(
+      (failure) => emit(UserState.error(failure.message)),
+      (users) => emit(UserState.loaded(users)),
+    );
+  }
+
+  Future<void> _onDeleteUser(DeleteUser event, Emitter<UserState> emit) async {
+    await deleteUserUseCase(event.id);
+    add(const UserEvent.load());
+  }
+}
+
+// UI
+class UserListScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<UserBloc, UserState>(
+      builder: (context, state) {
+        return state.when(
+          initial: () => const SizedBox(),
+          loading: () => const Center(child: CircularProgressIndicator()),
+          loaded: (users) => ListView.builder(
+            itemCount: users.length,
+            itemBuilder: (context, index) => UserTile(user: users[index]),
+          ),
+          error: (message) => Center(child: Text(message)),
+        );
+      },
+    );
+  }
+}
+```
+
+### Advanced Widget Patterns
+```dart
+// Custom painter for complex graphics
+class CustomChartPainter extends CustomPainter {
+  final List<DataPoint> data;
+
+  CustomChartPainter(this.data);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.blue
+      ..strokeWidth = 2.0
+      ..style = PaintingStyle.stroke;
+
+    final path = Path();
+
+    for (var i = 0; i < data.length; i++) {
+      final x = (size.width / (data.length - 1)) * i;
+      final y = size.height - (data[i].value / maxValue * size.height);
+
+      if (i == 0) {
+        path.moveTo(x, y);
+      } else {
+        path.lineTo(x, y);
+      }
+    }
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(CustomChartPainter oldDelegate) {
+    return oldDelegate.data != data;
+  }
+}
+
+// Custom layout
+class CustomFlowLayout extends StatelessWidget {
+  final List<Widget> children;
+
+  const CustomFlowLayout({required this.children});
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomMultiChildLayout(
+      delegate: FlowLayoutDelegate(),
+      children: children.map((child) {
+        return LayoutId(
+          id: children.indexOf(child),
+          child: child,
+        );
+      }).toList(),
+    );
+  }
+}
+
+class FlowLayoutDelegate extends MultiChildLayoutDelegate {
+  @override
+  void performLayout(Size size) {
+    double xOffset = 0;
+    double yOffset = 0;
+    double rowHeight = 0;
+
+    for (var i = 0; hasChild(i); i++) {
+      final childSize = layoutChild(i, BoxConstraints.loose(size));
+
+      if (xOffset + childSize.width > size.width) {
+        xOffset = 0;
+        yOffset += rowHeight;
+        rowHeight = 0;
+      }
+
+      positionChild(i, Offset(xOffset, yOffset));
+      xOffset += childSize.width;
+      rowHeight = max(rowHeight, childSize.height);
+    }
+  }
+
+  @override
+  bool shouldRelayout(FlowLayoutDelegate oldDelegate) => false;
+}
+```
+
+### Performance Optimization
+```dart
+// 1. Const constructors everywhere
+class OptimizedWidget extends StatelessWidget {
+  const OptimizedWidget({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return const Column(
+      children: [
+        Text('Title'),
+        SizedBox(height: 16),
+        Text('Subtitle'),
+      ],
+    );
+  }
+}
+
+// 2. RepaintBoundary for expensive widgets
+class ExpensiveChart extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return RepaintBoundary(
+      child: CustomPaint(
+        painter: ChartPainter(data),
+        size: Size(300, 200),
+      ),
+    );
+  }
+}
+
+// 3. Optimized list with AutomaticKeepAlive
+class KeepAliveListItem extends StatefulWidget {
+  final Item item;
+
+  const KeepAliveListItem({required this.item});
+
+  @override
+  _KeepAliveListItemState createState() => _KeepAliveListItemState();
+}
+
+class _KeepAliveListItemState extends State<KeepAliveListItem>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);  // Required for AutomaticKeepAliveClientMixin
+    return ListTile(title: Text(widget.item.name));
+  }
+}
+```
+
+### Dependency Injection with GetIt
+```dart
+// Service locator setup
+final getIt = GetIt.instance;
+
+void setupDependencies() {
+  // Data sources
+  getIt.registerLazySingleton<UserRemoteDataSource>(
+    () => UserRemoteDataSourceImpl(getIt()),
+  );
+
+  getIt.registerLazySingleton<UserLocalDataSource>(
+    () => UserLocalDataSourceImpl(getIt()),
+  );
+
+  // Repositories
+  getIt.registerLazySingleton<UserRepository>(
+    () => UserRepositoryImpl(
+      remoteDataSource: getIt(),
+      localDataSource: getIt(),
+      networkInfo: getIt(),
+    ),
+  );
+
+  // Use cases
+  getIt.registerLazySingleton(() => GetUsersUseCase(getIt()));
+
+  // BLoC
+  getIt.registerFactory(() => UserBloc(
+    getUsersUseCase: getIt(),
+    deleteUserUseCase: getIt(),
+  ));
+}
+
+// Usage
+class UserListScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) => getIt<UserBloc>()..add(const UserEvent.load()),
+      child: UserListView(),
+    );
+  }
+}
+```
+
+### Platform Channel Implementation
+```dart
+// Method channel for native features
+class BiometricsService {
+  static const platform = MethodChannel('com.example.app/biometrics');
+
+  Future<bool> authenticate() async {
+    try {
+      final bool result = await platform.invokeMethod('authenticate', {
+        'reason': 'Please authenticate to continue',
+      });
+      return result;
+    } on PlatformException catch (e) {
+      debugPrint('Failed to authenticate: ${e.message}');
+      return false;
+    }
+  }
+
+  Future<bool> isAvailable() async {
+    try {
+      final bool result = await platform.invokeMethod('isAvailable');
+      return result;
+    } catch (e) {
+      return false;
+    }
+  }
+}
+
+// Event channel for streaming data
+class SensorService {
+  static const stream = EventChannel('com.example.app/sensors');
+
+  Stream<List<double>> get accelerometerStream {
+    return stream.receiveBroadcastStream().map((event) {
+      return List<double>.from(event);
+    });
+  }
+}
+```
+
+---
+
 Ready to build beautiful cross-platform Flutter apps!
