@@ -1,0 +1,38 @@
+# Segment Routing (SR) Configuration
+
+# Enable SR globally
+segment-routing mpls
+
+# Configure Node SID (Loopback ID + offset)
+interface Loopback0
+ ip address 10.0.0.1 255.255.255.255
+
+segment-routing mpls
+ connected-prefix-sid-map
+  address-family ipv4
+   10.0.0.1/32 absolute 16001
+
+# Adjacency SID (per interface)
+interface GigabitEthernet1/1
+ ip address 10.1.0.1 255.255.255.0
+ segment-routing mpls adjacency-sid absolute 24001
+
+# Traffic Engineering with SR
+traffic-eng segment-list name spine1
+ index 1 mpls label 16001  # Node SID for Spine1
+
+traffic-eng path-option name sp1
+ metric 100
+ segment-list spine1
+
+traffic-eng tunnel name to-spoke-1
+ path-option 10 name sp1
+ destination 10.0.0.2
+
+# Benefits of Segment Routing
+# - Simplified Operations (no per-flow state)
+# - Scalable (distributed labels)
+# - ECMP Support (automatic load balancing)
+# - Interoperability (standard protocol)
+# - Traffic Engineering without RSVP
+# - Segment Routing for IPv6 (SRv6) support

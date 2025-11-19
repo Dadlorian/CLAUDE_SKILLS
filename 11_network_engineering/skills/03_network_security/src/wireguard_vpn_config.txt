@@ -1,0 +1,298 @@
+# WireGuard VPN Configuration
+# Production-Grade Modern VPN Setup
+
+# =====================================
+# Site A VPN Server Configuration
+# =====================================
+
+[Interface]
+# Network interface configuration
+Address = 10.255.0.1/24
+ListenPort = 51820
+PrivateKey = OHgOsJK2k+B8/P3dR9xL2m1pQ8rStUvWxYzAbCdEf=
+
+# Firewall rules (if using firewall)
+PostUp = iptables -A FORWARD -i %i -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+PostDown = iptables -D FORWARD -i %i -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
+
+# =====================================
+# Site B Peer Configuration
+# =====================================
+
+[Peer]
+# Description: Site B - Branch Office
+PublicKey = ABcDeFgHiJkLmNoPqRsTuVwXyZ123456789abcDef=
+AllowedIPs = 10.2.0.0/16
+Endpoint = vpn-site-b.example.com:51820
+PersistentKeepalive = 25
+
+# =====================================
+# Mobile User Peer Configuration
+# =====================================
+
+[Peer]
+# Description: Mobile User - Roaming
+PublicKey = 123456789abcDeFgHiJkLmNoPqRsTuVwXyZ123Ab=
+AllowedIPs = 10.255.0.50/32
+
+# =====================================
+# Additional Network Segment Peer
+# =====================================
+
+[Peer]
+# Description: Remote Office - VLAN 50
+PublicKey = ZyXwVuTsRqPoNmLkJiHgFeDcBa987654321zyXwV=
+AllowedIPs = 10.3.50.0/24
+Endpoint = vpn-remote.example.com:51820
+PersistentKeepalive = 25
+
+# =====================================
+# Site B VPN Server Configuration (Mirror)
+# =====================================
+
+# [Interface]
+# Address = 10.255.0.2/24
+# ListenPort = 51820
+# PrivateKey = PrivateKeyForSiteB==
+#
+# PostUp = iptables -A FORWARD -i %i -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+# PostDown = iptables -D FORWARD -i %i -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
+#
+# [Peer]
+# Description: Site A - Headquarters
+# PublicKey = OHgOsJK2k+B8/P3dR9xL2m1pQ8rStUvWxYzAbCdEf=
+# AllowedIPs = 10.1.0.0/16
+# Endpoint = vpn-site-a.example.com:51820
+# PersistentKeepalive = 25
+
+# =====================================
+# Client Configuration (Linux/Mac)
+# =====================================
+
+# [Interface]
+# PrivateKey = PrivateKeyForClient==
+# Address = 10.255.0.50/32
+# DNS = 10.1.50.10
+#
+# [Peer]
+# PublicKey = OHgOsJK2k+B8/P3dR9xL2m1pQ8rStUvWxYzAbCdEf=
+# AllowedIPs = 10.0.0.0/8
+# Endpoint = vpn.example.com:51820
+# PersistentKeepalive = 25
+
+# =====================================
+# Installation & Setup (Linux)
+# =====================================
+
+# Install WireGuard:
+# apt-get install wireguard wireguard-tools
+# OR
+# yum install wireguard-tools
+
+# Generate keys:
+# umask 077
+# wg genkey | tee server_private.key | wg pubkey > server_public.key
+# wg genkey | tee client_private.key | wg pubkey > client_public.key
+
+# Save configuration to /etc/wireguard/wg0.conf
+# Set permissions:
+# chmod 600 /etc/wireguard/wg0.conf
+
+# Enable and start:
+# systemctl enable wg-quick@wg0
+# systemctl start wg-quick@wg0
+
+# Verify status:
+# wg show
+# ip addr show wg0
+
+# =====================================
+# Windows Configuration (WireGuard Client)
+# =====================================
+
+# 1. Download WireGuard from wireguard.com
+# 2. Install application
+# 3. Create new tunnel
+# 4. Paste configuration above
+# 5. Activate tunnel
+# 6. Verify connection
+
+# =====================================
+# iOS/Android Configuration
+# =====================================
+
+# 1. Install WireGuard from App Store / Play Store
+# 2. Create new configuration
+# 3. Scan QR code or import .conf file
+# 4. Activate connection
+# 5. App will auto-connect on launch
+
+# =====================================
+# Firewall Rules (UFW)
+# =====================================
+
+# ufw allow 51820/udp
+# ufw enable
+
+# =====================================
+# iptables Rules (if not using UFW)
+# =====================================
+
+# # Allow WireGuard
+# iptables -A INPUT -i eth0 -p udp --dport 51820 -j ACCEPT
+#
+# # IP forwarding
+# sysctl -w net.ipv4.ip_forward=1
+# echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
+#
+# # NAT for clients
+# iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+#
+# Save rules:
+# iptables-save > /etc/iptables/rules.v4
+
+# =====================================
+# QoS (Quality of Service) Configuration
+# =====================================
+
+# # Limit bandwidth per peer (100 Mbps)
+# tc qdisc add dev wg0 root handle 1: htb default 1
+# tc class add dev wg0 parent 1: classid 1:1 htb rate 100mbit
+# tc filter add dev wg0 protocol ip parent 1: prio 1 u32 \
+#   match ip dst 10.255.0.50/32 flowid 1:1
+
+# =====================================
+# Monitoring and Diagnostics
+# =====================================
+
+# View active connections:
+# wg show
+
+# View detailed status:
+# wg show all dump
+
+# Monitor in real-time:
+# watch -n 1 "wg show"
+
+# Check IP routing:
+# ip route show
+
+# Test connectivity:
+# ping 10.2.1.1  (test Site B)
+# ping 10.255.0.2  (test peer)
+
+# View log messages:
+# dmesg | grep -i wireguard
+
+# =====================================
+# Performance Tuning
+# =====================================
+
+# # Increase UDP buffer sizes
+# sysctl -w net.core.rmem_max=134217728
+# sysctl -w net.core.wmem_max=134217728
+# sysctl -w net.ipv4.udp_mem="10485760 20971520 33554432"
+
+# # TCP window scaling
+# sysctl -w net.ipv4.tcp_window_scaling=1
+
+# # Disable SYN cookies (optional, if needed for performance)
+# sysctl -w net.ipv4.tcp_syncookies=0
+
+# =====================================
+# Security Best Practices
+# =====================================
+
+# 1. Key Generation:
+#    - Use strong random source
+#    - Generate new keys for each deployment
+#    - Store private keys securely
+
+# 2. Key Rotation:
+#    - Rotate keys annually
+#    - Update all peers simultaneously
+#    - Maintain backward compatibility during rotation
+
+# 3. Network Design:
+#    - Use isolated address space (10.255.0.0/16)
+#    - Don't overlap with existing networks
+#    - Use small subnets for clients (/32)
+
+# 4. Firewall Integration:
+#    - Allow only necessary ports (51820/UDP default)
+#    - Change port if behind restrictive firewall
+#    - Implement rate limiting
+
+# 5. Monitoring:
+#    - Monitor peer activity
+#    - Log connections
+#    - Alert on disconnections
+#    - Track bandwidth usage
+
+# 6. Resilience:
+#    - Configure multiple servers
+#    - Use DNS round-robin
+#    - Test failover scenarios
+
+# =====================================
+# Troubleshooting
+# =====================================
+
+# Issue: Connection refused
+# Diagnosis:
+#   - wg show (check if interface active)
+#   - ufw status (check firewall)
+#   - netstat -ulnp | grep 51820 (verify port open)
+# Solution:
+#   - Verify port is open
+#   - Check firewall rules
+#   - Restart WireGuard
+
+# Issue: Slow performance
+# Diagnosis:
+#   - Monitor bandwidth usage
+#   - Check system load
+#   - Verify MTU size
+# Solution:
+#   - Optimize MTU (usually 1420)
+#   - Enable hardware acceleration
+#   - Check for bottlenecks
+
+# Issue: Intermittent disconnections
+# Diagnosis:
+#   - Check network stability
+#   - Review logs
+#   - Monitor keepalive settings
+# Solution:
+#   - Increase PersistentKeepalive
+#   - Improve network stability
+#   - Monitor peer status
+
+# =====================================
+# Maintenance Tasks
+# =====================================
+
+# Daily:
+#   - Monitor VPN status
+#   - Check for connection issues
+#   - Monitor bandwidth
+
+# Weekly:
+#   - Review logs
+#   - Check peer connectivity
+#   - Verify performance
+
+# Monthly:
+#   - Full system review
+#   - Performance analysis
+#   - Security check
+
+# Quarterly:
+#   - Penetration test
+#   - Update configuration
+#   - Plan improvements
+
+# Annually:
+#   - Key rotation
+#   - Encryption standard update
+#   - Major version upgrade

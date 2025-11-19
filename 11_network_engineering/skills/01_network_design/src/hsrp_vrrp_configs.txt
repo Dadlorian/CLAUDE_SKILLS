@@ -1,0 +1,252 @@
+! HSRP and VRRP Configuration Comparison
+! Hot Standby Router Protocol vs Virtual Router Redundancy Protocol
+! Date: November 2025
+! Version: 1.0
+
+! ========================================
+! HSRP (Cisco Proprietary) Configuration
+! ========================================
+
+! Primary Gateway (Active)
+! Hostname: Distribution-A
+! IP: 10.0.10.2
+
+interface Vlan 10
+  ip address 10.0.10.2 255.255.255.0
+
+  ! HSRP Group 10
+  standby 10 ip 10.0.10.1  ! Virtual IP
+  standby 10 priority 150  ! Active (higher number = active)
+  standby 10 preempt       ! Takes over if higher priority comes up
+  standby 10 timers 3 10   ! Hello 3sec, Dead 10sec
+  standby 10 authentication md5 key-string hsrpkey123
+  !
+
+! Secondary Gateway (Standby)
+! Hostname: Distribution-B
+! IP: 10.0.10.3
+
+interface Vlan 10
+  ip address 10.0.10.3 255.255.255.0
+
+  ! Same HSRP Group 10
+  standby 10 ip 10.0.10.1  ! Same virtual IP
+  standby 10 priority 100  ! Standby (lower priority)
+  standby 10 preempt
+  standby 10 timers 3 10
+  standby 10 authentication md5 key-string hsrpkey123
+  !
+
+! HSRP Verification
+! Distribution-A# show standby brief
+! Group  Interface   State    Active          Standby         Virtual IP
+! 10     Vlan10      Active   local           10.0.10.3       10.0.10.1
+!
+! Distribution-B# show standby brief
+! Group  Interface   State    Active          Standby         Virtual IP
+! 10     Vlan10      Standby  10.0.10.2       local           10.0.10.1
+
+! ========================================
+! VRRP (RFC 5798) Configuration
+! ========================================
+
+! Primary Gateway (Master)
+! Platform: Arista EOS
+! IP: 10.0.20.2
+
+interface Vlan 20
+  ip address 10.0.20.2/24
+  ip virtual-router address 10.0.20.1
+  ip virtual-router mac-address 00:00:5e:00:01:14
+
+  vrrp 20 priority 100       ! Master (higher = master)
+  vrrp 20 advertisement-interval 1000  ! Hello every 1 sec
+  vrrp 20 preempt enabled
+  !
+
+! Secondary Gateway (Backup)
+! IP: 10.0.20.3
+
+interface Vlan 20
+  ip address 10.0.20.3/24
+  ip virtual-router address 10.0.20.1
+  ip virtual-router mac-address 00:00:5e:00:01:14
+
+  vrrp 20 priority 99        ! Backup (lower priority)
+  vrrp 20 advertisement-interval 1000
+  vrrp 20 preempt enabled
+  !
+
+! VRRP Verification
+! Distribution-A# show ip virtual-router brief
+! VLAN  VR_ID  Priority  State   IP_Address       MAC_Address
+! 20    20     100       Master  10.0.20.1        00:00:5e:00:01:14
+!
+! Distribution-B# show ip virtual-router brief
+! VLAN  VR_ID  Priority  State   IP_Address       MAC_Address
+! 20    20     99        Backup  10.0.20.1        00:00:5e:00:01:14
+
+! ========================================
+! GLBP (Gateway Load Balancing Protocol)
+! Cisco proprietary, load balances across multiple gateways
+! ========================================
+
+! Primary Gateway
+interface Vlan 30
+  ip address 10.0.30.2 255.255.255.0
+
+  glbp 30 ip 10.0.30.1
+  glbp 30 priority 150
+  glbp 30 preempt delay 10
+  glbp 30 timers 3 10
+  glbp 30 load-balancing weighted
+  !
+
+! Secondary Gateway
+interface Vlan 30
+  ip address 10.0.30.3 255.255.255.0
+
+  glbp 30 ip 10.0.30.1
+  glbp 30 priority 100
+  glbp 30 preempt delay 10
+  glbp 30 timers 3 10
+  glbp 30 load-balancing weighted
+  glbp 30 weighting 100 lower 75
+  !
+
+! GLBP provides:
+! - AVF (Active Virtual Forwarder) = primary gateway
+! - SVF (Standby Virtual Forwarder) = backup gateway
+! - Load balancing across multiple gateways
+
+! ========================================
+! MULTI-VLAN HSRP EXAMPLE (Load Balancing)
+! ========================================
+
+! Distribution-A (Primary for VLANs 10, 30, 50)
+interface Vlan 10
+  ip address 10.0.10.2 255.255.255.0
+  standby 10 ip 10.0.10.1
+  standby 10 priority 150  ! Active
+  !
+
+interface Vlan 20
+  ip address 10.0.20.2 255.255.255.0
+  standby 20 ip 10.0.20.1
+  standby 20 priority 100  ! Standby
+  !
+
+interface Vlan 30
+  ip address 10.0.30.2 255.255.255.0
+  standby 30 ip 10.0.30.1
+  standby 30 priority 150  ! Active
+  !
+
+interface Vlan 50
+  ip address 10.0.50.2 255.255.255.0
+  standby 50 ip 10.0.50.1
+  standby 50 priority 150  ! Active
+  !
+
+! Distribution-B (Backup for VLANs 10, 30, 50 / Primary for VLAN 20)
+interface Vlan 10
+  ip address 10.0.10.3 255.255.255.0
+  standby 10 ip 10.0.10.1
+  standby 10 priority 100  ! Standby
+  !
+
+interface Vlan 20
+  ip address 10.0.20.3 255.255.255.0
+  standby 20 ip 10.0.20.1
+  standby 20 priority 150  ! Active (Primary for Finance)
+  !
+
+interface Vlan 30
+  ip address 10.0.30.3 255.255.255.0
+  standby 30 ip 10.0.30.1
+  standby 30 priority 100  ! Standby
+  !
+
+interface Vlan 50
+  ip address 10.0.50.3 255.255.255.0
+  standby 50 ip 10.0.50.1
+  standby 50 priority 100  ! Standby
+  !
+
+! Load balancing result:
+! Distribution-A: Primary for VLANs 10, 30, 50 (3 of 4)
+! Distribution-B: Primary for VLAN 20 (1 of 4)
+! Traffic balanced across both switches
+
+! ========================================
+! TRACKING FOR ADVANCED FAILOVER
+! ========================================
+
+! IP SLA tracking
+ip sla 1
+  icmp-echo 10.255.0.2  ! Probe to core router
+  frequency 10
+  !
+
+ip sla schedule 1 life forever start-time now
+
+! Track object
+track 1 ip sla 1 reachability
+  delay down 10 up 1
+  !
+
+! Apply tracking to HSRP
+interface Vlan 10
+  standby 10 track 1 decrement 20
+  ! If core unreachable (SLA fails), reduce priority by 20
+  ! If priority becomes lower than other gateway, failover occurs
+  !
+
+! ========================================
+! HSRP vs VRRP Comparison Table
+! ========================================
+
+! HSRP
+! - Cisco proprietary
+! - Priority: 0-255 (higher = active)
+! - Timers: 3s hello, 10s dead (default, configurable)
+! - Preemption: Optional
+! - Load balancing: With multiple groups (MHSRP)
+! - MAC address: Assigned by Cisco
+
+! VRRP (RFC 5798)
+! - Vendor-independent (standard)
+! - Priority: 1-254 (100=default, higher = master)
+! - Timers: 1s hello (default, configurable)
+! - Preemption: Enabled by default
+! - Load balancing: With multiple VRIDs
+! - MAC address: Standard 00:00:5e:00:01:xx
+
+! ========================================
+! FAILOVER TESTING PROCEDURES
+! ========================================
+
+! Test 1: Primary gateway failure
+! 1. Note the active gateway from show standby
+! 2. Shutdown the primary interface
+! 3. Verify failover to standby (check standby brief)
+! 4. Test connectivity from client VLAN
+! 5. Re-enable primary
+! 6. Verify failback (if preempt enabled)
+
+! Test 2: Network connectivity loss
+! 1. Track object pointing to upstream device
+! 2. Disconnect gateway from upstream
+! 3. Verify SLA detection (show track brief)
+! 4. Verify HSRP priority reduction (show standby brief)
+! 5. Verify failover to standby
+
+! Test 3: Load balancing verification
+! 1. Generate traffic from multiple VLANs
+! 2. Verify active router for each VLAN (show standby brief)
+! 3. Confirm traffic balanced across both gateways
+! 4. Use netflow to verify traffic distribution
+
+! ========================================
+! END OF HSRP/VRRP CONFIGURATIONS
+! ========================================

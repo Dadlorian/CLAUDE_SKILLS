@@ -1,0 +1,51 @@
+# Segment Routing for IPv6 (SRv6) Configuration
+
+# Enable IPv6 SR
+ipv6 unicast-routing
+segment-routing ipv6
+
+# Configure SID for local node
+interface Loopback0
+  ipv6 address 2001:db8:0:1::1/128
+  
+segment-routing ipv6
+  locator loc1
+    prefix 2001:db8:1::/48
+
+# Locator attributes
+  max-sid-depth 2
+  algorithm 0
+
+# Explicit policy
+segment-routing ipv6
+  policy color 100
+    name ECMP-to-Spoke-2
+    candidate-paths
+      preference 100
+        explicit
+          segment-list sl1
+            segment 2001:db8:2:1::1 seg-left 1
+
+# Micro-segment (one-hop)
+segment-routing ipv6
+  micro-segment
+    policy ms-list
+      name protect-critical-services
+      segments
+        - 2001:db8:0:1::1
+        - 2001:db8:0:2::1
+
+# Traffic classification
+route-policy sdn-sr-te
+  if destination in (10.0.0.0/8) then
+    set segment-list "to-datacenter"
+    set color 200
+  endif
+end-policy
+
+# Benefits of SRv6
+# - Native IPv6 Support
+# - Simple Header (SRH)
+# - No additional protocols
+# - Simplified operations
+# - Network Programming capability

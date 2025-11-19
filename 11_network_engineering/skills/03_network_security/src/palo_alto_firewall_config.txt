@@ -1,0 +1,144 @@
+# Palo Alto Networks Firewall Configuration
+# Production-Grade Security Policy
+
+set deviceconfig system hostname PA-FW-001
+set deviceconfig system domain-name example.com
+set deviceconfig system ntp-servers primary-ntp-server 10.1.50.10
+set deviceconfig system ntp-servers secondary-ntp-server 10.1.50.11
+set deviceconfig system timezone UTC
+
+# =====================================
+# Network Interfaces
+# =====================================
+
+set network interface ethernet ethernet1/1 layer3 ipv4 10.0.113.1 255.255.255.0
+set network interface ethernet ethernet1/1 comment "WAN Interface"
+
+set network interface ethernet ethernet1/2 layer3 ipv4 10.1.10.1 255.255.255.0
+set network interface ethernet ethernet1/2 comment "DMZ Interface"
+
+set network interface ethernet ethernet1/3 layer3 ipv4 10.1.1.1 255.255.255.0
+set network interface ethernet ethernet1/3 comment "Internal Interface"
+
+# =====================================
+# Zones
+# =====================================
+
+set zone EXTERNAL network layer3 ethernet1/1
+set zone EXTERNAL description "Internet Zone"
+
+set zone DMZ network layer3 ethernet1/2
+set zone DMZ description "Demilitarized Zone"
+
+set zone INTERNAL network layer3 ethernet1/3
+set zone INTERNAL description "Internal Network"
+
+# =====================================
+# Security Objects
+# =====================================
+
+set address web-servers value 10.1.10.5/32
+set address web-servers value 10.1.10.6/32
+set address web-servers value 10.1.10.7/32
+
+set address-group DMZ-SERVERS members web-servers
+
+set service WEB-SERVICES protocol tcp port 80,443,8080,8443
+set service-group HTTP-HTTPS members WEB-SERVICES
+
+# =====================================
+# Security Policies
+# =====================================
+
+# Allow inbound web traffic
+set security rules allow-web from EXTERNAL to DMZ
+set security rules allow-web service WEB-SERVICES
+set security rules allow-web action allow
+set security rules allow-web log-start yes
+set security rules allow-web log-end yes
+
+# Allow DMZ to internal app server
+set security rules allow-dmz-to-app from DMZ to INTERNAL
+set security rules allow-dmz-to-app destination internal-app-server
+set security rules allow-dmz-to-app service APP-TRAFFIC
+set security rules allow-dmz-to-app action allow
+set security rules allow-dmz-to-app log-start yes
+
+# Deny by default
+set security rules default-deny from any to any
+set security rules default-deny action drop
+set security rules default-deny log-start yes
+
+# =====================================
+# Threat Prevention
+# =====================================
+
+set network profiles vulnerability-protection
+set network profiles vulnerability-protection type vulnerability
+set network profiles vulnerability-protection action prevent
+set network profiles vulnerability-protection severity critical
+
+set network profiles anti-virus
+set network profiles anti-virus type anti-virus
+set network profiles anti-virus action prevent
+set network profiles anti-virus severity critical
+
+# =====================================
+# SSL/TLS Decryption
+# =====================================
+
+set security rules allow-web ssl-inbound-inspection certificate
+set security rules allow-web ssl-inbound-inspection action decrypt
+set security rules allow-web ssl-inbound-inspection profile vulnerability-protection
+
+# =====================================
+# Application Control
+# =====================================
+
+set security rules allow-web application web-browsing
+set security rules allow-web application web-browsing-ssl
+set security rules allow-web application ssl
+set security rules allow-web application dns
+
+# =====================================
+# NAT Configuration
+# =====================================
+
+set network nat rules web-nat from INTERNAL to EXTERNAL
+set network nat rules web-nat source address internal-network
+set network nat rules web-nat destination address any
+set network nat rules web-nat service any
+set network nat rules web-nat source translation dynamic-ip-and-port
+set network nat rules web-nat source translation translated-address ethernet1/1
+
+# =====================================
+# Logging and Monitoring
+# =====================================
+
+set device syslog syslog-101 server 10.1.50.10
+set device syslog syslog-101 transport tcp
+set device syslog syslog-101 port 514
+set device syslog syslog-101 facility local3
+
+# =====================================
+# High Availability
+# =====================================
+
+set deviceconfig high-availability enabled yes
+set deviceconfig high-availability mode active-passive
+set deviceconfig high-availability peer-ip-address 203.0.113.50
+set deviceconfig high-availability backup-peer-ip-address 203.0.113.51
+
+# =====================================
+# Management Interface
+# =====================================
+
+set deviceconfig system management-ip-address 10.1.100.50
+set deviceconfig system dns-setting servers 10.1.50.10
+set deviceconfig system dns-setting servers 10.1.50.11
+
+# =====================================
+# Commit Configuration
+# =====================================
+
+# commit

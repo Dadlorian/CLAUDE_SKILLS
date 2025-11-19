@@ -1,0 +1,205 @@
+# MEC Platform Deployment Manifest
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: mec-platform
+  labels:
+    mec-enabled: "true"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mec-platform
+  namespace: mec-platform
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: mec-platform
+  template:
+    metadata:
+      labels:
+        app: mec-platform
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - mec-platform
+            topologyKey: kubernetes.io/hostname
+      containers:
+      - name: platform
+        image: etsi/mec-platform:latest
+        ports:
+        - containerPort: 8080
+          name: api
+        - containerPort: 8443
+          name: api-secure
+        env:
+        - name: MEC_LOCATION
+          value: "RAN_EDGE_1"
+        - name: COMPUTE_CAPACITY
+          value: "16000"
+        - name: MEMORY_CAPACITY
+          value: "67108864"
+        resources:
+          requests:
+            cpu: 4
+            memory: 16Gi
+          limits:
+            cpu: 8
+            memory: 32Gi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mec-platform-api
+  namespace: mec-platform
+spec:
+  type: LoadBalancer
+  selector:
+    app: mec-platform
+  ports:
+  - name: api
+    port: 8080
+    targetPort: 8080
+  - name: api-secure
+    port: 8443
+    targetPort: 8443
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: location-service
+  namespace: mec-platform
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: location-service
+  template:
+    metadata:
+      labels:
+        app: location-service
+    spec:
+      containers:
+      - name: location
+        image: etsi/mec-location-service:latest
+        ports:
+        - containerPort: 8000
+        env:
+        - name: RAN_INTEGRATION
+          value: "true"
+        - name: LOCATION_DB
+          value: "location-db:5432"
+        resources:
+          requests:
+            cpu: 2
+            memory: 8Gi
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: radio-info-service
+  namespace: mec-platform
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: radio-info-service
+  template:
+    metadata:
+      labels:
+        app: radio-info-service
+    spec:
+      containers:
+      - name: radio-info
+        image: etsi/mec-radio-info-service:latest
+        ports:
+        - containerPort: 8000
+        env:
+        - name: RAN_INTERFACE
+          value: "eth0"
+        - name: METRICS_INTERVAL
+          value: "1000"
+        resources:
+          requests:
+            cpu: 2
+            memory: 8Gi
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mec-config
+  namespace: mec-platform
+data:
+  platform.conf: |
+    [platform]
+    location_id=RAN_EDGE_1
+    location_type=RAN_EDGE
+    management_api=http://localhost:8080
+    notification_api=http://localhost:9000
+    max_apps=100
+    max_services=1000
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mec-app-manifest
+  namespace: mec-platform
+data:
+  v2x-manifest.yaml: |
+    appName: V2X Safety Service
+    appProvider: SafetyNetworks
+    appServiceProduced:
+      - serName: v2x-safety
+        version: "1.0"
+        state: ACTIVE
+        serializer: JSON
+    appServiceConsumed:
+      - serName: location
+        version: "1.0"
+      - serName: radio-info
+        version: "1.0"
+    appFeatures:
+      maxLatency: 5
+      reliability: 0.99999
+      maxBandwidth: 100
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: mec-isolation
+  namespace: mec-platform
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          mec-app: "true"
+    - namespaceSelector:
+        matchLabels:
+          name: 5g-core
+  egress:
+  - to:
+    - podSelector: {}
+    - namespaceSelector:
+        matchLabels:
+          name: 5g-core

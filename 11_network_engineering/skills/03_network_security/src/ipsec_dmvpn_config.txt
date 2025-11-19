@@ -1,0 +1,70 @@
+! DMVPN (Dynamic Multipoint VPN) Configuration
+! Hub-and-Spoke VPN with Dynamic Spoke-to-Spoke Tunnels
+
+! ===== HUB ROUTER CONFIGURATION =====
+
+! Tunnel Interface
+interface Tunnel0
+ description DMVPN Hub
+ ip address 192.168.1.1 255.255.255.0
+ ip mtu 1400
+ ip nhrp network-id 1
+ ip nhrp authentication SuperSecret123!
+ ip nhrp redirect
+ tunnel source 203.0.113.1
+ tunnel destination any
+ tunnel mode gre multipoint
+
+! NHRP Registration
+ip nhrp registration timeout 600
+ip nhrp holdtime 600
+
+! Routing
+router eigrp 1
+ network 192.168.1.0 0.0.0.255
+ network 10.1.0.0 0.0.255.255
+ no ip split-horizon eigrp 1
+
+! IPsec Profile
+crypto ipsec profile DMVPN
+ set transform-set SITE_TO_SITE pfs group15
+
+! IKEv2 Configuration
+crypto ikev2 proposal DMVPN
+ encryption aes-cbc-256
+ integrity sha384
+ group 15
+
+crypto ikev2 policy 1
+ proposal DMVPN
+
+crypto ikev2 keyring DMVPN_KEYS
+ peer any
+  address any
+  pre-shared-key SuperSecretPSK123!
+
+crypto ikev2 profile DMVPN_PROFILE
+ keyring DMVPN_KEYS
+ authentication remote pre-share
+ authentication local pre-share
+ lifetime 28800
+ dpd 10 3 on-demand
+
+! ===== SPOKE ROUTER CONFIGURATION =====
+
+! interface Tunnel0
+!  description DMVPN Spoke
+!  ip address 192.168.1.2 255.255.255.0
+!  ip mtu 1400
+!  ip nhrp network-id 1
+!  ip nhrp authentication SuperSecret123!
+!  ip nhrp shortcut
+!  ip nhrp nhs 192.168.1.1 multicast
+!  tunnel source 203.0.113.50
+!  tunnel destination 203.0.113.1
+!  tunnel mode gre multipoint
+
+! router eigrp 1
+!  network 192.168.1.0 0.0.0.255
+!  network 10.2.0.0 0.0.255.255
+

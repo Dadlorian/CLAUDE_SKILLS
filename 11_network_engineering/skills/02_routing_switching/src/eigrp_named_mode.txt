@@ -1,0 +1,172 @@
+! EIGRP Named Mode Configuration - Modern Best Practice
+! AS 100 - Campus Network
+
+hostname EIGRP-Router-A
+!
+interface Loopback 0
+  ip address 192.168.1.1 255.255.255.255
+!
+interface GigabitEthernet0/0
+  description Campus Link to Router-B
+  bandwidth 1000000
+  ip address 10.0.0.1 255.255.255.0
+  no shutdown
+!
+interface GigabitEthernet0/1
+  description Campus Link to Router-C
+  bandwidth 1000000
+  ip address 10.1.0.1 255.255.255.0
+  no shutdown
+!
+interface GigabitEthernet0/2
+  description Local network
+  ip address 10.10.0.1 255.255.255.0
+  no shutdown
+!
+! EIGRP Named Mode Configuration
+router eigrp CAMPUS
+  !
+  address-family ipv4 unicast autonomous-system 100
+    ! Include all networks
+    network 10.0.0.0 0.0.255.255
+    network 192.168.1.0 0.0.0.255
+
+    ! Default configuration for all interfaces
+    af-interface default
+      passive-interface
+      hello-interval 5
+      hold-time 15
+      no split-horizon
+
+    ! Enable on specific interfaces
+    af-interface GigabitEthernet0/0
+      no passive-interface
+      authentication key-chain EIGRP-KEY
+      authentication mode hmac-sha-256
+
+    af-interface GigabitEthernet0/1
+      no passive-interface
+      authentication key-chain EIGRP-KEY
+      authentication mode hmac-sha-256
+
+    af-interface GigabitEthernet0/2
+      no passive-interface
+
+    ! Summarization at boundary
+    af-interface GigabitEthernet0/0
+      summary-address 10.10.0.0 255.255.255.0
+
+    ! K-values (default: K1=1, K2=0, K3=1, K4=0, K5=0)
+    metric weights 0 1 0 1 0 0
+
+    ! Variance for unequal cost load balancing
+    variance 2
+
+  exit-address-family
+
+  !
+  address-family ipv6 unicast autonomous-system 100
+    network 2001:db8::/32
+    !
+    af-interface default
+      passive-interface
+    !
+    af-interface GigabitEthernet0/0
+      no passive-interface
+      authentication key-chain EIGRP6-KEY
+      authentication mode hmac-sha-256
+    !
+    af-interface GigabitEthernet0/1
+      no passive-interface
+      authentication key-chain EIGRP6-KEY
+      authentication mode hmac-sha-256
+  !
+  exit-address-family
+!
+! Authentication Key Chains
+key chain EIGRP-KEY
+  key 1
+    key-string EIGRP_PASSWORD_001
+    accept-lifetime local 12:00:00 Jan 1 2024 infinite
+    send-lifetime local 12:00:00 Jan 1 2024 infinite
+  key 2
+    key-string EIGRP_PASSWORD_NEW
+    accept-lifetime local 12:00:00 Jan 1 2025 infinite
+    send-lifetime local 12:00:00 Jan 1 2025 infinite
+!
+key chain EIGRP6-KEY
+  key 1
+    key-string EIGRP6_PASSWORD_001
+!
+! IPv6 Configuration
+interface GigabitEthernet0/0
+  ipv6 address 2001:db8::1/64
+  ipv6 link-local fe80::1 link-local
+!
+interface GigabitEthernet0/1
+  ipv6 address 2001:db8:1::1/64
+!
+! Verification commands:
+! show eigrp process
+! show eigrp address-family ipv4 interfaces
+! show eigrp address-family ipv4 neighbors
+! show eigrp address-family ipv4 topology
+! show ip route eigrp
+! debug eigrp packets
+!
+! ***** Router-B Configuration *****
+! hostname EIGRP-Router-B
+! !
+! interface Loopback 0
+!   ip address 192.168.1.2 255.255.255.255
+! !
+! interface GigabitEthernet0/0
+!   description Campus Link to Router-A
+!   bandwidth 1000000
+!   ip address 10.0.0.2 255.255.255.0
+!   ipv6 address 2001:db8::2/64
+!   no shutdown
+! !
+! interface GigabitEthernet0/1
+!   description Campus Link to Router-C
+!   bandwidth 1000000
+!   ip address 10.1.1.1 255.255.255.0
+!   ipv6 address 2001:db8:2::1/64
+!   no shutdown
+! !
+! interface GigabitEthernet0/2
+!   description Local network
+!   ip address 10.20.0.1 255.255.255.0
+!   no shutdown
+! !
+! router eigrp CAMPUS
+!   !
+!   address-family ipv4 unicast autonomous-system 100
+!     network 10.0.0.0 0.0.255.255
+!     network 192.168.1.0 0.0.0.255
+!
+!     af-interface default
+!       passive-interface
+!
+!     af-interface GigabitEthernet0/0
+!       no passive-interface
+!       authentication key-chain EIGRP-KEY
+!       authentication mode hmac-sha-256
+!
+!     af-interface GigabitEthernet0/1
+!       no passive-interface
+!       authentication key-chain EIGRP-KEY
+!       authentication mode hmac-sha-256
+!
+!     af-interface GigabitEthernet0/2
+!       no passive-interface
+!
+!     af-interface GigabitEthernet0/0
+!       summary-address 10.20.0.0 255.255.255.0
+!
+!   exit-address-family
+! !
+! key chain EIGRP-KEY
+!   key 1
+!     key-string EIGRP_PASSWORD_001
+! !

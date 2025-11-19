@@ -1,0 +1,122 @@
+! LACP EtherChannel Configuration
+! Link Aggregation across multiple 1Gbps interfaces
+
+hostname Switch-A
+!
+! ***** Port-Channel Interface Configuration *****
+!
+interface Port-channel 1
+  description LAG to Switch-B
+  switchport mode trunk
+  switchport trunk encapsulation dot1q
+  switchport trunk native vlan 99
+  switchport trunk allowed vlan 10-99,100-200
+  spanning-tree portfast disable
+  no shutdown
+!
+interface Port-channel 2
+  description LAG to Server
+  switchport mode access
+  switchport access vlan 100
+  spanning-tree portfast
+  no shutdown
+!
+! ***** LACP Configuration - Bundle Ports *****
+!
+! Trunk Bundle to Switch-B (Active-Passive)
+interface range GigabitEthernet0/1-2
+  description LACP Bundle to Switch-B
+  no switchport
+  channel-group 1 mode active        ! Initiates LACP negotiation
+  channel-protocol lacp
+  lacp rate fast                      ! 1 second LACP PDUs
+  lacp port-priority 32768
+  no shutdown
+!
+! Server Bundle (Active-Passive, slower rate)
+interface range GigabitEthernet0/3-4
+  description LACP Bundle to Server
+  no switchport
+  channel-group 2 mode passive        ! Responds to LACP
+  channel-protocol lacp
+  lacp rate slow                      ! 30 second LACP PDUs
+  no shutdown
+!
+! ***** Load Balancing Configuration *****
+!
+! Set load balancing algorithm (global)
+port-channel load-balance src-dst-ip
+! Options: src-mac, dst-mac, src-dst-mac, src-ip, dst-ip, src-dst-ip,
+!          src-port, dst-port, src-dst-port
+!
+! ***** EtherChannel Guard *****
+!
+etherchannel guard misconfig
+! Detects and disables misconfigured ports
+!
+! Verification Commands:
+! show etherchannel summary
+! show etherchannel brief
+! show etherchannel 1 detail
+! show etherchannel port-channel
+! show lacp 1 neighbor
+! show lacp 1 internal
+!
+! ***** Switch-B Configuration (Passive-Active) *****
+! hostname Switch-B
+! !
+! interface Port-channel 1
+!   description LAG to Switch-A
+!   switchport mode trunk
+!   switchport trunk encapsulation dot1q
+!   switchport trunk native vlan 99
+!   switchport trunk allowed vlan 10-99,100-200
+!   spanning-tree portfast disable
+!   no shutdown
+! !
+! interface range GigabitEthernet0/1-2
+!   description LACP Bundle to Switch-A
+!   no switchport
+!   channel-group 1 mode passive        ! Responds to LACP from Switch-A
+!   channel-protocol lacp
+!   lacp rate fast
+!   no shutdown
+! !
+! etherchannel guard misconfig
+! !
+! port-channel load-balance src-dst-ip
+! !
+!
+! ***** Server Configuration (Dual-Port for Resilience) *****
+! !
+! If server has dual NICs bonded:
+! Both ports should use same channel-group
+! Server OS should also support LACP/802.3ad
+! !
+!
+! ***** Monitoring and Troubleshooting *****
+!
+! Show channel status
+! show etherchannel summary
+! Port-channel 1 members and status:
+! GigabitEthernet0/1:  Active, (Up)
+! GigabitEthernet0/2:  Active, (Up)
+!
+! Manually test failover:
+! Switch-A(config)# interface GigabitEthernet0/1
+! Switch-A(config-if)# shutdown
+! Switch-A# show etherchannel 1 summary
+! Port-channel 1 member status now shows one port suspended (down)
+! Traffic continues on GigabitEthernet0/2
+!
+! If ports not bonding:
+! 1. Verify same speed/duplex
+! 2. Check for configuration errors: show etherchannel misconfig
+! 3. Verify protocol match (both LACP or both static)
+! 4. Check VLAN configuration: show interfaces trunk
+!
+! Typical LACP timings:
+! Hello/LACP PDU: 1 second (fast) or 30 seconds (slow)
+! Convergence: <1 second when port fails
+! No spanning-tree reconvergence (transparent failover)
+!

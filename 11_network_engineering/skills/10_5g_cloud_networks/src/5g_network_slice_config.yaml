@@ -1,0 +1,180 @@
+# 5G Network Slicing Configuration
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: 5g-slice-config
+  namespace: 5g-core
+data:
+  slices.yaml: |
+    slices:
+      - name: "URLLC-Slice"
+        sst: 2
+        sd: "000001"
+        characteristics:
+          latency_budget_ms: 5
+          reliability: 0.999999
+          availability: 0.99999
+          bandwidth_mbps: 1000
+        resources:
+          amf:
+            instances: 3
+            cpu: "4"
+            memory: "16Gi"
+          smf:
+            instances: 3
+            cpu: "4"
+            memory: "16Gi"
+          upf:
+            instances: 2
+            cpu: "8"
+            memory: "32Gi"
+        network_policies:
+          isolated: true
+          qos_priority: 1
+        deployment:
+          redundancy: "active-active"
+          geo_distribution: "multi-site"
+
+      - name: "eMBB-Slice"
+        sst: 1
+        sd: "000001"
+        characteristics:
+          latency_budget_ms: 100
+          reliability: 0.999
+          availability: 0.99
+          bandwidth_mbps: 10000
+        resources:
+          amf:
+            instances: 2
+            cpu: "2"
+            memory: "8Gi"
+          smf:
+            instances: 2
+            cpu: "2"
+            memory: "8Gi"
+          upf:
+            instances: 5
+            cpu: "4"
+            memory: "16Gi"
+        network_policies:
+          isolated: false
+          qos_priority: 3
+        deployment:
+          redundancy: "active-passive"
+          geo_distribution: "regional"
+
+      - name: "mIoT-Slice"
+        sst: 3
+        sd: "000001"
+        characteristics:
+          latency_budget_ms: 5000
+          reliability: 0.99
+          availability: 0.95
+          bandwidth_mbps: 100
+        resources:
+          amf:
+            instances: 1
+            cpu: "1"
+            memory: "4Gi"
+          smf:
+            instances: 1
+            cpu: "1"
+            memory: "4Gi"
+          upf:
+            instances: 1
+            cpu: "2"
+            memory: "8Gi"
+        network_policies:
+          isolated: true
+          qos_priority: 5
+        deployment:
+          redundancy: "none"
+          geo_distribution: "single"
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nssai-config
+  namespace: 5g-core
+data:
+  nssai.yaml: |
+    subscriptions:
+      - imsi: "310410000000001"
+        allowed_nssai:
+          - sst: 1
+            sd: "000001"
+          - sst: 2
+            sd: "000001"
+        default_nssai:
+          - sst: 1
+            sd: "000001"
+
+      - imsi: "310410000000002"
+        allowed_nssai:
+          - sst: 2
+            sd: "000001"
+        default_nssai:
+          - sst: 2
+            sd: "000001"
+
+      - imsi: "310410000000003"
+        allowed_nssai:
+          - sst: 3
+            sd: "000001"
+        default_nssai:
+          - sst: 3
+            sd: "000001"
+
+---
+apiVersion: 5g.example.com/v1
+kind: QoSFlowConfig
+metadata:
+  name: urllc-qos
+  namespace: 5g-core
+spec:
+  slices:
+    - name: "URLLC-Slice"
+      qos_flows:
+        - qfi: 1
+          gbrUL: 50
+          gbrDL: 100
+          mbrUL: 100
+          mbrDL: 200
+          pl: 15
+          per: 0.00001
+        - qfi: 2
+          gbrUL: 100
+          gbrDL: 200
+          mbrUL: 200
+          mbrDL: 400
+          pl: 14
+          per: 0.00001
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dn-config
+  namespace: 5g-core
+data:
+  dns.yaml: |
+    data_networks:
+      - dnn: "internet"
+        access_type: "3GPP"
+        pdu_session_type: "IPV4"
+        ssc_mode: 1
+
+      - dnn: "industrial"
+        access_type: "3GPP"
+        pdu_session_type: "IPV4"
+        ssc_mode: 2
+        slice_sst: 2
+
+      - dnn: "iot"
+        access_type: "3GPP"
+        pdu_session_type: "IPV4"
+        ssc_mode: 1
+        slice_sst: 3

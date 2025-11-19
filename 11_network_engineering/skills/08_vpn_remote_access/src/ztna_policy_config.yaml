@@ -1,0 +1,276 @@
+# Zero Trust Network Access Policy Configuration
+# YAML format for ZTNA enforcement
+
+version: "1.0"
+organization: "CompanyName"
+date_created: "2024-01-15"
+
+# Global settings
+global:
+  default_action: deny
+  logging_level: info
+  require_mfa: true
+  enable_device_compliance: true
+  session_timeout: 1800  # 30 minutes
+  re_authentication_interval: 3600  # 1 hour
+
+# Identity providers
+identity_providers:
+  - name: "azure-ad"
+    type: "azure-ad"
+    tenant_id: "12345678-1234-1234-1234-123456789012"
+    enabled: true
+
+  - name: "okta"
+    type: "okta"
+    domain: "company.okta.com"
+    api_key: "${OKTA_API_KEY}"
+    enabled: false
+
+# MFA Configuration
+mfa_config:
+  default_method: "hardware-token"
+  allow_methods:
+    - "hardware-token"
+    - "software-token"
+    - "push-notification"
+  deny_methods:
+    - "sms"  # Too weak for sensitive access
+
+# Device compliance policies
+device_policies:
+  - policy_id: "corporate-standard"
+    name: "Corporate Device Compliance"
+    requirements:
+      - os_version: "Windows 10 version 20H2 or later"
+      - antivirus: "required"
+      - firewall: "required"
+      - disk_encryption: "required"
+      - patches: "current within 7 days"
+      - jailbreak: "not allowed"
+    risk_score_threshold: 30
+
+  - policy_id: "contractor-limited"
+    name: "Contractor Device Compliance"
+    requirements:
+      - os_version: "Windows 10 or macOS 10.15+"
+      - antivirus: "required"
+      - firewall: "required"
+      - disk_encryption: "recommended"
+      - patches: "current within 30 days"
+    risk_score_threshold: 50
+
+# Access policies (segments)
+access_policies:
+  - policy_id: "finance-segment"
+    name: "Finance Applications"
+    description: "Access to financial systems and accounting applications"
+    
+    resources:
+      - app: "SAP"
+        servers: ["sap.company.com"]
+        ports: ["3200", "3300"]
+      
+      - app: "Oracle-Financials"
+        servers: ["oracle.company.com"]
+        ports: ["1521"]
+      
+      - app: "Excel-Services"
+        servers: ["sharepoint.company.com"]
+        ports: ["443"]
+    
+    allowed_users:
+      - group: "finance-team"
+        provider: "azure-ad"
+      - group: "accounting-team"
+        provider: "azure-ad"
+      - user: "finance-director@company.com"
+        provider: "azure-ad"
+    
+    access_conditions:
+      device_policy: "corporate-standard"
+      mfa_required: true
+      location_allowed: ["office", "home-office"]
+      geo_fence: true  # Only US/Canada
+      time_restriction: "business-hours"  # 8am-6pm MT
+      require_recent_auth: 3600  # 1 hour
+    
+    encryption:
+      method: "TLS-1.3"
+      cipher: "AES-256-GCM"
+    
+    audit:
+      log_all_access: true
+      alert_on_anomaly: true
+
+  - policy_id: "engineering-segment"
+    name: "Engineering Development"
+    description: "Source code repositories and development tools"
+    
+    resources:
+      - app: "GitHub"
+        servers: ["github.company.com"]
+        ports: ["22", "443"]
+      - app: "GitLab"
+        servers: ["gitlab.company.com"]
+        ports: ["22", "443"]
+      - app: "Jenkins"
+        servers: ["jenkins.company.com"]
+        ports: ["8080", "8443"]
+
+    allowed_users:
+      - group: "engineers"
+        provider: "azure-ad"
+      - group: "devops-team"
+        provider: "azure-ad"
+
+    access_conditions:
+      device_policy: "corporate-standard"
+      mfa_required: true
+      location_allowed: ["office", "home-office", "coffee-shop"]
+      geo_fence: false  # Global access
+      require_recent_auth: 7200  # 2 hours (dev work is 24/7)
+
+    encryption:
+      method: "TLS-1.3"
+      cipher: "AES-256-GCM"
+
+    audit:
+      log_all_access: true
+      command_logging: true  # Git commands logged
+      alert_on_suspicious: true
+
+  - policy_id: "hr-segment"
+    name: "HR Systems"
+    description: "Payroll, benefits, employee records"
+    
+    resources:
+      - app: "Payroll-System"
+        servers: ["payroll.company.com"]
+        ports: ["443"]
+      - app: "Benefits-Portal"
+        servers: ["benefits.company.com"]
+        ports: ["443"]
+      - app: "Employee-Records"
+        servers: ["hr.company.com"]
+        ports: ["443"]
+
+    allowed_users:
+      - group: "hr-staff"
+        provider: "azure-ad"
+      - group: "payroll-team"
+        provider: "azure-ad"
+
+    access_conditions:
+      device_policy: "corporate-standard"
+      mfa_required: true
+      location_allowed: ["office"]  # Office only
+      geo_fence: true
+      require_recent_auth: 1800  # 30 minutes
+      continuous_auth: true  # Re-verify every 30 min
+
+    encryption:
+      method: "TLS-1.3"
+      cipher: "AES-256-GCM"
+
+    audit:
+      log_all_access: true
+      session_recording: true  # Record all actions
+      alert_on_anomaly: true
+
+  - policy_id: "public-segment"
+    name: "Public Web Access"
+    description: "Internet access for general browsing"
+    
+    resources:
+      - app: "Internet"
+        servers: ["any"]
+        ports: ["80", "443"]
+
+    allowed_users:
+      - group: "all-employees"
+        provider: "azure-ad"
+
+    access_conditions:
+      device_policy: "contractor-limited"  # Less strict
+      mfa_required: false
+      location_allowed: ["office", "home-office"]
+      geo_fence: false
+      require_recent_auth: 28800  # 8 hours
+
+    encryption:
+      method: "TLS-1.2"
+      cipher: "AES-128-GCM"
+
+    audit:
+      log_all_access: false
+      alert_on_anomaly: true
+
+# Threat detection rules
+threat_detection:
+  rules:
+    - rule_id: "impossible-travel"
+      name: "Impossible Travel Detection"
+      enabled: true
+      threshold: 1  # Trigger immediately
+      action: "challenge-auth"
+
+    - rule_id: "credential-reuse"
+      name: "Compromised Credential Detection"
+      enabled: true
+      threshold: 1
+      action: "block-user"
+
+    - rule_id: "suspicious-activity"
+      name: "Suspicious Activity Pattern"
+      enabled: true
+      threshold: 5  # 5 suspicious events
+      action: "restrict-access"
+      restrict_to: "low-risk-resources"
+
+    - rule_id: "malware-detected"
+      name: "Malware Detected on Device"
+      enabled: true
+      threshold: 1
+      action: "block-access"
+      quarantine_device: true
+
+  feeds:
+    - name: "known-compromised-passwords"
+      url: "https://haveibeenpwned.com/api"
+      update_interval: "daily"
+    
+    - name: "malware-signatures"
+      url: "https://threat-intel.company.com/api"
+      update_interval: "hourly"
+
+# Response actions
+response_actions:
+  challenge_auth:
+    methods: ["mfa", "security-questions"]
+    timeout: 300
+
+  restrict_access:
+    duration: 3600  # 1 hour
+    allowed_apps: ["email", "file-access"]
+
+  block_access:
+    duration: 86400  # 24 hours
+    notification: "user"
+    escalation: "security-team"
+
+# Logging and compliance
+logging:
+  destination: "siem.company.com"
+  port: 514
+  protocol: "syslog"
+  retention: 2555  # days (7 years)
+  encryption: true
+
+compliance:
+  standards:
+    - "SOC2"
+    - "PCI-DSS"
+    - "HIPAA"
+  audit_retention_days: 2555
+

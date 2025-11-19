@@ -1,0 +1,155 @@
+# Cisco AnyConnect SSL/TLS VPN Configuration (ASA)
+# Remote access for employees with device compliance
+
+! Enable WebVPN (SSL/TLS VPN) on outside interface
+webvpn
+ enable outside
+ secondary-color white
+ tertiary-color #003366
+ logo file logos/company-logo.png
+ title "Corporate VPN Portal"
+ tunnel-group-list enable
+ enable csd
+ enable client-firewall-filter
+ enable client-options
+ !
+ ! Portal Customization
+ customize portal
+  heading "Welcome to Corporate VPN"
+  subtitle "Secure Remote Access"
+ exit
+
+! Create User Group Policy
+group-policy RemoteAccess internal
+  attributes
+    banner value "This is a secure system. Unauthorized access is prohibited."
+    windows-client-admin admin
+    split-dns value corp.internal
+    split-tunnel-policy tunnelspecified
+    split-tunnel-network-list value ALLOWED-NETWORKS
+    dns-server value 10.0.0.1 10.0.0.2 8.8.8.8
+    default-domain value corp.internal
+    pfs enable
+    re-xauth disable
+    address-pools value REMOTE-USERS
+    ssl-vpn keep-alive interval 300
+    ssl-vpn keep-alive type dpd
+    session-timeout 28800
+    password-storage disable
+    password-expiration 60
+    vpn-simultaneous-logins 3
+    !
+    ! Posture/Device Compliance
+    posture enforcement enabled
+    posture max-retries 2
+    posture timeout 60
+
+! Define Allowed Networks for Split Tunneling
+access-list ALLOWED-NETWORKS extended permit ip any 10.0.0.0 255.0.0.0
+access-list ALLOWED-NETWORKS extended permit ip any 192.168.0.0 255.255.0.0
+
+! IP Pool for VPN Clients
+ip local pool REMOTE-USERS 10.255.0.1-10.255.254.254 mask 255.255.0.0
+
+! Tunnel Group Configuration
+tunnel-group RemoteVPN type remote-access
+tunnel-group RemoteVPN general-attributes
+  authentication-server-group LDAP LOCAL
+  accounting-server-group LDAP
+  default-group-policy RemoteAccess
+  address-pool REMOTE-USERS
+  DHCP-server value 10.0.0.2
+  DHCP-option-set 1
+
+! WebVPN Attributes
+tunnel-group RemoteVPN webvpn-attributes
+  group-alias RemoteVPN enable
+  reuse-sso enable
+  required-client-firewall-versions 5.0
+  required-client-firewall-action remediate
+  authentication aaa
+  authentication-portal enable
+  authentication-server-group LDAP LOCAL
+  accounting-server-group LDAP
+  url-list value webvpn-urls
+  file-access enable
+  file-browse enable
+  bookmarks enable
+  !
+  ! Certificate and Encryption
+  certificate-group-map SERVER-CERT group RemoteAccess
+  ssl-vpn server-cert-name vpn.company.com
+
+! LDAP Authentication Server Configuration
+aaa-server LDAP protocol ldap
+aaa-server LDAP host 10.0.0.50
+ server-port 389
+ ldap-base-dn cn=Users,dc=corp,dc=com
+ ldap-scope subtree
+ ldap-naming-attribute sAMAccountName
+ ldap-login-password-attr userPassword
+ ldap-group-member-attribute memberOf
+
+! Posture Profile - Device Compliance Requirements
+posture-profile DefaultProfile
+ require ips-software Symantec
+ require ips-software McAfee
+ require av-software Windows-Defender
+ require fw-software Windows-Firewall
+ require os-version windows-10-or-later
+ require patch-level current
+ require encrypted-disk BitLocker
+ require os-version min-required
+
+! Multi-Factor Authentication (Duo)
+mfa duo
+ enable
+ server 10.0.0.60
+ port 443
+ integration-key [INTEGRATION_KEY]
+ secret-key [SECRET_KEY]
+ api-host [API_HOST]
+
+! SSL Certificate Configuration
+crypto ca trustpoint INTERNAL-CA
+ enrollment self
+ fqdn vpn.company.com
+ keypair internal-key 2048
+
+! Enable TLS versions
+ssl encryption encipher-aes-256 encipher-aes-192 encipher-aes-128
+ssl protocol tlsv1.2 tlsv1.3
+ssl trust-point INTERNAL-CA peer-id-validation nocheck
+
+! Firewall Rules for VPN Traffic
+access-list INSIDE-DENY extended deny ip 10.255.0.0 255.255.0.0 any
+access-list INSIDE extended permit ip 10.255.0.0 255.255.0.0 10.0.0.0 255.0.0.0
+access-list INSIDE extended permit ip 10.255.0.0 255.255.0.0 192.168.0.0 255.255.0.0
+
+access-group INSIDE in interface inside
+access-group INSIDE-DENY in interface outside
+
+! NAT Exemption
+nat (inside,outside) source static 10.0.0.0 255.0.0.0 10.0.0.0 255.0.0.0 destination static 10.255.0.0 255.255.0.0 10.255.0.0 255.255.0.0 no-proxy-arp route-lookup
+
+! Logging and Monitoring
+logging enable
+logging asdm informational
+logging list VPN-LOGS message 113001-113040
+logging on
+logging host inside 10.0.0.100
+
+! VPN Load Balancing (optional - distribute across multiple ASAs)
+! tunnel-group-map vpn.company.com 1 RemoteVPN
+! tunnel-group-map default-group RemoteVPN
+
+! Performance Tuning
+sndbuf 393216
+rcvbuf 393216
+
+! Verification Commands
+! show vpn-sessiondb summary
+! show vpn-sessiondb detail
+! show aaa authentication history
+! show certificate
+! show stats | include ssl-vpn

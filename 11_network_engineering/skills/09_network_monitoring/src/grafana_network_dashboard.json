@@ -1,0 +1,38 @@
+{
+  "dashboard": {
+    "title": "Network Monitoring Dashboard",
+    "panels": [
+      {
+        "title": "Interface Status",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "count(node_network_up == 1)",
+            "legendFormat": "Up"
+          }
+        ],
+        "gridPos": { "h": 8, "w": 6, "x": 0, "y": 0 }
+      },
+      {
+        "title": "Link Utilization",
+        "type": "time_series",
+        "targets": [
+          {
+            "expr": "((rate(ifInOctets[5m]) + rate(ifOutOctets[5m])) * 8 / ifSpeed) * 100"
+          }
+        ],
+        "gridPos": { "h": 8, "w": 12, "x": 6, "y": 0 }
+      },
+      {
+        "title": "Packet Errors",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(ifInErrors[5m]) + rate(ifOutErrors[5m])"
+          }
+        ],
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 }
+      }
+    ]
+  }
+}

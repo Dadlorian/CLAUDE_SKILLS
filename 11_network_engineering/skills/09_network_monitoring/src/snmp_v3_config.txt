@@ -1,0 +1,178 @@
+# SNMPv3 Configuration Reference
+
+## Cisco IOS SNMPv3 Configuration
+
+### User Creation with Authentication and Privacy
+! SNMPv3 user with authPriv (SHA + AES)
+snmp-server group MONITORING v3 authPriv read MONITORING-VIEW write MONITORING-VIEW
+snmp-server user monitoring MONITORING v3 auth sha Monitoring@Auth123 priv aes 128 Monitoring@Priv456
+snmp-server user monitoring MONITORING v3 auth sha Monitoring@Auth123 priv aes Monitoring@Priv456
+
+### Engine ID
+snmp-server engineid local 800007E53F5EFB00
+
+### Views Definition
+! Read-only view
+snmp-server view MONITORING-VIEW system included
+snmp-server view MONITORING-VIEW interfaces included
+snmp-server view MONITORING-VIEW ip included
+snmp-server view MONITORING-VIEW bgp included
+snmp-server view MONITORING-VIEW snmp included
+snmp-server view MONITORING-VIEW entity included
+
+! Read-write view
+snmp-server view MONITORING-WRITE system included
+snmp-server view MONITORING-WRITE interfaces included
+snmp-server view MONITORING-WRITE ip included
+
+### Trap Configuration
+! Enable traps
+snmp-server enable traps
+snmp-server enable traps snmp
+snmp-server enable traps syslog
+snmp-server enable traps bgp
+snmp-server enable traps interfaces
+
+! Trap receiver
+snmp-server host 10.0.0.100 version 3 auth monitoring
+snmp-server host 10.0.0.100 version 3 priv monitoring
+snmp-server host 10.0.0.100 version 3 authPriv monitoring
+snmp-server trap-source GigabitEthernet0/0
+
+### SNMP Source Interface
+snmp-server source-interface GigabitEthernet0/0
+
+---
+
+## Juniper Junos SNMPv3 Configuration
+
+system {
+    snmp {
+        description "Production Network Monitoring";
+        engine-id "800007E53F5EFB00";
+
+        # Authentication algorithm
+        authentication-algorithm sha-1;
+
+        # Encryption algorithm
+        privacy-algorithm aes-128;
+
+        # SNMP community (for backward compatibility with v2c)
+        community public {
+            authorization read-only;
+        }
+
+        # SNMPv3 user
+        usm {
+            local-engine {
+                user monitoring {
+                    authentication-algorithm sha-1;
+                    authentication-password "$9$VBQnw6YhcS9NUy8X-9Fz0H"; # encrypted
+                    privacy-algorithm aes-128;
+                    privacy-password "$9$QntXDi4aIRz/9Dzu1RczAE"; # encrypted
+                }
+            }
+        }
+
+        # View-based access control
+        view MONITORING-VIEW {
+            oid 1.3.6.1.2.1.1 include;
+            oid 1.3.6.1.2.1.2 include;
+            oid 1.3.6.1.2.1.25 include;
+            oid 1.3.6.1.2.1.31 include;
+        }
+
+        # Group mapping
+        access {
+            group MONITORING {
+                security-model usm;
+                security-level privacy;
+                user monitoring {
+                    view MONITORING-VIEW read-view;
+                }
+            }
+        }
+
+        # Trap configuration
+        trap-group traps {
+            categories {
+                chassis;
+                link;
+                routing;
+                authentication;
+            }
+            targets {
+                10.0.0.100 {
+                    port 162;
+                }
+                10.0.0.101 {
+                    port 162;
+                }
+            }
+            version v3;
+            security-model usm;
+            security-level privacy;
+            user monitoring;
+            local-address 192.168.1.1;
+        }
+    }
+}
+
+---
+
+## Arista EOS SNMPv3 Configuration
+
+! Create SNMP engine ID
+snmp-server local-engineid 800007E53F5EFB
+
+! Set authentication and privacy protocols
+snmp-server group MONITORING v3 auth
+
+! Create SNMPv3 user
+snmp-server user monitoring MONITORING v3 \
+  auth sha "Monitoring@Auth123" \
+  priv aes "Monitoring@Priv456"
+
+! Create MIB views
+snmp-server view MONITORING system included
+snmp-server view MONITORING interfaces included
+snmp-server view MONITORING ip included
+
+! Set logging parameters
+snmp-server host 10.0.0.100 version 3 auth monitoring
+snmp-server source-interface Management1
+
+---
+
+## Best Practices Summary
+
+### Password Requirements
+- Minimum 8 characters
+- Mix of uppercase, lowercase, numbers, special characters
+- Different authentication and privacy passwords
+- Store securely (encrypted config)
+- Rotate annually (minimum)
+
+### Security Levels
+- authNoPriv: Authentication only (HMAC-MD5 or SHA)
+- authPriv: Authentication + Encryption (AES-128, AES-192, AES-256)
+- Never use noAuthNoPriv in production
+
+### Views Design
+- Create least-privilege views
+- Read-only view: For monitoring
+- Read-write view: Only if management needed
+- Restrict to necessary OID subtrees
+
+### Trap Management
+- Secure trap receivers (TLS preferred)
+- Monitor trap receiver reachability
+- Don't send sensitive data in traps
+- Use SNMPv3 inform (acknowledged traps)
+
+---
+
+**Configuration Type**: SNMP Protocol
+**Devices**: Cisco IOS, Juniper Junos, Arista EOS
+**Security**: SNMPv3 with authentication and privacy
+**Compliance**: Recommended for enterprise networks

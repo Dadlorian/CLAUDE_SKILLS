@@ -1,0 +1,217 @@
+! Campus Core Router Configuration Template
+! Cisco IOS-XE (Catalyst 9500/9300)
+! Used for: Core layer switching and routing
+! Date: November 2025
+! Version: 1.0
+
+! ==============================================
+! DEVICE CONFIGURATION
+! ==============================================
+
+hostname Core-1
+enable secret 5 $1$mERr$hx5rVt7rPNoS4wqbC3DzM0
+
+! ==============================================
+! SYSTEM CONFIGURATION
+! ==============================================
+
+ip routing
+no ip source-route
+ip domain-name example.com
+ip name-server 8.8.8.8 8.8.4.4
+
+! NTP Configuration
+ntp server 10.255.3.1 prefer
+ntp clock-period 36000
+
+! Syslog Configuration
+logging host 10.255.200.10
+logging trap informational
+logging source-interface Loopback0
+
+! SNMP Configuration
+snmp-server community read-only RO_Community
+snmp-server community read-write RW_Community
+snmp-server host 10.255.200.20 version 2c RO_Community
+
+! ==============================================
+! INTERFACES - CORE REDUNDANCY
+! ==============================================
+
+! Loopback0: Router identification
+interface Loopback0
+  description Core-1 Loopback
+  ip address 10.255.3.1 255.255.255.255
+  !
+
+! Core-to-Core Link (to Core-2)
+interface Gi0/0/1
+  description Link to Core-2
+  no switchport
+  ip address 10.254.0.0 255.255.255.254
+  speed 100000
+  duplex full
+  no shutdown
+  !
+
+! Core-to-Distribution Links
+interface Gi0/0/2
+  description Link to Distribution-A
+  no switchport
+  ip address 10.254.1.0 255.255.255.254
+  speed 100000
+  duplex full
+  no shutdown
+  !
+
+interface Gi0/0/3
+  description Link to Distribution-B
+  no switchport
+  ip address 10.254.2.0 255.255.255.254
+  speed 100000
+  duplex full
+  no shutdown
+  !
+
+interface Gi0/0/4
+  description Link to WAN Router
+  no switchport
+  ip address 10.254.3.0 255.255.255.254
+  speed 100000
+  duplex full
+  no shutdown
+  !
+
+! ==============================================
+! ROUTING CONFIGURATION - BGP
+! ==============================================
+
+router bgp 65001
+  bgp log-neighbor-changes
+  neighbor 10.254.0.1 remote-as 65001
+  neighbor 10.254.0.1 description Core-2
+  neighbor 10.254.1.1 remote-as 65001
+  neighbor 10.254.1.1 description Distribution-A
+  neighbor 10.254.2.1 remote-as 65001
+  neighbor 10.254.2.1 description Distribution-B
+  neighbor 10.254.3.1 remote-as 65002
+  neighbor 10.254.3.1 description WAN-Router
+  !
+  address-family ipv4
+    neighbor 10.254.0.1 activate
+    neighbor 10.254.1.1 activate
+    neighbor 10.254.2.1 activate
+    neighbor 10.254.3.1 activate
+    !
+    network 10.0.0.0 mask 255.0.0.0
+    network 10.255.3.0 mask 255.255.255.0
+    !
+    redistribute connected
+    !
+  exit-address-family
+  !
+
+! ==============================================
+! ACCESS CONTROL LISTS
+! ==============================================
+
+ip access-list extended MGMT_ACCESS
+  permit tcp 10.255.200.0 0.0.0.255 10.255.3.0 0.0.0.255 eq 22
+  permit tcp 10.255.200.0 0.0.0.255 10.255.3.0 0.0.0.255 eq 443
+  deny ip any any log
+
+ip access-list extended BLOCK_INTERNAL
+  deny ip 10.0.0.0 0.255.255.255 192.168.0.0 0.0.255.255
+  permit ip any any
+
+! ==============================================
+! QUALITY OF SERVICE (QoS)
+! ==============================================
+
+policy-map QoS_Campus
+  class class-default
+    bandwidth percent 100
+  !
+
+! Apply QoS to interfaces
+interface Gi0/0/2
+  service-policy input QoS_Campus
+  !
+
+interface Gi0/0/3
+  service-policy input QoS_Campus
+  !
+
+! ==============================================
+! SPANNING TREE CONFIGURATION
+! ==============================================
+
+! RPVST+ for optimal load balancing
+spanning-tree mode rapid-pvst
+spanning-tree VLAN 1-4094 priority 8192
+
+! ==============================================
+! ACL APPLICATION
+! ==============================================
+
+interface Gi0/0/1
+  ip access-group MGMT_ACCESS in
+  !
+
+! ==============================================
+! MONITORING AND MANAGEMENT
+! ==============================================
+
+! Enable logging
+ip logging
+logging buffered 512000
+
+! Enable DHCP snooping (optional, for security)
+ip dhcp snooping
+ip dhcp snooping vlan 10-50,100,110,120
+
+! Configure BFD for fast convergence
+interface Gi0/0/2
+  bfd interval 300 min_rx 300 multiplier 3
+  !
+
+interface Gi0/0/3
+  bfd interval 300 min_rx 300 multiplier 3
+  !
+
+interface Gi0/0/1
+  bfd interval 300 min_rx 300 multiplier 3
+  !
+
+! ==============================================
+! SAVE CONFIGURATION
+! ==============================================
+
+line vty 0 4
+  exec-timeout 30 0
+  privilege level 15
+  !
+
+line console 0
+  exec-timeout 0 0
+  !
+
+! Enable SSH (secure access)
+ip ssh version 2
+ip ssh authentication retries 3
+
+! ==============================================
+! END OF CONFIGURATION
+! ==============================================
+
+! Verification commands:
+! show ip bgp summary
+! show ip route
+! show ip interface brief
+! show spanning-tree
+! show ip ospf neighbor
+! show cdp neighbors
+! show inventory
+
+! Save config: write memory
+! Reload: reload

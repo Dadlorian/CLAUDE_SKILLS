@@ -1,0 +1,94 @@
+# Network Device Inventory Template
+# Used for: Asset management, warranty tracking, lifecycle planning
+# Date: November 2025
+# Version: 1.0
+
+CAMPUS NETWORK DEVICES
+
+Access Layer:
+  Switch          | Building | Serial# | Model | Port Count | PoE | Install Date | Warranty | Status
+  Access-A1       | Building A | SN123456 | C9200L-48-4G | 48+4 | 885W | 2025-11-19 | 2028-11-19 | Active
+  Access-A2       | Building A | SN123457 | C9200L-48-4G | 48+4 | 885W | 2025-11-19 | 2028-11-19 | Active
+  Access-A3       | Building A | SN123458 | C9200L-48-4G | 48+4 | 885W | 2025-11-19 | 2028-11-19 | Active
+  ... (24 total)
+
+Distribution Layer:
+  Switch          | Location | Serial# | Model | Throughput | Install Date | Warranty | Status
+  Distribution-A  | Building A | SN200001 | C9500 | 65 Tbps | 2025-11-19 | 2028-11-19 | Active
+  Distribution-B  | Building A | SN200002 | C9500 | 65 Tbps | 2025-11-19 | 2028-11-19 | Active
+  Distribution-C  | Building B | SN200003 | C9500 | 65 Tbps | 2025-11-19 | 2028-11-19 | Active
+  Distribution-D  | Building B | SN200004 | C9500 | 65 Tbps | 2025-11-19 | 2028-11-19 | Active
+
+Core Layer:
+  Switch          | Serial# | Model | Throughput | Supervisors | Install Date | Warranty | Status
+  Core-1          | SN300001 | C9500 | 65 Tbps | Dual | 2025-11-19 | 2028-11-19 | Active
+  Core-2          | SN300002 | C9500 | 65 Tbps | Dual | 2025-11-19 | 2028-11-19 | Active
+
+DATA CENTER DEVICES
+
+Spine Layer:
+  Switch          | Serial# | Model | Ports | Install Date | Warranty | Status
+  Spine-01        | SN400001 | Nexus 9372 | 48 | 2025-11-19 | 2028-11-19 | Active
+  ... (32 total)
+
+Leaf Layer:
+  Switch          | Pod | Serial# | Model | Servers | Install Date | Warranty | Status
+  Leaf-01         | Pod-1 | SN500001 | Nexus 9396 | 8 | 2025-11-19 | 2028-11-19 | Active
+  ... (64 total)
+
+ROUTERS
+
+  Router          | Location | Serial# | Model | Interfaces | Install Date | Warranty | Status
+  WAN-Router-1    | HQ | SN600001 | ASR 1000 | 10 | 2025-11-19 | 2028-11-19 | Active
+  WAN-Router-2    | HQ | SN600002 | ASR 1000 | 10 | 2025-11-19 | 2028-11-19 | Backup
+
+TRANSCEIVERS & MODULES
+
+  Type            | Qty | Speed | Model | Cost/Unit | Spares | Status
+  SFP+ 10G SR     | 100 | 10G | SFP-10G-SR | $300 | 5 | In Stock
+  QSFP 100G SR4  | 50 | 100G | QSFP-100G-SR4 | $500 | 3 | In Stock
+  1G RJ45 Module | 12 | 1G | GLC-T | $50 | 2 | In Stock
+
+LIFECYCLE PLANNING
+
+Current (2025):
+  - 96 switches in service
+  - 500+ transceivers
+  - Average age: 0 months (newly deployed)
+  - Support: Full vendor support
+
+Year 3 (2028):
+  - Warranty expiration for initial deployment
+  - Plan refresh/upgrade
+  - Cumulative age: 3 years
+  - Remaining useful life: 2-3 years
+
+Year 5 (2030):
+  - Full replacement cycle planned
+  - Retire generation 1 hardware
+  - Deploy generation 2 (likely 400G interfaces)
+  - Estimated cost: $600,000
+
+MAINTENANCE SCHEDULE
+
+Monthly:
+  [ ] Verify all devices powered on
+  [ ] Check temperature sensors
+  [ ] Review system logs
+  [ ] Check for firmware updates
+
+Quarterly:
+  [ ] Clean filters and vents
+  [ ] Inspect cables for damage
+  [ ] Test backup power (PSUs)
+  [ ] Verify licensing
+
+Annually:
+  [ ] Full inventory audit
+  [ ] Update asset database
+  [ ] Plan lifecycle replacements
+  [ ] Review warranty coverage
+
+---
+Last Updated: November 2025
+Next Review: February 2026

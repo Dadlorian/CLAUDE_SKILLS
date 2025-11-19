@@ -1,0 +1,297 @@
+# Fortinet FortiGate SSL/TLS VPN Configuration
+# Remote access with integrated threat protection
+
+! ===================== SYSTEM SETTINGS =====================
+
+config system global
+ set hostname FG-BRANCH-001
+ set timezone "America/Denver"
+ set admintimeout 30
+ set admin-ssh-port 22
+ set admin-https-port 443
+end
+
+! ===================== SSL VPN PORTAL =====================
+
+config vpn ssl settings
+ set servercert "Fortinet_Factory"
+ set port 443
+ set redirect-to-matching-url enable
+ set detect-client-os enable
+ set dns-server1 8.8.8.8
+ set dns-server2 8.8.4.4
+ set secure-tunnel enable
+ set force-client-cert disable
+ set user-peer "all"
+ set ssl-min-proto-version "tls1-2"
+ set ssl-max-proto-version "tls1-3"
+ set cipher-suites "TLS_AES_256_GCM_SHA384" "TLS_CHACHA20_POLY1305_SHA256"
+ set tunnel-addr-assigned-method "sequential"
+end
+
+! ===================== VIRTUAL INTERFACE =====================
+
+config vpn ssl web portal
+ edit "default"
+  set tunnel-mode enable
+  set portal-layout "auto-detect"
+  set welcome-msg "Welcome to Corporate VPN"
+  set ip-pools "ssl-vpn-pool"
+  set split-dns disable
+  set save-password enable
+  set auto-connect enable
+  set keep-alive enable
+  set heartbeat-interval 60
+end
+
+! ===================== IP POOL CONFIGURATION =====================
+
+config firewall ippool
+ edit "ssl-vpn-pool"
+  set type overload
+  set startip 10.255.0.1
+  set endip 10.255.0.254
+  set comments "IP pool for VPN clients"
+ next
+end
+
+! ===================== USER AUTHENTICATION =====================
+
+config user ldap
+ edit "corp-ldap"
+  set server "10.0.0.50"
+  set port 389
+  set cnid "sAMAccountName"
+  set dn "cn=users,dc=corp,dc=com"
+  set type "active-directory"
+  set username "bind-user"
+  set password "bind-password"
+  set secure "disable"
+ next
+end
+
+! ===================== MFA CONFIGURATION =====================
+
+config system fortis-center
+ set ip 10.0.0.60
+ set port 443
+ set fortis-id "fortis-id-123456"
+ set ssl-verify enable
+end
+
+config vpn ssl settings
+ set multi-factor-authentication "optional"
+ set forticlient-enforcement enable
+end
+
+! ===================== USER GROUPS =====================
+
+config user group
+ edit "VPN-Users"
+  set member "corp-ldap" "fortinet_group_authentication"
+  set comment "Remote access VPN users"
+ next
+ edit "VPN-Admin"
+  set member "corp-ldap" "fortinet_admin_authentication"
+  set comment "VPN administrators"
+ next
+end
+
+! ===================== SSL VPN PORTAL GROUPS =====================
+
+config vpn ssl web portal
+ edit "vpn-users"
+  set tunnel-mode enable
+  set ipv6-tunnel-mode enable
+  set ip-pools "ssl-vpn-pool"
+  set bookmarks enable
+  set file-access enable
+  set user-bookmark enable
+  set allow-user-access "web" "ftp" "smb"
+  set split-dns disable
+  config portal-tunneling-request
+   set access-mode "single"
+  end
+ next
+ edit "vpn-admin"
+  set tunnel-mode enable
+  set ip-pools "ssl-vpn-pool"
+  set bookmarks enable
+  set file-access enable
+  set allow-user-access "rdp" "ssh" "file" "web" "citrix"
+  set keep-alive enable
+ next
+end
+
+! ===================== FIREWALL POLICIES =====================
+
+config firewall policy
+ edit 1
+  set name "VPN-to-Internal"
+  set srcintf "ssl.root"
+  set dstintf "port1"
+  set srcaddr "all"
+  set dstaddr "Internal-Network"
+  set action allow
+  set schedule "always"
+  set service "ALL"
+  set nat disable
+  set logtraffic "all"
+  set logger "all"
+ next
+ edit 2
+  set name "Internal-to-VPN"
+  set srcintf "port1"
+  set dstintf "ssl.root"
+  set srcaddr "Internal-Network"
+  set dstaddr "all"
+  set action allow
+  set schedule "always"
+  set service "ALL"
+  set nat disable
+  set logtraffic "all"
+ next
+end
+
+! ===================== DEVICE COMPLIANCE =====================
+
+config vpn ssl settings
+ set fortinet-client-enforcement enable
+ set client-check "av-lite,av-plus,fw-lite,fw-plus"
+ set client-check-compulsory enable
+ set ssl-certspeed "performance"
+ set forbid-zero-client enable
+end
+
+config endpoint-control settings
+ set forticlient-registration-sync enable
+ set forticlient-ems-status enable
+ set forticlient-keepalive-interval 120
+end
+
+! ===================== WEB PORTAL BOOKMARKS =====================
+
+config vpn ssl web portal
+ edit "vpn-users"
+  config web-portal-custom-language
+  end
+  config portal-web-access
+   edit 1
+    set name "Email"
+    set url "https://mail.corp.internal"
+    set port 443
+    set host "mail.corp.internal"
+    set layout "sidebyside"
+   next
+   edit 2
+    set name "SharePoint"
+    set url "https://sharepoint.corp.internal"
+    set port 443
+    set host "sharepoint.corp.internal"
+   next
+   edit 3
+    set name "RDP-Server"
+    set url "rdp://rds.corp.internal"
+    set port 3389
+    set host "rds.corp.internal"
+   next
+  end
+ next
+end
+
+! ===================== FILE BROWSER CONFIGURATION =====================
+
+config vpn ssl web portal
+ edit "vpn-users"
+  config portal-file-access
+   edit 1
+    set name "File-Share-1"
+    set host "\\\\file1.corp.internal"
+    set port 445
+   next
+   edit 2
+    set name "File-Share-2"
+    set host "\\\\file2.corp.internal"
+    set port 445
+   next
+  end
+ next
+end
+
+! ===================== LOGGING & MONITORING =====================
+
+config log syslogd setting
+ set status enable
+ set server "10.0.0.100"
+ set port 514
+ set facility "local7"
+end
+
+config log disk setting
+ set status enable
+ set diskfull "warn"
+ set maxdisksize 1024
+end
+
+config log memory setting
+ set status enable
+end
+
+! ===================== SSL CERTIFICATE =====================
+
+config vpn ssl settings
+ set servercert "Fortinet_Factory"
+ set client-sigalg "auto"
+ set ssl-dh-bits 2048
+ set ssl-min-proto-version "tls1-2"
+ set ssl-max-proto-version "tls1-3"
+end
+
+! ===================== BANDWIDTH LIMITING =====================
+
+config vpn ssl web portal
+ edit "vpn-users"
+  set tunnel-mode enable
+  config portal-tunnel-request
+   set access-mode "single"
+  end
+  config portal-bandwidth-limit
+   set bandwidth-limit 50000  ! 50 Mbps per user
+  end
+ next
+end
+
+! ===================== VERIFICATION & MONITORING =====================
+
+! Check SSL VPN status
+! get vpn ssl monitor
+
+! View active sessions
+! diag vpn ssl list
+
+! Monitor statistics
+! diag vpn ssl stat
+
+! Test configuration
+! diag vpn ssl test
+
+! View logs
+! execute log display syslogd
+
+! ===================== TROUBLESHOOTING =====================
+
+! Check certificate
+! show vpn ssl settings
+
+! Verify LDAP connection
+! diag auth ldap test -u testuser -p password corp-ldap
+
+! Monitor SSL VPN process
+! diag debug application sslvpn -1
+
+! Check MFA status
+! diag sms sms-service test
+
+! View bandwidth usage
+! get vpn ssl monitor | grep bandwidth
+

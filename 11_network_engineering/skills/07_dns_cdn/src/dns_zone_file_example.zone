@@ -1,0 +1,164 @@
+; DNS Zone File Example
+; Zone: example.com
+; File: /etc/bind/zones/db.example.com
+; Format: BIND zone file format (RFC 1035)
+
+$TTL 3600
+$ORIGIN example.com.
+
+; Start of Authority (SOA) record
+; Contains primary nameserver, admin email, and zone management info
+@    IN    SOA    ns1.example.com. admin.example.com. (
+                  2024111901  ; Serial (format: YYYYMMDDNN for auto-increment)
+                  3600        ; Refresh: Secondary checks every 3600 seconds
+                  1800        ; Retry: Failed transfer retry interval
+                  604800      ; Expire: TTL for cached zone data
+                  86400 )     ; Minimum TTL: Minimum caching period
+
+; Nameserver records
+; Delegate zone to nameservers
+@    IN    NS     ns1.example.com.
+@    IN    NS     ns2.example.com.
+@    IN    NS     ns3.example.com.
+
+; Nameserver A records (glue records)
+; Must include A records for nameservers in same zone
+ns1  IN    A      192.0.2.1
+ns2  IN    A      192.0.2.2
+ns3  IN    A      192.0.2.3
+
+; IPv6 nameservers (AAAA records)
+ns1  IN    AAAA   2001:db8::1
+ns2  IN    AAAA   2001:db8::2
+
+; Mail Exchange (MX) records
+; Define mail servers for domain
+@    IN    MX     10     mail.example.com.
+@    IN    MX     20     mail2.example.com.
+
+; Mail server A records
+mail    IN    A      192.0.2.20
+mail2   IN    A      192.0.2.21
+
+; Host (A) records
+; Map hostnames to IPv4 addresses
+@           IN    A      192.0.2.10      ; Apex/root domain
+www         IN    A      192.0.2.10      ; www subdomain
+api         IN    A      192.0.2.30      ; API server
+cdn         IN    A      192.0.2.40      ; CDN origin
+admin       IN    A      192.0.2.50      ; Admin panel
+blog        IN    A      192.0.2.60      ; Blog server
+static      IN    A      192.0.2.70      ; Static content
+images      IN    A      192.0.2.71      ; Image server
+
+; IPv6 Address (AAAA) records
+@           IN    AAAA   2001:db8::10
+www         IN    AAAA   2001:db8::10
+api         IN    AAAA   2001:db8::30
+blog        IN    AAAA   2001:db8::60
+
+; Canonical Name (CNAME) records
+; Create aliases for other domains
+blog        IN    CNAME   blogs.typepad.com.
+gallery     IN    CNAME   photos.example.net.
+docs        IN    CNAME   docs.google.com.
+
+; Text (TXT) records
+; Arbitrary text data (SPF, DKIM, verification, etc.)
+
+; SPF record (mail authentication)
+@           IN    TXT    "v=spf1 include:_spf.google.com include:sendgrid.net ~all"
+
+; DKIM public key
+default._domainkey    IN    TXT    "v=DKIM1; k=rsa; p=MIGfMA0BCgKBgQDErt4W5D3UtgRO8N6wAA1K7G5RK5K..."
+
+; DMARC policy
+_dmarc                IN    TXT    "v=DMARC1; p=reject; rua=mailto:dmarc@example.com; ruf=mailto:dmarc@example.com; fo=1"
+
+; Domain verification (Google, Microsoft, etc.)
+@           IN    TXT    "google-site-verification=abc123def456"
+@           IN    TXT    "MS=ms12345678"
+
+; CAA (Certification Authority Authorization) records
+; Specify which CAs can issue SSL certificates
+@           IN    CAA    0    issue      "letsencrypt.org"
+@           IN    CAA    0    issuewild  "letsencrypt.org"
+@           IN    CAA    0    iodef      "mailto:security@example.com"
+
+; Service (SRV) records
+; Specify location of services
+_sip._tcp         IN    SRV    10    60    5060    sipserver.example.com.
+_http._tcp        IN    SRV    10    100   80     web1.example.com.
+_http._tcp        IN    SRV    10    100   80     web2.example.com.
+
+; TLSA records (for DANE)
+; Certificate association for TLS
+_443._tcp         IN    TLSA   3     1     1     a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6
+
+; Subdomain delegation
+; Delegate subdomain to different nameservers
+dev.example.com.    IN    NS     ns1.dev.example.com.
+dev.example.com.    IN    NS     ns2.dev.example.com.
+
+; Glue records for subdomain delegation
+ns1.dev.example.com.    IN    A     203.0.113.1
+ns2.dev.example.com.    IN    A     203.0.113.2
+
+; Reverse zone PTR records
+; (These go in reverse zone file, not forward zone)
+; 1.2.0.192.in-addr.arpa.    IN    PTR    ns1.example.com.
+; 2.2.0.192.in-addr.arpa.    IN    PTR    ns2.example.com.
+
+; Service records with weights and priorities
+; (Lower priority values preferred)
+; (For same priority, weight determines distribution)
+
+_ldap._tcp    IN    SRV    10    100   389    ldap1.example.com.
+_ldap._tcp    IN    SRV    10    50    389    ldap2.example.com.
+_ldap._tcp    IN    SRV    20    100   389    ldap-backup.example.com.
+
+; DNSSEC Records (added by dnssec-signzone)
+; These would be auto-generated and added to .signed file
+
+; DNSKEY records (public keys)
+; @    IN    DNSKEY    257    3    13    AwEAAZ4...  (KSK)
+; @    IN    DNSKEY    256    3    13    AwEAAa8...  (ZSK)
+
+; RRSIG records (signatures)
+; These cover other record sets
+; @    IN    RRSIG    A    13    2    3600    20241220    20241120    12345    example.com.    ...
+
+; NSEC records (negative caching, next secure)
+; @    IN    NSEC    www.example.com.    A NS SOA RRSIG NSEC
+
+; Comments and organizational notes
+; Lines starting with ; are comments
+
+; Common subdomain patterns
+ftp         IN    A      192.0.2.80
+webmail     IN    CNAME  mail.example.com.
+oldweb      IN    CNAME  archive.example.net.
+
+; Load balancing (multiple A records)
+; Same hostname, multiple IPs
+; Client picks one (usually first)
+lb-api      IN    A      192.0.2.100
+lb-api      IN    A      192.0.2.101
+lb-api      IN    A      192.0.2.102
+
+; Wildcard records
+; Match any subdomain not explicitly defined
+*.wildcard  IN    A      192.0.2.200
+; Matches: foo.wildcard.example.com, bar.wildcard.example.com, etc.
+
+; Default TTL (can be overridden per record)
+$TTL 7200
+
+; Records with custom TTL
+cache-long  IN    A      192.0.2.150  ; Uses $TTL 7200 (2 hours)
+cache-short 300  IN    A      192.0.2.151  ; Uses 300 seconds TTL
+
+; Include other files (for organization)
+; $INCLUDE /etc/bind/zones/db.example.com.keys  ; DNSSEC keys
+
+; End of zone file

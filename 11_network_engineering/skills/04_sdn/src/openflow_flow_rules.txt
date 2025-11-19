@@ -1,0 +1,34 @@
+# OpenFlow Flow Rules for Cisco/OVS
+# Use with: ovs-ofctl add-flow <bridge> "<rule>" or REST API
+
+# Default table miss - send to controller
+priority=0,actions=controller(max_len=65535)
+
+# MAC learning for L2 switching
+priority=1000,in_port=1,eth_dst=00:11:22:33:44:55,actions=output:2
+priority=1000,in_port=2,eth_dst=aa:bb:cc:dd:ee:ff,actions=output:1
+
+# VLAN separation
+priority=500,in_port=1,dl_vlan=100,actions=pop_vlan,output:3
+priority=500,in_port=3,actions=push_vlan:0x8100,set_field:4196->vlan_vid,output:1
+
+# IP routing (inter-VLAN)
+priority=2000,ip,nw_dst=10.100.0.0/24,actions=output:4
+priority=2000,ip,nw_dst=10.200.0.0/24,actions=output:5
+
+# Quality of Service
+priority=1500,ip,nw_tos=0xb8,actions=set_queue:1,output:2
+# DSCP EF (0xb8) -> High priority queue
+
+# Load balancing across multiple paths
+priority=1000,ip,nw_src=10.0.0.0/8,actions=group:100
+
+# Access control (deny specific traffic)
+priority=3000,ip,nw_src=10.100.0.0/24,nw_dst=192.168.0.0/16,actions=drop
+
+# Rate limiting with meter
+meter_id=1,kbps,burst,band=type=drop,rate=10000
+priority=500,ip,nw_src=10.100.0.100,actions=meter:1,output:2
+
+# VXLAN tunnel encapsulation
+priority=1200,udp,tp_dst=4789,actions=output:LOCAL

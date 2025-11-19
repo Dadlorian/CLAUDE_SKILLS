@@ -1,0 +1,40 @@
+! Zone-Based Firewall (CBAC)
+! Class-Based Zone Policy
+
+! Define Zones
+zone security OUTSIDE
+ description Internet Zone
+
+zone security DMZ
+ description Demilitarized Zone
+
+zone security INSIDE
+ description Internal Network
+
+! Zone Pairs and Policies
+zone-pair security OUTSIDE-DMZ source OUTSIDE destination DMZ
+ service-policy type inspect OUTSIDE_TO_DMZ
+
+zone-pair security DMZ-INSIDE source DMZ destination INSIDE
+ service-policy type inspect DMZ_TO_INSIDE
+
+zone-pair security INSIDE-OUTSIDE source INSIDE destination OUTSIDE
+ service-policy type inspect INSIDE_TO_OUTSIDE
+
+! Assign Interfaces to Zones
+interface GigabitEthernet0/0
+ nameif outside
+ zone-member security OUTSIDE
+
+interface GigabitEthernet0/1
+ nameif dmz
+ zone-member security DMZ
+
+interface GigabitEthernet0/2
+ nameif inside
+ zone-member security INSIDE
+
+! Verify
+! show zone-pair security
+! show class-map
+! show policy-map

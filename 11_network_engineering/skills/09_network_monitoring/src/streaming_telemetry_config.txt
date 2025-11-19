@@ -1,0 +1,76 @@
+# Streaming Telemetry Configuration
+
+## Cisco IOS-XE Telemetry
+
+# Enable NETCONF
+netconf-yang
+
+# Enable RESTCONF
+restconf
+
+# Configure telemetry
+telemetry model-driven
+ sensor-group INTERFACE_STATS
+  sensor-path ietf-interfaces:interfaces/interface/statistics
+  sensor-path openconfig-interfaces:interfaces/interface/state
+ !
+ subscription TELEMETRY_1
+  sensor-group-id INTERFACE_STATS 100
+  update-policy on-change
+  destination-id COLLECTOR1
+ !
+ destination-group COLLECTOR1
+  address-family ipv4 10.0.0.100 port 5432
+  transport grpc
+  encoding self-describing-gpb
+ !
+end
+
+## Cisco IOS-XR Telemetry
+
+telemetry model-driven
+ destination-group COLLECTOR
+  address-family ipv4 10.0.0.100 port 5432
+  encoding self-describing-gpb
+  transport grpc
+ !
+ sensor-group STATS
+  sensor-path Cisco-IOS-XR-infra-statsd-oper:infra-statistics
+ !
+ subscription STREAM1
+  sensor-group-id STATS 100
+  destination-id COLLECTOR
+ !
+end
+
+## Juniper Junos Telemetry
+
+system {
+    services {
+        netconf {
+            rfc-compliant;
+            ssh;
+        }
+    }
+    telemetry {
+        port 32768;
+    }
+}
+
+routing-options {
+    telemetry {
+        statistics {
+            interface {
+                name "ge-0/0/*";
+                reporting-interval 30;
+            }
+        }
+    }
+}
+
+---
+
+**Protocol**: gRPC/TLS
+**Encoding**: GPB, JSON
+**Models**: YANG (NETCONF, RESTCONF)
+**Transport**: TCP TLS

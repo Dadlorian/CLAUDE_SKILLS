@@ -1,0 +1,158 @@
+! Policy-Based Routing Configuration
+! Source-based routing for traffic engineering
+
+hostname PBR-Router
+!
+interface Loopback 0
+  ip address 192.168.1.1 255.255.255.255
+!
+! ISP Link A (Primary)
+interface GigabitEthernet0/0
+  description ISP-A Link (Primary)
+  ip address 203.0.113.2 255.255.255.0
+  no shutdown
+!
+! ISP Link B (Secondary/Backup)
+interface GigabitEthernet0/1
+  description ISP-B Link (Secondary)
+  ip address 198.51.100.2 255.255.255.0
+  no shutdown
+!
+! Internal Campus Network
+interface GigabitEthernet0/2
+  description Campus Network
+  ip address 10.0.0.1 255.255.255.0
+  no shutdown
+!
+!
+! ***** Define Traffic Classes *****
+!
+! Engineering traffic - via ISP A
+ip access-list extended ENGINEERING-DEPT
+  permit ip 10.0.1.0 0.0.0.255 any
+  permit ip 10.0.2.0 0.0.0.255 any
+
+! Finance traffic - via ISP B
+ip access-list extended FINANCE-DEPT
+  permit ip 10.0.3.0 0.0.0.255 any
+
+! Video traffic - via ISP A (high bandwidth)
+ip access-list extended VIDEO-TRAFFIC
+  permit tcp any any eq 8080
+  permit tcp any any eq 80 (HTTP)
+  permit tcp any any eq 443 (HTTPS)
+
+! Default traffic
+ip access-list extended DEFAULT-TRAFFIC
+  permit ip any any
+
+!
+! ***** Define Route-Maps for Policy *****
+!
+! Route Engineering to ISP A
+route-map ENGINEER-POLICY permit 10
+  match ip address ENGINEERING-DEPT
+  set ip next-hop 203.0.113.1
+!
+! Route Finance to ISP B
+route-map FINANCE-POLICY permit 10
+  match ip address FINANCE-DEPT
+  set ip next-hop 198.51.100.1
+!
+! Route video via high-capacity link
+route-map VIDEO-POLICY permit 10
+  match ip address VIDEO-TRAFFIC
+  set ip next-hop 203.0.113.1
+  set dscp af31
+  ! Mark for QoS
+!
+! Default route via ISP A
+route-map DEFAULT-POLICY permit 10
+  match ip address DEFAULT-TRAFFIC
+  set ip next-hop verify availability 203.0.113.1
+  ! Fallback to routing table if unreachable
+!
+!
+! ***** Apply PBR to Interface *****
+!
+interface GigabitEthernet0/2
+  description Apply PBR to campus network ingress
+  ip policy route-map ENGINEER-POLICY
+  ip policy route-map FINANCE-POLICY
+  ip policy route-map VIDEO-POLICY
+  ip policy route-map DEFAULT-POLICY
+  ! Policies evaluated in order
+!
+!
+! ***** Alternate: PBR with Prefix-Lists *****
+!
+ip prefix-list ENG-SUBNET seq 10 permit 10.0.1.0/24
+ip prefix-list ENG-SUBNET seq 20 permit 10.0.2.0/24
+
+route-map ENGINEER-V2 permit 10
+  match ip address prefix-list ENG-SUBNET
+  set ip next-hop 203.0.113.1
+  set as-path prepend 65000
+!
+!
+! ***** PBR with VRF Integration *****
+!
+! vrf definition CUSTOMER-A
+!   rd 65000:100
+! !
+! interface GigabitEthernet0/3
+!   vrf forwarding CUSTOMER-A
+!   ip address 10.0.10.1 255.255.255.0
+!   ip policy route-map CUSTOMER-A-POLICY
+! !
+! route-map CUSTOMER-A-POLICY permit 10
+!   match ip address CUSTOMER-A-TRAFFIC
+!   set ip next-hop vrf CUSTOMER-A 10.0.10.254
+! !
+!
+! ***** Monitoring PBR *****
+!
+! show route-map
+! show route-map ENGINEER-POLICY
+! show ip policy
+! show access-lists ENGINEERING-DEPT
+!
+! Debug PBR
+! debug ip policy
+! debug policy-map
+!
+! View policy statistics
+! show policy-map interface GigabitEthernet0/2
+!
+!
+! ***** Alternative Configuration with QoS *****
+!
+! Combine QoS markings with routing
+! route-map VOICE-POLICY permit 10
+!   match ip address VOICE-TRAFFIC
+!   set ip next-hop 203.0.113.1
+!   set precedence critical
+!   set ip dscp cs5
+! !
+!
+! ***** PBR Filtering Example *****
+!
+! Block specific traffic from certain destinations
+! ip access-list extended BLOCK-INTERNAL
+!   deny ip 10.0.1.0 0.0.0.255 10.0.3.0 0.0.0.255
+!   ! Prevent Engineering accessing Finance
+!   permit ip any any
+!
+! route-map BLOCK-POLICY permit 10
+!   match ip address BLOCK-INTERNAL
+!   deny
+! !
+!
+! Verification Checklist:
+! 1. Verify access-lists defined correctly
+! 2. Check route-map configuration
+! 3. Verify PBR applied to ingress interface
+! 4. Test with traceroute -S <source> <dest>
+! 5. Monitor statistics with show route-map
+! 6. Verify no routing loops created
+!

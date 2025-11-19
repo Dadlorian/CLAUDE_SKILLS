@@ -1,0 +1,238 @@
+# Palo Alto GlobalProtect VPN Configuration
+# Client-server SSL/TLS VPN with multi-factor authentication
+
+! ===================== PORTAL CONFIGURATION =====================
+
+Network > GlobalProtect > Portals
+
+Portal Name: Corporate-Portal
+Interface: Ethernet1/1
+Authentication Profile: LDAP-Corporate
+Client Version: 5.2.0
+Mobile Profile: Enable
+Certificate: vpn.company.com
+
+! ===================== GATEWAY CONFIGURATION =====================
+
+Network > GlobalProtect > Gateways
+
+Gateway Name: Primary-Gateway
+Interface: Ethernet1/2
+Authentication Profile: LDAP-Corporate
+Tunnel Protocol: IPsec (IKEv2)
+Encryption: AES-256-GCM
+Authentication: SHA-256
+DH Group: Group 14
+Tunnel Monitor: Enable
+
+Gateway Name: Secondary-Gateway
+Interface: Ethernet1/3
+Authentication Profile: LDAP-Corporate
+Tunnel Protocol: IPsec (IKEv2)
+Encryption: AES-256-GCM
+Priority: 2
+
+! ===================== SSL/TLS SETTINGS =====================
+
+Device > Certificate Management
+
+Portal Certificate: /ssl/certs/vpn.company.com.crt
+Portal Key: /ssl/private/vpn.company.com.key
+CA Certificate: /ssl/certs/ca-bundle.crt
+
+TLS Version: TLS 1.2, TLS 1.3
+Cipher Suite:
+  - TLS_AES_256_GCM_SHA384
+  - TLS_CHACHA20_POLY1305_SHA256
+  - ECDHE-RSA-AES256-GCM-SHA384
+
+! ===================== AUTHENTICATION =====================
+
+Device > Authentication Profile
+
+Profile: LDAP-Corporate
+Type: LDAP
+Server: 10.0.0.50
+Port: 389
+Base DN: cn=users,dc=corp,dc=com
+Bind DN: cn=bind,cn=users,dc=corp,dc=com
+Username Attribute: sAMAccountName
+
+Multi-Factor Authentication:
+  Provider: Okta
+  IdP URL: https://company.okta.com
+  Enable: Yes
+
+! ===================== CLIENT RELEASE MANAGEMENT =====================
+
+Device > GlobalProtect > Client Release & Deployment
+
+Current Version: 5.2.0
+Auto Update: Yes
+Update Interval: 30 days
+
+Windows:
+  - Latest Version: 5.2.0
+  - Enforced Version: 5.0.0 (minimum)
+  
+macOS:
+  - Latest Version: 5.2.0
+  - Enforced Version: 5.0.0 (minimum)
+
+iOS:
+  - Latest Version: 2.2.0
+  
+Android:
+  - Latest Version: 2.2.0
+
+! ===================== DEVICE COMPLIANCE =====================
+
+Device > GlobalProtect > Device Compliance
+
+Compliance Profile: Corporate-Standard
+
+Windows Requirements:
+  - Windows 10 version 1909 or later
+  - Windows Defender AV enabled
+  - Windows Firewall enabled
+  - BitLocker encryption enabled
+  - Windows updates current
+  - No jailbreak/root
+
+macOS Requirements:
+  - macOS 10.14 or later
+  - XProtect enabled
+  - FileVault enabled
+  - OS updates current
+  - No jailbreak
+
+iOS Requirements:
+  - iOS 12.0 or later
+  - App Protection enabled
+  - Passcode set
+  - No jailbreak
+
+Android Requirements:
+  - Android 6.0 or later
+  - Google Play Protect enabled
+  - No root
+  - PIN/Password set
+
+! ===================== MOBILE USER SECURITY =====================
+
+Network > Mobile User Security
+
+Enable: Yes
+
+User Agent Detection: Enable
+Device Posture: Enforce
+Location Detection: Enable
+Geo-fence: Restrict to US/Canada
+
+Mobile-Specific Settings:
+  - SSL Inspection: Allow
+  - URL Filtering: Enable
+  - Threat Prevention: Enable
+  - File Blocking: Critical files only
+
+! ===================== ACCESS POLICIES =====================
+
+Network > GlobalProtect > Policies
+
+Policy: Allow-Internal-Access
+  Users: LDAP-Corporate all
+  Device: Corporate-Compliant
+  Encryption: AES-256
+  Timeout: 28800s (8 hours)
+  Re-auth: Enabled (3600s)
+  Action: Allow
+
+Policy: Allow-Limited-Access
+  Users: Contractors
+  Device: Any (with basic checks)
+  Encryption: AES-256
+  Timeout: 14400s (4 hours)
+  Re-auth: Enabled (1800s)
+  Action: Allow
+
+Policy: Deny-Non-Compliant
+  Condition: Device not compliant
+  Action: Deny with message
+
+! ===================== NETWORK SETTINGS =====================
+
+Network > GlobalProtect > Network Settings
+
+VPN IP Pool: 10.255.0.0/24
+Split Tunnel:
+  - 10.0.0.0/8 (corporate network)
+  - 192.168.0.0/16 (additional subnet)
+  - Local networks (bypass VPN)
+
+DNS:
+  - Primary: 10.0.0.1
+  - Secondary: 8.8.8.8
+  - Suffix: corp.internal
+  - DNS Security: Enable
+
+! ===================== MONITORING & LOGGING =====================
+
+Monitor > Logs > GlobalProtect
+
+Log Level: Informational
+
+Log Types:
+  - Authentication (all attempts)
+  - Device Compliance
+  - Data Access
+  - Policy Violations
+  - Threat Events
+
+Syslog Forwarding: Enable
+Syslog Server: 10.0.0.100
+Syslog Port: 514
+
+! ===================== BANDWIDTH CONTROL =====================
+
+Network > QoS > Policy
+
+Policy: VPN-QoS
+  Traffic Class: GlobalProtect Users
+  Rate Limit: 100 Mbps per user
+  Priority: High
+
+! ===================== DEPLOYMENT & TESTING =====================
+
+1. Deploy certificate
+2. Configure portal and gateways
+3. Set authentication (LDAP)
+4. Enable MFA (Okta)
+5. Configure device compliance
+6. Test with pilot users
+7. Monitor logs and performance
+8. Gradual rollout to all users
+
+! ===================== CLIENT INSTALLATION =====================
+
+Windows:
+  1. Download from https://paloaltonetworks.com
+  2. Run PanGPClient-x.x.x-Setup.exe
+  3. Complete installation wizard
+  4. Restart computer
+  5. Launch GlobalProtect app
+  6. Connect to vpn.company.com
+
+macOS:
+  1. Download PanGP Client-x.x.x.dmg
+  2. Open DMG file
+  3. Drag app to Applications folder
+  4. Launch GlobalProtect
+  5. Connect to vpn.company.com
+
+iOS/Android:
+  1. Download from App Store/Google Play
+  2. Open Palo Alto Networks app
+  3. Add portal: vpn.company.com
+  4. Authenticate with credentials
+  5. Connect
+

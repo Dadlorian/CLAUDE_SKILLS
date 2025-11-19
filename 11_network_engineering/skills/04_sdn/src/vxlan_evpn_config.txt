@@ -1,0 +1,67 @@
+! VXLAN + BGP EVPN Configuration Example
+! Cisco Nexus Switch
+
+! Global settings
+feature nv overlay
+feature vn-segment-vlan-based
+feature bgp
+feature evpn
+feature fabric forwarding
+
+! Loopback for VTEP source
+interface Loopback1
+  ip address 10.0.0.1 255.255.255.255
+
+! Create VXLAN network instance
+interface nve1
+  no shutdown
+  source-interface Loopback1
+  host-reachability protocol bgp
+
+! VNI 1001 - Production Network
+vlan 1001
+  name Production
+  vn-segment 1001
+
+interface Vlan1001
+  no shutdown
+  vrf member tenant-a
+  ip address 10.100.0.1 255.255.255.0
+  fabric forwarding mode anycast-gateway
+
+member vni 1001:
+  associate-vrf
+  ingress-replication protocol bgp
+
+! BGP Configuration
+router bgp 65001
+  router-id 10.0.0.1
+  address-family l2vpn evpn
+    neighbor 10.0.1.1 activate
+    neighbor 10.0.1.2 activate
+    advertise-all-vni
+    default-information originate
+
+! BGP Neighbor (Spine switches)
+neighbor 10.0.1.1
+  remote-as 65000
+  update-source Loopback1
+
+neighbor 10.0.1.2
+  remote-as 65000
+  update-source Loopback1
+
+! Physical uplink to spine
+interface Ethernet1/1
+  no shutdown
+  no switchport
+  ip address 10.1.0.1 255.255.255.0
+
+router bgp 65001
+  neighbor 10.1.0.254 remote-as 65000
+
+! Verify commands
+show nve interface
+show nve vni
+show bgp l2vpn evpn
+show mac address-table vlan 1001

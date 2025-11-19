@@ -1,0 +1,60 @@
+# IPFIX Configuration Reference (RFC 7011)
+
+## Cisco IOS-XE IPFIX Configuration
+
+flow exporter IPFIX_COLLECTOR
+  destination 10.0.0.100
+  source GigabitEthernet0/0
+  transport udp 4739
+  export-protocol ipfix
+  template data timeout 60
+  option application-table
+!
+
+flow monitor IPFIX_MONITOR
+  description "IPFIX data export"
+  record netflow ipv4 original-input
+  exporter IPFIX_COLLECTOR
+!
+
+interface GigabitEthernet0/0
+  ip flow monitor IPFIX_MONITOR input
+  ip flow monitor IPFIX_MONITOR output
+!
+
+## Juniper Junos IPFIX
+
+forwarding-options {
+    sampling {
+        input {
+            rate 1000;
+        }
+        output {
+            flow-server {
+                10.0.0.100 {
+                    port 4739;
+                    version ipfix;
+                    template-refresh-rate {
+                        packets 100;
+                        seconds 60;
+                    }
+                }
+            }
+        }
+    }
+}
+
+## Key Characteristics
+
+- Standard: RFC 7011
+- Port: UDP 4739 (IANA assigned)
+- Format: Binary with templates
+- Features: Extensible information elements
+- Enterprise specific: PEN support
+- Bidirectional flow: Supported
+
+---
+
+**Standard**: IPFIX (RFC 7011)
+**Evolution**: NetFlow v9 standardized form
+**Adoption**: Industry standard replacement for NetFlow

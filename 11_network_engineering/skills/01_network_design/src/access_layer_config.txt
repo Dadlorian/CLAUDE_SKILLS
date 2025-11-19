@@ -1,0 +1,167 @@
+! Access Layer Switch Configuration Template
+! Cisco Catalyst 9200L
+! Used for: User device connectivity, PoE delivery
+! Date: November 2025
+! Version: 1.0
+
+hostname Access-A1
+enable secret 5 $1$mERr$hx5rVt7rPNoS4wqbC3DzM0
+
+ip domain-name example.com
+ip name-server 8.8.8.8 8.8.4.4
+
+! ==============================================
+! VLAN DEFINITIONS
+! ==============================================
+
+vlan 1
+  name default
+!
+vlan 10
+  name Executive
+!
+vlan 20
+  name Finance
+!
+vlan 30
+  name Engineering
+!
+vlan 100
+  name Guest
+!
+vlan 110
+  name Voice
+!
+vlan 120
+  name Printers
+!
+
+! ==============================================
+! INTERFACE CONFIGURATION - ACCESS PORTS
+! ==============================================
+
+! User access ports (Finance department)
+interface range Gi0/0/1-24
+  description Access ports
+  switchport mode access
+  switchport access vlan 20
+  switchport port-security
+  switchport port-security maximum 2
+  spanning-tree portfast
+  spanning-tree bpdu-guard enable
+  !
+
+! Voice ports (IP phones)
+interface range Gi0/0/25-30
+  description IP Phone ports
+  switchport mode access
+  switchport access vlan 110
+  switchport voice vlan 110
+  power inline auto
+  spanning-tree portfast
+  spanning-tree bpdu-guard enable
+  !
+
+! Printer ports
+interface Gi0/0/31
+  description Printer
+  switchport mode access
+  switchport access vlan 120
+  spanning-tree portfast
+  spanning-tree bpdu-guard enable
+  !
+
+! WiFi AP ports
+interface Gi0/0/32
+  description WiFi AP
+  switchport mode access
+  switchport access vlan 100
+  power inline auto
+  spanning-tree portfast
+  spanning-tree bpdu-guard enable
+  !
+
+! ==============================================
+! UPLINK CONFIGURATION (EtherChannel)
+! ==============================================
+
+interface Port-channel 1
+  description Uplink to Distribution-A
+  switchport mode trunk
+  switchport trunk allowed vlan 1-120
+  switchport trunk native vlan 1
+  spanning-tree cost 1000
+  !
+
+interface Gi0/0/47
+  description Uplink Member 1
+  channel-group 1 mode active
+  !
+
+interface Gi0/0/48
+  description Uplink Member 2
+  channel-group 1 mode active
+  !
+
+! ==============================================
+! MANAGEMENT INTERFACE
+! ==============================================
+
+interface Vlan 20
+  description Management access
+  ip address 10.0.20.100 255.255.255.0
+  !
+
+! ==============================================
+! SPANNING TREE
+! ==============================================
+
+spanning-tree mode rapid-pvst
+spanning-tree portfast default
+spanning-tree bpdu-guard default
+
+! ==============================================
+! PoE CONFIGURATION
+! ==============================================
+
+power inline auto
+power inline max-allocation 885
+
+! ==============================================
+! SECURITY FEATURES
+! ==============================================
+
+! DHCP snooping
+ip dhcp snooping
+ip dhcp snooping vlan 20
+
+! Port security
+errdisable recovery cause psecure-violation
+errdisable recovery interval 300
+
+! ==============================================
+! MANAGEMENT
+! ==============================================
+
+snmp-server community public RO
+logging host 10.255.200.10
+
+line vty 0 4
+  privilege level 15
+  login local
+  !
+
+! ==============================================
+! VERIFICATION
+! ==============================================
+
+! show vlan id 20
+! show int port-channel 1 status
+! show power inline
+! show port-security
+! show spanning-tree
+! show running-config
+
+! ==============================================
+! END OF CONFIGURATION
+! ==============================================

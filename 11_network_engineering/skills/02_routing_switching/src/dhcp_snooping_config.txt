@@ -1,0 +1,186 @@
+! DHCP Snooping Configuration
+! Prevent rogue DHCP servers and track client bindings
+
+hostname DHCP-Snooping-Switch
+!
+! ***** Global DHCP Snooping Enable *****
+!
+ip dhcp snooping
+! Enable globally
+
+ip dhcp snooping vlan 10,20,30,40
+! Enable on specific VLANs
+
+ip dhcp snooping database flash:dhcp_bindings.txt
+! Persistent storage of bindings (optional)
+
+! ip dhcp snooping update statistics
+! ip dhcp snooping update statistics interval 3600
+
+!
+! ***** Uplink Port Configuration (DHCP Server Side) *****
+!
+interface GigabitEthernet0/48
+  description Uplink to DHCP Server
+  switchport mode access
+  switchport access vlan 10
+
+  ip dhcp snooping trust
+  ! Mark as trusted source of DHCP packets
+
+  ip dhcp snooping limit rate 100
+  ! Allow 100 packets per second (no limit on trusted ports)
+
+  no shutdown
+!
+!
+! ***** Access Port Configuration (Client Side) *****
+!
+interface range GigabitEthernet0/1-46
+  description Client Ports
+  switchport mode access
+
+  ! Do NOT trust client ports (default)
+  ! ip dhcp snooping trust (not set)
+
+  ! Rate limit DHCP packets from clients
+  ip dhcp snooping limit rate 10
+  ! Max 10 DHCP packets per second per port
+  ! Prevents DHCP starvation attacks
+
+  no shutdown
+!
+!
+! ***** DHCP Snooping Binding Database *****
+!
+! Manual save of bindings
+! ip dhcp snooping database flash:backup_bindings.txt
+
+! View current bindings
+! show ip dhcp snooping binding
+
+!
+! ***** DHCP Snooping with Source Guard *****
+!
+! ip dhcp snooping information option
+! Option 82 handling (circuit ID tracking)
+
+! Untrusted port behavior
+! ip dhcp snooping information option default
+! ip dhcp snooping information option remote-id switch-name
+
+!
+! ***** Verification and Monitoring *****
+!
+! show ip dhcp snooping
+! Show global DHCP snooping status
+
+! show ip dhcp snooping binding
+! View client IP-MAC-port bindings
+
+! Format:
+! IP Address      Hardware Address  Lease(sec) Interface
+! 10.0.0.101      aaaa.bbbb.cccc    3600       Gi0/1
+! 10.0.0.102      aaaa.bbbb.ccdd    3600       Gi0/2
+
+! show ip dhcp snooping stats
+! Statistics of DHCP snooping
+
+! show ip dhcp snooping vlan 10
+! VLAN-specific snooping status
+
+!
+! ***** DHCP Snooping Limits *****
+!
+! Default rate limit: 100 packets per second
+! - Can be adjusted per interface
+! - Trusted ports typically unlimited
+! - Prevents DHCP exhaustion attacks
+
+! Example limits:
+! ip dhcp snooping limit rate 5
+! - Very restrictive (5 pps)
+! ip dhcp snooping limit rate 100
+! - Standard (100 pps)
+! (no limit command) = no rate limiting
+!
+!
+! ***** DHCP Snooping + DAI Integration *****
+!
+! DHCP snooping builds binding table
+! DAI uses binding table to verify ARP
+
+! Requires DHCP snooping enabled first
+! Then enable DAI using same binding table
+
+ip arp inspection vlan 10,20,30,40
+
+interface GigabitEthernet0/48
+  ip arp inspection trust
+  ! Trusted for both DHCP and ARP
+
+interface range GigabitEthernet0/1-46
+  ! DAI validates against DHCP bindings
+!
+!
+! ***** DHCP Snooping Best Practices *****
+!
+! 1. Enable on all VLANs
+! 2. Mark uplinks as trusted
+! 3. Rate limit access ports
+! 4. Store bindings persistently
+! 5. Monitor for violations
+! 6. Combine with DAI
+! 7. Combine with port security
+! 8. Document DHCP servers
+! 9. Alert on binding table exhaustion
+! 10. Regular verification and testing
+!
+!
+! ***** Attack Prevention *****
+!
+! DHCP Starvation:
+! - Attacker sends DHCP requests from many MACs
+! - Exhausts DHCP pool
+! - Legitimate clients can't get IPs
+! - Prevention: Rate limit + snooping trust
+!
+! Rogue DHCP Server:
+! - Attacker spoofs DHCP server
+! - Sends fake IP assignments
+! - Redirects traffic via attacker
+! - Prevention: DHCP snooping trust on uplinks
+!
+! DHCP Spoofing:
+! - Attacker spoofs DHCP messages
+! - Prevention: DHCP snooping with authentication
+!
+!
+! ***** Configuration Example Summary *****
+!
+! 1. Enable snooping globally
+! 2. Enable on VLANs needing protection
+! 3. Mark DHCP server ports as trusted
+! 4. Rate limit all access ports
+! 5. Enable DAI for ARP protection
+! 6. Monitor bindings table
+! 7. Alert on anomalies
+!
+!
+! ***** Troubleshooting DHCP Issues *****
+!
+! No DHCP leases issued:
+! - Verify DHCP snooping trust on uplink
+! - Check rate limit not exceeded
+! - Verify DHCP server accessibility
+!
+! Excessive snooping messages:
+! - Check for DHCP starvation attack
+! - Review rate limit settings
+! - Monitor binding table size
+!
+! Performance degradation:
+! - DHCP snooping adds per-packet processing
+! - Monitor CPU impact
+! - Consider dedicated hardware
+!

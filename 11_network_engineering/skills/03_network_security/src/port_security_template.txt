@@ -1,0 +1,31 @@
+! Port Security Configuration
+! Prevent Unauthorized Device Access
+
+! Enable port security globally
+switchport port-security
+
+! Per-port configuration
+interface FastEthernet0/1
+ description User Workstation
+ switchport mode access
+ switchport access vlan 10
+ switchport port-security
+ switchport port-security maximum 1
+ switchport port-security violation shutdown
+ switchport port-security mac-address sticky
+ switchport port-security aging type inactivity
+ switchport port-security aging time 30
+
+! Trunk port (allow multiple MAC)
+interface GigabitEthernet0/48
+ switchport mode trunk
+ switchport port-security maximum 100
+
+! Verify configuration
+! show port-security
+! show port-security interface FastEthernet0/1
+! show port-security address
+
+! Recovery from violation
+! clear port-security all
+! no shutdown (on interface)

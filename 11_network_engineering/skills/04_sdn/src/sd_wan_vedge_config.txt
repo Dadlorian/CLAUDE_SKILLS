@@ -1,0 +1,56 @@
+# SD-WAN vEdge Configuration
+
+system
+ host-name branch-1-vedge
+ system-ip 192.168.1.1
+ site-id 10
+ organization-name "My-Company"
+
+vpn 0
+ interface ge0/1
+  ip address 203.0.113.10 255.255.255.0
+  color mpls
+  speed 50
+  preference 1
+  
+ interface ge0/2
+  ip address 198.51.100.10 255.255.255.0
+  color internet
+  speed 30
+  preference 2
+
+ dns 8.8.8.8
+ gateway 203.0.113.1
+
+vpn 1
+ interface ge0/0
+  ip address 192.168.100.1 255.255.255.0
+  description "LAN Interface"
+
+policy
+ app-route-policy
+  route
+   traffic salesforce
+   action
+    prefer-color internet
+    fallback [internet mpls]
+
+ traffic-policy
+  rule 10
+   match
+    traffic voice
+   action
+    set-dscp 46
+    priority high
+
+omp
+ send-path-limit 4
+ ecmp-limit 4
+ timers
+  holdtime 60
+  advertisement-interval 30
+
+security
+ ipsec
+  replay-window 64
+  rekey-interval 3600

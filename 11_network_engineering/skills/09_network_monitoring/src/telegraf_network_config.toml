@@ -1,0 +1,44 @@
+[global_tags]
+  site = "primary"
+  environment = "production"
+
+[agent]
+  interval = "120s"
+  flush_interval = "120s"
+  debug = false
+
+[[inputs.snmp]]
+  agents = ["192.168.1.1", "192.168.1.2"]
+  version = 3
+  sec_level = "authPriv"
+  sec_name = "monitoring"
+  auth_protocol = "SHA"
+  auth_password = "Monitoring@Auth"
+  priv_protocol = "AES"
+  priv_password = "Monitoring@Priv"
+  
+  [[inputs.snmp.field]]
+    oid = "SNMPv2-MIB::sysUpTime.0"
+    name = "uptime"
+    
+  [[inputs.snmp.table]]
+    oid = "IF-MIB::ifTable"
+    name = "interface"
+    index_as_tag = true
+
+[[inputs.net]]
+  interfaces = ["eth0", "eth1"]
+  ignore_protocol_stats = false
+
+[[inputs.system]]
+  # Gather system metrics
+
+[[outputs.influxdb_v2]]
+  urls = ["http://localhost:8086"]
+  token = "YOUR_TOKEN"
+  organization = "monitoring"
+  bucket = "network_metrics"
+
+[[outputs.prometheus_client]]
+  listen = ":9273"
+  path = "/metrics"

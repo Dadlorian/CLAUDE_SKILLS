@@ -1,0 +1,64 @@
+! Network Security Baseline Configuration
+! Minimum Security Standards
+
+! ===== Firewall Baseline =====
+aaa new-model
+aaa authentication ssh console RADIUS LOCAL
+aaa authorization exec default group RADIUS local
+aaa accounting exec default start-stop group RADIUS
+
+line vty 0 15
+ transport input ssh
+ no transport input telnet
+ exec-timeout 30 0
+ password encryption aes
+
+! ===== SNMP Security =====
+no snmp-server community public
+no snmp-server community private
+snmp-server community SuperSecretCommunity RO 10.1.100.0 255.255.255.0
+snmp-server traps
+
+! ===== Logging Baseline =====
+logging console critical
+logging buffer 512000
+logging host 10.1.50.10 facility LOCAL3
+logging source-interface GigabitEthernet0/0
+
+! ===== NTP Security =====
+ntp authentication enable
+ntp authenticate
+ntp trusted-key 1
+ntp authentication-key 1 md5 SuperSecretNTPKey!
+
+! ===== Routing Security =====
+no ip source-route
+ip directed-broadcast
+no ip unreachables
+no ip mask-reply
+ip default-gateway 10.1.1.254
+
+! ===== BGP Security (if applicable) =====
+router bgp 65001
+ bgp log-neighbor-changes
+ neighbor 10.1.254.1 remote-as 65002
+ neighbor 10.1.254.1 password SuperSecretBGPKey!
+ neighbor 10.1.254.1 timers 10 30
+
+! ===== Encryption Baseline =====
+crypto key generate rsa modulus 2048
+crypto key zeroise rsa
+
+! ===== Port Security =====
+switchport port-security
+switchport port-security maximum 1
+switchport port-security violation shutdown
+
+! ===== Interface Security =====
+no ip directed-broadcast
+no ip unreachables
+no ip mask-reply
+
+! ===== File System Security =====
+file privilege password SuperSecretFilePassword!
+

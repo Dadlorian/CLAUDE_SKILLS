@@ -1,0 +1,218 @@
+# Cisco FlexVPN Configuration
+# Modern IKEv2-based VPN with flexibility and scalability
+
+! ===================== IKEv2 CONFIGURATION =====================
+
+crypto ikev2 proposal FLEXVPN-PROPOSAL
+ encryption aes-cbc-256
+ integrity sha256
+ group 14
+ prf sha256
+
+crypto ikev2 policy FLEXVPN-POLICY
+ proposal FLEXVPN-PROPOSAL
+
+crypto ikev2 keyring FLEXVPN-KEYRING
+ peer 0.0.0.0 0.0.0.0
+  address 0.0.0.0
+  pre-shared-key FlexVPN-Key-12345!
+
+crypto ikev2 profile FLEXVPN-PROFILE
+ match identity remote address 0.0.0.0
+ authentication remote pre-share
+ authentication local pre-share
+ keyring FLEXVPN-KEYRING
+ lifetime 86400
+ ipsec-proposal FLEXVPN-TRANSFORM
+ aaa-attributes
+  send username initiator
+ exit
+
+! ===================== IPsec CONFIGURATION =====================
+
+crypto ipsec transform-set FLEXVPN-TRANSFORM esp-aes 256 esp-sha-hmac
+ mode tunnel
+
+crypto ipsec profile FLEXVPN-IPSEC
+ set transform-set FLEXVPN-TRANSFORM
+ set pfs group14
+ set security-association lifetime seconds 3600
+ set replay window-size 128
+ set security-association lifetime kilobytes 100000
+
+! ===================== VIRTUAL TUNNEL INTERFACE =====================
+
+interface Tunnel0
+ description FlexVPN Tunnel Interface
+ ip address 172.16.0.1 255.255.255.0
+ ip mtu 1400
+ ip tcp adjust-mss 1360
+ tunnel source GigabitEthernet0/0
+ tunnel mode ipsec ipv4
+ tunnel protection ipsec profile FLEXVPN-IPSEC ikev2 FLEXVPN-PROFILE
+ no shutdown
+
+! ===================== ROUTING CONFIGURATION =====================
+
+router eigrp 100
+ eigrp router-id 1.1.1.1
+ network 172.16.0.0 0.0.0.255
+ network 10.0.0.0 0.0.255.255
+ passive-interface default
+ no passive-interface Tunnel0
+ 
+ address-family ipv4 unicast autonomous-system 100
+  af-interface Tunnel0
+   summary-address 10.0.0.0 255.0.0.0
+  exit-af-interface
+ exit-address-family
+
+! ===================== DYNAMIC PEER DISCOVERY =====================
+
+! Optional: Use controller-based peer discovery
+! Configure on hub to distribute peer list
+crypto ipsec peer-list PEER-DISCOVERY
+ peer 192.168.1.0 255.255.255.0
+ peer 192.168.2.0 255.255.255.0
+ peer 192.168.3.0 255.255.255.0
+
+! ===================== MOBILITY AND MULTIHOMING =====================
+
+crypto ikev2 profile FLEXVPN-PROFILE
+ mobike enable  ! Enable MobIKE for seamless roaming
+ no exit       ! Don't exit tunnel on mobility event
+
+! ===================== QUALITY OF SERVICE =====================
+
+class-map CRITICAL
+ match access-group 101
+
+class-map BUSINESS
+ match access-group 102
+
+policy-map FLEXVPN-QOS
+ class CRITICAL
+  priority percent 40
+ class BUSINESS
+  bandwidth percent 30
+ class class-default
+  bandwidth percent 30
+
+interface Tunnel0
+ service-policy output FLEXVPN-QOS
+
+! ===================== REDUNDANCY CONFIGURATION =====================
+
+! Primary peer
+crypto ikev2 profile FLEXVPN-PROFILE
+ match identity remote address 203.0.113.1
+ peer 203.0.113.1
+
+! Secondary peer (backup)
+crypto ikev2 profile FLEXVPN-BACKUP
+ match identity remote address 203.0.113.2
+ peer 203.0.113.2
+
+! ===================== CERTIFICATE-BASED AUTHENTICATION =====================
+
+! Optional: Use certificates instead of PSK
+crypto pki trustpoint CA-CERT
+ enrollment url http://ca.corp.internal
+ serial-number
+ fqdn flexvpn.corp.internal
+ subject-name CN=flexvpn.corp.internal, OU=IT, O=Company, L=City, ST=State, C=US
+
+crypto pki enroll CA-CERT
+
+! ===================== DPD AND KEEPALIVE =====================
+
+crypto ikev2 profile FLEXVPN-PROFILE
+ dpd 10 3 on-demand  ! DPD every 10 sec, timeout after 3 retries
+
+! ===================== ADVANCED FEATURES =====================
+
+! Traffic class based routing
+ip access-list extended CRITICAL-TRAFFIC
+ permit tcp any any eq 3200  ! SAP
+ permit tcp any any eq 1521  ! Oracle
+
+ip access-list extended BUSINESS-TRAFFIC
+ permit tcp any any eq 443   ! HTTPS
+ permit tcp any any eq 80    ! HTTP
+
+! Apply to routing policy
+route-map FLEXVPN-POLICY permit 10
+ match ip address CRITICAL-TRAFFIC
+ set interface Tunnel0
+ set ip next-hop 172.16.0.2
+
+! ===================== CLOUDFLARE & INTERNET ACCELERATION =====================
+
+! Optional: CloudFlare Argo integration
+crypto ipsec profile FLEXVPN-IPSEC
+ set peer-id-check selfsigned
+
+! ===================== MONITORING AND VERIFICATION =====================
+
+! Check IKEv2 SAs
+! show crypto ikev2 sa
+
+! Check IPsec SAs
+! show crypto ipsec sa
+
+! View tunnel status
+! show interface Tunnel0
+
+! Verify EIGRP neighbors
+! show ip eigrp neighbors
+
+! Monitor DPD
+! debug crypto ikev2 dpd
+
+! ===================== SITE-TO-SITE EXAMPLE =====================
+
+! Hub configuration
+interface Tunnel0
+ description FlexVPN Hub
+ ip address 172.16.0.1 255.255.255.0
+ tunnel source 203.0.113.1
+ tunnel mode ipsec ipv4
+ tunnel protection ipsec profile FLEXVPN-IPSEC ikev2 FLEXVPN-PROFILE
+
+! Spoke configuration
+interface Tunnel1
+ description FlexVPN Spoke
+ ip address 172.16.0.2 255.255.255.0
+ tunnel source 203.0.113.10
+ tunnel destination 203.0.113.1
+ tunnel mode ipsec ipv4
+ tunnel protection ipsec profile FLEXVPN-IPSEC ikev2 FLEXVPN-PROFILE
+
+! ===================== STATELESS FAILOVER =====================
+
+! Multiple tunnel interfaces for redundancy
+interface Tunnel0
+ tunnel destination 203.0.113.1
+
+interface Tunnel1
+ tunnel destination 203.0.113.2
+
+! Route to both
+ip route 10.0.0.0 255.0.0.0 172.16.0.1
+ip route 10.0.0.0 255.0.0.0 172.16.1.1 (metric 200)
+
+! ===================== TROUBLESHOOTING COMMANDS =====================
+
+! Show all FlexVPN information
+! show crypto ikev2 sa detailed
+! show crypto ipsec sa detail
+
+! Monitor traffic
+! show interface Tunnel0 | include "packets|dropped|errors"
+
+! View certificate information
+! show crypto pki certificate
+
+! Monitor performance
+! show policy-map interface Tunnel0
+

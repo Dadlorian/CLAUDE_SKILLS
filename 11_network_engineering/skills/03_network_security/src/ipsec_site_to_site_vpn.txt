@@ -1,0 +1,260 @@
+! IPsec Site-to-Site VPN Configuration
+! Production-Grade IKEv2 Configuration
+! Site A (Primary) - 10.1.0.0/16
+
+! =====================================
+! IKEv2 Proposal and Policy
+! =====================================
+
+crypto ikev2 proposal SITE_TO_SITE
+ encryption aes-cbc-256
+ integrity sha384
+ group 15
+ lifetime 28800
+
+crypto ikev2 policy 1
+ proposal SITE_TO_SITE
+ lifetime 28800
+ prf sha512
+
+! =====================================
+! IKEv2 Keyring
+! =====================================
+
+crypto ikev2 keyring KEY_RING
+ peer 203.0.113.50
+  address 203.0.113.50
+  pre-shared-key SuperSecureKey123!ABC!
+
+! =====================================
+! IKEv2 Profile
+! =====================================
+
+crypto ikev2 profile IKE_PROFILE
+ keyring KEY_RING
+ lifetime 28800
+ match identity remote address 203.0.113.50
+
+! =====================================
+! IPsec Phase 2 Transform Set
+! =====================================
+
+crypto ipsec transform-set SITE_TO_SITE
+ esp-aes 256
+ esp-sha512-hmac
+ pfs group15
+ mode tunnel
+
+! =====================================
+! Traffic to Encrypt
+! =====================================
+
+access-list ENCRYPT_TRAFFIC permit ip 10.1.0.0 255.255.0.0 10.2.0.0 255.255.0.0
+
+! =====================================
+! Crypto Map
+! =====================================
+
+crypto map SITE_TO_SITE_MAP 1 ipsec-isakmp
+ set peer 203.0.113.50
+ set ikev2-profile IKE_PROFILE
+ set access-list ENCRYPT_TRAFFIC
+ set transform-set SITE_TO_SITE
+ set pfs group15
+ set lifetime seconds 3600
+ set perfect-forward-secrecy group15
+
+! =====================================
+! Apply Crypto Map to Interface
+! =====================================
+
+interface GigabitEthernet0/0
+ nameif outside
+ security-level 0
+ ip address 203.0.113.1 255.255.255.0
+ crypto map SITE_TO_SITE_MAP
+
+! =====================================
+! DPD (Dead Peer Detection)
+! =====================================
+
+crypto ikev2 dpd 10 3 on-demand
+
+! =====================================
+! Enable IKEv2
+! =====================================
+
+crypto ikev2 enable outside
+
+! =====================================
+! Logging and Monitoring
+! =====================================
+
+logging host inside 10.1.50.10 facility LOCAL3 level informational
+logging enable
+logging class crypto-protocols notifications
+logging class crypto-state notifications
+
+! =====================================
+! Verification Commands
+! =====================================
+
+! Check IKEv2 Phase 1
+! show crypto ikev2 sa
+! show crypto ikev2 sa detailed
+
+! Check IPsec Phase 2
+! show crypto ipsec sa interface GigabitEthernet0/0
+! show crypto ipsec sa detail
+
+! Test Connectivity
+! ping 10.2.1.1  (source 10.1.1.1)
+! traceroute 10.2.1.1
+
+! View Statistics
+! show crypto ipsec sa
+!   (look for "packets encaps" and "packets decaps")
+
+! =====================================
+! Site B Configuration (Secondary)
+! =====================================
+
+! crypto ikev2 proposal SITE_TO_SITE
+!  encryption aes-cbc-256
+!  integrity sha384
+!  group 15
+!  lifetime 28800
+!
+! crypto ikev2 policy 1
+!  proposal SITE_TO_SITE
+!  lifetime 28800
+!  prf sha512
+!
+! crypto ikev2 keyring KEY_RING
+!  peer 203.0.113.1
+!   address 203.0.113.1
+!   pre-shared-key SuperSecureKey123!ABC!
+!
+! crypto ikev2 profile IKE_PROFILE
+!  keyring KEY_RING
+!  lifetime 28800
+!  match identity remote address 203.0.113.1
+!
+! crypto ipsec transform-set SITE_TO_SITE
+!  esp-aes 256
+!  esp-sha512-hmac
+!  pfs group15
+!  mode tunnel
+!
+! access-list ENCRYPT_TRAFFIC permit ip 10.2.0.0 255.255.0.0 10.1.0.0 255.255.0.0
+!
+! crypto map SITE_TO_SITE_MAP 1 ipsec-isakmp
+!  set peer 203.0.113.1
+!  set ikev2-profile IKE_PROFILE
+!  set access-list ENCRYPT_TRAFFIC
+!  set transform-set SITE_TO_SITE
+!  set pfs group15
+!  set lifetime seconds 3600
+!
+! interface GigabitEthernet0/0
+!  nameif outside
+!  ip address 203.0.113.50 255.255.255.0
+!  crypto map SITE_TO_SITE_MAP
+!
+! crypto ikev2 dpd 10 3 on-demand
+! crypto ikev2 enable outside
+
+! =====================================
+! Security Considerations
+! =====================================
+
+! Perfect Forward Secrecy (PFS)
+! - Enabled with "set pfs group15"
+! - New key for each session
+! - Compromise of main key doesn't expose past sessions
+! - Additional CPU cost: 5-10%
+
+! DPD Configuration
+! - Interval: 10 seconds (keep-alive)
+! - Retries: 3
+! - Mode: on-demand (only when idle)
+
+! Key Exchange Groups
+! DH Group 15 = 3072-bit (Recommended for 256-bit AES)
+! DH Group 16 = 4096-bit (Stronger, slower)
+! DH Group 19 = Curve P-256
+! DH Group 20 = Curve P-384
+
+! =====================================
+! Troubleshooting
+! =====================================
+
+! Issue: Tunnel won't come up
+! Diagnosis:
+! 1. Verify peer IP correct
+! 2. Verify pre-shared key matches
+! 3. Check firewall rules allow 500/udp (IKE)
+! 4. Check firewall rules allow 4500/udp (NAT-T)
+! 5. Check firewall rules allow 50 (ESP)
+! 6. Check encryption algorithms match
+!
+! debug crypto ikev2
+! debug crypto ipsec
+! show log
+
+! Issue: Asymmetric traffic (encaps ≠ decaps)
+! Possible causes:
+! - Return traffic going different path
+! - Reverse ACL not configured
+! - Routing issue on remote site
+!
+! Solution:
+! - Verify traffic flows both directions
+! - Check return ACL
+! - Verify routing on both sides
+
+! Issue: Tunnel keeps going down
+! Possible causes:
+! - DPD timeout too aggressive
+! - Network instability
+! - Firewall blocking keepalives
+!
+! Solution:
+! - Increase DPD timeout
+! - Check network stability
+! - Verify firewall allows ESP traffic
+
+! =====================================
+! Best Practices
+! =====================================
+
+! 1. Always use strong PSK
+!    - Minimum 32 characters
+!    - Mix uppercase, lowercase, numbers, special chars
+!    - Example: Th!s1sStr0ng#PSK@2024#Key!
+
+! 2. Use PFS (Perfect Forward Secrecy)
+!    - Enables "set pfs group15"
+!    - Better security for past sessions
+!    - Small performance impact
+
+! 3. Monitor tunnel status
+!    - Set up monitoring on "show crypto ipsec sa"
+!    - Alert on tunnel down
+!    - Monitor for re-keying
+
+! 4. Test failover
+!    - Configure secondary path
+!    - Test automatic failover
+!    - Ensure seamless switchover
+
+! 5. Regular key rotation
+!    - Rotate PSK annually
+!    - Update both sites simultaneously
+!    - Minimal service interruption
+
+! 6. Log all VPN activity
+!    - Crypto events
+!    - Authentication attempts
+!    - Tunnel state changes
+!    - Centralize logs to SIEM

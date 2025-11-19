@@ -1,0 +1,235 @@
+! Dynamic ARP Inspection (DAI) Configuration
+! Prevent ARP spoofing and MAC table poisoning
+
+hostname DAI-Protected-Switch
+!
+! ***** Prerequisites *****
+!
+! DHCP snooping must be enabled first
+ip dhcp snooping
+ip dhcp snooping vlan 10,20,30,40
+
+!
+! ***** Global DAI Configuration *****
+!
+ip arp inspection vlan 10,20,30,40
+! Enable DAI on specific VLANs
+
+! Default settings:
+! - Uses DHCP snooping binding table
+! - Validates source MAC, destination MAC, IP
+! - Drops invalid ARP packets
+!
+! ip arp inspection log-buffer entries 32
+! ip arp inspection log-buffer logs 5
+! DAI logging configuration
+!
+!
+! ***** Trusted Ports *****
+!
+! Mark upstream and router ports as trusted
+interface GigabitEthernet0/48
+  description Uplink to Gateway/Router
+  ip arp inspection trust
+  ! Both DHCP and ARP
+
+  ip dhcp snooping trust
+  ! DHCP snooping also trusts this port
+
+  no shutdown
+!
+interface GigabitEthernet0/47
+  description Trunk to Switch-B
+  ip arp inspection trust
+  # Trunk ports also need trust if carrying VLANs with DAI
+
+  no shutdown
+!
+!
+! ***** Access Ports (Untrusted) *****
+!
+interface range GigabitEthernet0/1-46
+  description User/Server Ports
+  ! NOT marked as trusted (default)
+  ! DAI will validate ARP from these ports
+
+  ip dhcp snooping limit rate 10
+  no shutdown
+!
+!
+! ***** ARP ACLs for Static IP Devices *****
+!
+! For servers with static IPs (not via DHCP)
+! Create ARP ACL to validate their ARP messages
+
+arp access-list STATIC-IPS
+  permit ip host 10.0.0.10 mac host aaaa.bbbb.0010
+  ! Server 1 - IP 10.0.0.10, MAC aaaa.bbbb.0010
+
+  permit ip host 10.0.0.11 mac host aaaa.bbbb.0011
+  ! Server 2 - IP 10.0.0.11, MAC aaaa.bbbb.0011
+
+  permit ip host 10.0.0.12 mac host aaaa.bbbb.0012
+  ! Server 3 - IP 10.0.0.12, MAC aaaa.bbbb.0012
+
+  permit ip host 192.168.1.1 mac host cccc.dddd.eeee
+  ! Router - IP 192.168.1.1, MAC cccc.dddd.eeee
+
+  deny ip any mac any
+  ! Block unknown IPs (implicit)
+!
+!
+! ***** Apply ARP ACLs to VLANs *****
+!
+ip arp inspection filter STATIC-IPS vlan 100
+! VLAN 100 (servers) uses STATIC-IPS ACL
+
+! Combine DHCP snooping + static ACLs:
+! - DHCP clients: validated against DHCP table
+! - Static devices: validated against ARP ACL
+! - Others: dropped
+!
+!
+! ***** DAI Configuration Options *****
+!
+! Validation types
+ip arp inspection validation src-mac
+! Source MAC must match sender MAC field
+
+ip arp inspection validation dst-mac
+! Destination MAC must match target MAC field
+
+ip arp inspection validation ip
+! IP address validity check (detect invalid IPs)
+
+! Typical: enable all
+ip arp inspection validation src-mac dst-mac ip
+!
+!
+! ***** Verification and Monitoring *****
+!
+! show ip arp inspection
+! Global DAI status
+
+! show ip arp inspection vlan 10
+! VLAN-specific DAI status
+
+! show ip arp inspection statistics
+! DAI statistics (dropped packets, etc)
+
+! show ip arp inspection statistics vlan 10
+! Per-VLAN statistics
+
+! show arp access-list
+! View configured ARP ACLs
+
+! show arp access-list STATIC-IPS
+! Specific ARP ACL details
+!
+!
+! ***** DAI Logging *****
+!
+ip arp inspection log-buffer entries 256
+! Buffer for syslog messages
+
+ip arp inspection log-buffer logs 5
+! Rate limiting for syslog
+
+! View logs
+! show log | include DAI
+! show log | include ARP-INSPECTION
+!
+!
+! ***** Interaction with DHCP Snooping *****
+!
+! DHCP snooping creates binding table:
+! IP | MAC | VLAN | Port | Lease Time
+! 10.0.0.100 | aaaa.bbbb.cccc | 10 | Gi0/1 | 3600
+
+! DAI uses binding table:
+! ARP from 10.0.0.100 on Gi0/1:
+!   - If MAC = aaaa.bbbb.cccc: ALLOW
+!   - If MAC != aaaa.bbbb.cccc: DROP
+!   - Prevents IP spoofing
+!
+!
+! ***** Common Issues *****
+!
+! Legitimate traffic blocked:
+! - Interface not marked trusted when needed
+! - Static device not in ARP ACL
+! - DHCP binding table empty
+! - Solution: Temporarily disable DAI to test
+!
+! Performance degradation:
+! - DAI adds per-packet validation overhead
+! - Monitor CPU with: show processes cpu
+! - Consider hardware acceleration
+!
+! False positives:
+! - Mobile devices changing MACs
+! - Device failover with different MAC
+! - Solution: Add to ARP ACL or trust port
+!
+!
+! ***** DAI Security Benefits *****
+!
+! Prevents ARP spoofing attacks
+! Prevents MAC address table poisoning
+! Prevents DHCP impersonation
+! Prevents default gateway impersonation
+! Prevents man-in-the-middle attacks
+!
+!
+! ***** Deployment Strategy *****
+!
+! 1. Enable DHCP snooping first
+! 2. Mark uplinks as trusted
+! 3. Enable DAI in report mode (monitor)
+! 4. Identify false positives
+! 5. Create ARP ACLs for static devices
+! 6. Switch to enforcing mode
+! 7. Monitor for issues
+! 8. Document exceptions
+!
+!
+! ***** Best Practices *****
+!
+! 1. Always trust uplink ports
+! 2. Create ARP ACLs for static IPs
+! 3. Combine with DHCP snooping
+! 4. Combine with port security
+! 5. Monitor regularly
+! 6. Alert on ARP inspection drops
+! 7. Document all trusted ports
+! 8. Test failover scenarios
+! 9. Log all inspection activity
+! 10. Review and adjust policies quarterly
+!
+!
+! ***** Example Comprehensive Configuration *****
+!
+! Global:
+! ip dhcp snooping
+! ip dhcp snooping vlan 1,10,20,30,40
+! ip arp inspection vlan 1,10,20,30,40
+! ip arp inspection validation src-mac dst-mac ip
+!
+! Uplink:
+! interface GigabitEthernet0/48
+!   ip dhcp snooping trust
+!   ip arp inspection trust
+! !
+!
+! Access ports:
+! interface range Gi0/1-46
+!   ip dhcp snooping limit rate 10
+! !
+!
+! Static servers:
+! arp access-list SERVERS
+!   permit ip host 10.0.0.10 mac host aaaa.bbbb.0010
+!   deny ip any mac any
+! !
+! ip arp inspection filter SERVERS vlan 100
+!

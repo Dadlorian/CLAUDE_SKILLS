@@ -1,0 +1,88 @@
+# GRE over IPsec Configuration (Cisco IOS)
+# Provides unicast and multicast support through IPsec tunnel
+
+! Source Interface (where GRE starts)
+interface Tunnel0
+  description GRE Tunnel over IPsec to Branch
+  ip address 172.16.0.1 255.255.255.0
+  tunnel source 203.0.113.1
+  tunnel destination 203.0.113.20
+  ip mtu 1400
+  no shutdown
+
+! IPsec Configuration for GRE Protection
+
+! IKEv2 Proposal
+crypto ikev2 proposal GRE-PROPOSAL
+  encryption aes-256-cbc
+  integrity sha256
+  group 14
+  prf sha256
+
+! IKEv2 Policy
+crypto ikev2 policy 10
+  proposal GRE-PROPOSAL
+
+! IKEv2 Keyring
+crypto ikev2 keyring GRE-KEYRING
+  peer 203.0.113.20
+    address 203.0.113.20
+    pre-shared-key GRE_IPSec_Key!@#
+
+! IKEv2 Profile
+crypto ikev2 profile GRE-PROFILE
+  match identity address 203.0.113.20
+  authentication remote pre-share
+  authentication local pre-share
+  keyring GRE-KEYRING
+  lifetime 28800
+  ipsec-proposal GRE-TRANSFORM
+
+! IPsec Transform Set (ESP with authentication)
+crypto ipsec transform-set GRE-TRANSFORM esp-aes 256 esp-sha-hmac
+  mode tunnel
+
+! IPsec Profile
+crypto ipsec profile GRE-IPSEC
+  set transform-set GRE-TRANSFORM
+  set pfs group14
+  set security-association lifetime seconds 3600
+
+! Tunnel Protection (applies IPsec to GRE tunnel)
+interface Tunnel0
+  tunnel protection ipsec profile GRE-IPSEC ikev2 GRE-PROFILE
+
+! Access List for GRE traffic (permit all traffic in tunnel)
+access-list 101 permit gre host 203.0.113.1 host 203.0.113.20
+
+! EIGRP Configuration over GRE Tunnel (optional)
+router eigrp 100
+  network 172.16.0.0 0.0.0.255
+  network 10.0.0.0
+
+interface Tunnel0
+  ip summary-address eigrp 100 10.0.0.0 255.0.0.0
+
+! NAT Exemption
+access-list NO-NAT extended permit gre host 203.0.113.1 host 203.0.113.20
+nat (inside,outside) source static any any destination static 203.0.113.20 203.0.113.20 no-proxy-arp route-lookup
+
+! QoS Configuration
+class-map CRITICAL-GRE
+  match access-group 101
+
+policy-map GRE-QOS
+  class CRITICAL-GRE
+    priority percent 40
+
+interface Tunnel0
+  service-policy output GRE-QOS
+
+! Verification Commands
+! show crypto ikev2 sa
+! show crypto ipsec sa
+! show interface Tunnel0
+! show ip eigrp neighbors
+! debug crypto ikev2 protocol
+! debug crypto ipsec
+! ping 172.16.0.2 (verify tunnel)

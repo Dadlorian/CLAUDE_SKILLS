@@ -1,0 +1,65 @@
+# VXLAN + BGP EVPN Configuration Reference
+
+# Enable required features
+feature nv overlay
+feature vn-segment-vlan-based
+feature bgp
+feature evpn
+
+# Configure Route Reflector (Spine)
+router bgp 65000
+  bgp log-neighbor-changes
+  neighbor 10.0.0.1 remote-as 65000
+  neighbor 10.0.0.2 remote-as 65000
+  !
+  address-family l2vpn evpn
+    neighbor 10.0.0.1 activate
+    neighbor 10.0.0.2 activate
+    neighbor 10.0.0.1 route-reflector-client
+    neighbor 10.0.0.2 route-reflector-client
+
+# Configure Leaf BGP
+router bgp 65001
+  router-id 10.0.0.1
+  neighbor 10.0.1.1 remote-as 65000
+  neighbor 10.0.1.2 remote-as 65000
+  !
+  address-family l2vpn evpn
+    neighbor 10.0.1.1 activate
+    neighbor 10.0.1.2 activate
+    advertise-all-vni
+
+# VXLAN Interface
+interface nve1
+  no shutdown
+  source-interface Loopback0
+  host-reachability protocol bgp
+
+# VNI Configuration
+vlan 1001
+  vn-segment 1001
+
+interface nve1
+  member vni 1001
+    associate-vrf
+    ingress-replication protocol bgp
+
+# Verify EVPN Routes
+show bgp l2vpn evpn
+show bgp l2vpn evpn neighbors
+show nve peers
+show nve vni
+show vxlan
+
+# EVPN Route Types
+# Type 1: Ethernet AD Route (auto-discovery)
+# Type 2: MAC/IP Advertisement Route
+# Type 3: Inclusive Multicast Route
+# Type 4: Ethernet Segment Route
+# Type 5: IP Prefix Route
+
+# Symmetrix IRB (Integrated Routing & Bridging)
+interface vlan 1001
+  vrf member VRF-A
+  ip address 10.100.0.1 255.255.255.0
+  fabric forwarding mode anycast-gateway

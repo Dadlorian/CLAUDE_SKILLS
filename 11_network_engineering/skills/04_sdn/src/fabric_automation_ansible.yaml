@@ -1,0 +1,72 @@
+---
+- name: Deploy SDN Fabric Configuration
+  hosts: sdn_spines
+  gather_facts: yes
+  
+  vars:
+    controller_url: "http://10.0.0.1:8181"
+    fabric_asn: 65000
+    vxlan_enabled: true
+
+  roles:
+    - { role: fabric-base, tags: base }
+    - { role: bgp-evpn, tags: control-plane }
+    - { role: vxlan-config, tags: overlay }
+
+  tasks:
+    - name: Configure spine BGP
+      ios_config:
+        lines:
+          - router bgp {{ fabric_asn }}
+          - address-family l2vpn evpn
+          - advertise-all-vni
+        parents: router bgp {{ fabric_asn }}
+      when: inventory_hostname in groups['sdn_spines']
+
+    - name: Configure leaf BGP
+      ios_config:
+        lines:
+          - router bgp {{ fabric_asn }}
+          - neighbor {{ spine_ip }} remote-as {{ fabric_asn }}
+          - address-family l2vpn evpn
+          - neighbor {{ spine_ip }} activate
+        parents: router bgp {{ fabric_asn }}
+      when: inventory_hostname in groups['sdn_leafs']
+      loop: "{{ spine_ips }}"
+      loop_control:
+        loop_var: spine_ip
+
+    - name: Enable VXLAN
+      ios_config:
+        lines:
+          - feature nv overlay
+          - feature vn-segment-vlan-based
+      when: vxlan_enabled
+
+    - name: Deploy VXLAN configurations
+      template:
+        src: vxlan-config.j2
+        dest: /etc/onos/cfg.d/vxlan.json
+      notify: restart-controller
+
+    - name: Validate fabric connectivity
+      uri:
+        url: "{{ controller_url }}/onos/v1/devices"
+        method: GET
+        user: onos
+        password: rocks
+        force_basic_auth: yes
+      register: fabric_state
+      until: fabric_state.json.devices | length > 0
+      retries: 10
+      delay: 5
+
+    - name: Report fabric status
+      debug:
+        msg: "Fabric deployed with {{ fabric_state.json.devices | length }} devices"
+
+  handlers:
+    - name: restart-controller
+      systemctl:
+        name: onos
+        state: restarted

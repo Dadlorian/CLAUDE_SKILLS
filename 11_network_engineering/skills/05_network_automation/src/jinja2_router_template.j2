@@ -1,0 +1,130 @@
+{# Cisco IOS Router Configuration Template #}
+! Configuration for {{ hostname }}
+! Generated: {{ ansible_date_time.iso8601 }}
+! Device Type: {{ device_type | default('Cisco IOS') }}
+
+hostname {{ hostname }}
+!
+ip domain-name {{ domain_name }}
+ip domain-lookup
+{%- if dns_servers %}
+!
+ip name-server {% for server in dns_servers %}{{ server }} {% endfor %}
+
+{%- endif %}
+
+! Logging configuration
+logging buffered 4096
+logging console informational
+logging trap informational
+{%- if syslog_server %}
+logging {{ syslog_server }}
+{%- endif %}
+!
+
+{# NTP Configuration #}
+{%- if ntp_servers %}
+ntp authentication-key 1 md5 secretkey
+ntp authenticate
+ntp trusted-key 1
+{%- for server in ntp_servers %}
+ntp server {{ server }}
+{%- endfor %}
+!
+{%- endif %}
+
+{# SNMP Configuration #}
+{%- if snmp_enabled %}
+snmp-server community {{ snmp_community }} RO
+snmp-server location {{ snmp_location }}
+snmp-server contact {{ snmp_contact }}
+snmp-server enable traps snmp authentication linkdown linkup coldstart warmstart
+!
+{%- endif %}
+
+{# Interface Configuration #}
+{%- for interface in interfaces %}
+interface {{ interface.name }}
+  description {{ interface.description | default('Unconfigured') }}
+{%- if interface.mtu %}
+  mtu {{ interface.mtu }}
+{%- endif %}
+{%- if interface.ip_address %}
+  ip address {{ interface.ip_address }} {{ interface.netmask }}
+{%- endif %}
+{%- if interface.ospf_cost %}
+  ip ospf cost {{ interface.ospf_cost }}
+{%- endif %}
+{%- if interface.enabled %}
+  no shutdown
+{%- else %}
+  shutdown
+{%- endif %}
+!
+{%- endfor %}
+
+{# Routing Configuration #}
+{%- if bgp_enabled %}
+router bgp {{ bgp_asn }}
+  bgp router-id {{ bgp_router_id }}
+  bgp log-neighbor-changes
+  bgp graceful-restart
+  !
+{%- for neighbor in bgp_neighbors %}
+  neighbor {{ neighbor.ip }} remote-as {{ neighbor.remote_asn }}
+  neighbor {{ neighbor.ip }} description {{ neighbor.description }}
+{%- endfor %}
+  !
+  address-family ipv4
+{%- for network in bgp_networks %}
+    network {{ network.prefix }} mask {{ network.mask }}
+{%- endfor %}
+{%- for neighbor in bgp_neighbors %}
+    neighbor {{ neighbor.ip }} activate
+{%- endfor %}
+    exit-address-family
+  !
+{%- endif %}
+
+{%- if ospf_enabled %}
+router ospf {{ ospf_process }}
+  router-id {{ ospf_router_id }}
+  passive-interface default
+{%- for interface in ospf_active_interfaces %}
+  no passive-interface {{ interface }}
+{%- endfor %}
+{%- for network in ospf_networks %}
+  network {{ network.address }} {{ network.wildcard }} area {{ network.area }}
+{%- endfor %}
+!
+{%- endif %}
+
+{# Access Control #}
+{%- for acl in access_lists %}
+access-list {{ acl.number }} permit {{ acl.source }}
+{%- endfor %}
+!
+
+{# AAA Configuration #}
+{%- if aaa_enabled %}
+aaa new-model
+aaa authentication login default local
+aaa authorization exec default local
+aaa accounting exec default start-stop group tacacs+
+!
+{%- endif %}
+
+{# SSH/Telnet Configuration #}
+line vty 0 4
+  transport input ssh
+  exec-timeout 15 0
+  logging synchronous
+!
+
+{# Console Configuration #}
+line con 0
+  exec-timeout 0 0
+  logging synchronous
+!
+
+end

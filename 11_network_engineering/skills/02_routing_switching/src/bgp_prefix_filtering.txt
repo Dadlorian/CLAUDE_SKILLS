@@ -1,0 +1,161 @@
+! BGP Route Filtering Configuration
+! Prefix-lists and access-lists for inbound/outbound filtering
+
+hostname ISP-Router
+!
+interface Loopback 0
+  ip address 192.168.1.1 255.255.255.255
+!
+interface GigabitEthernet0/0
+  description ISP Uplink
+  ip address 203.0.113.1 255.255.255.0
+  no shutdown
+!
+interface GigabitEthernet0/1
+  description Customer-A
+  ip address 203.0.114.1 255.255.255.0
+  no shutdown
+!
+interface GigabitEthernet0/2
+  description Customer-B
+  ip address 203.0.115.1 255.255.255.0
+  no shutdown
+!
+!
+! ***** Prefix-Lists for Filtering *****
+!
+! Upstream provider - accept all (but would normally filter)
+ip prefix-list UPSTREAM-ROUTES seq 10 permit 0.0.0.0/0 le 24
+ip prefix-list UPSTREAM-ROUTES seq 20 deny 0.0.0.0/0 le 32
+! Blocks /25 and smaller, allows /0-/24
+
+! Customer-A authorized routes
+ip prefix-list CUSTOMER-A-AUTHORIZED seq 10 permit 198.51.100.0/24
+ip prefix-list CUSTOMER-A-AUTHORIZED seq 20 permit 198.51.101.0/24
+ip prefix-list CUSTOMER-A-AUTHORIZED seq 30 deny 0.0.0.0/0 le 32
+! Only allows specific /24s
+
+! Customer-B authorized routes
+ip prefix-list CUSTOMER-B-AUTHORIZED seq 10 permit 192.0.2.0/24
+ip prefix-list CUSTOMER-B-AUTHORIZED seq 20 permit 192.0.2.0/25
+ip prefix-list CUSTOMER-B-AUTHORIZED seq 30 deny 0.0.0.0/0 le 32
+
+! Our own networks to advertise
+ip prefix-list OUR-NETWORKS seq 10 permit 203.0.113.0/24
+ip prefix-list OUR-NETWORKS seq 20 permit 203.0.114.0/24
+ip prefix-list OUR-NETWORKS seq 30 permit 203.0.115.0/24
+ip prefix-list OUR-NETWORKS seq 40 deny 0.0.0.0/0 le 32
+
+!
+! ***** AS-Path Access Lists *****
+!
+! Prevent receiving own AS routes (loop prevention)
+ip as-path access-list 10 deny _65000_
+ip as-path access-list 10 permit .*
+
+! Only accept routes from specific AS
+ip as-path access-list 20 permit _65001$
+! Matches only AS 65001 at the end
+
+!
+! ***** BGP Configuration with Filtering *****
+!
+router bgp 65000
+  bgp log-neighbor-changes
+
+  ! Upstream provider
+  neighbor 203.0.113.2 remote-as 65001
+  neighbor 203.0.113.2 description Upstream-ISP
+  neighbor 203.0.113.2 prefix-list UPSTREAM-ROUTES in
+  neighbor 203.0.113.2 prefix-list OUR-NETWORKS out
+
+  ! Customer A
+  neighbor 203.0.114.2 remote-as 65100
+  neighbor 203.0.114.2 description Customer-A
+  neighbor 203.0.114.2 prefix-list CUSTOMER-A-AUTHORIZED in
+  neighbor 203.0.114.2 prefix-list UPSTREAM-ROUTES out
+  ! Customer A gets all upstream + our networks
+
+  ! Customer B
+  neighbor 203.0.115.2 remote-as 65101
+  neighbor 203.0.115.2 description Customer-B
+  neighbor 203.0.115.2 prefix-list CUSTOMER-B-AUTHORIZED in
+  neighbor 203.0.115.2 prefix-list UPSTREAM-ROUTES out
+
+  address-family ipv4
+    neighbor 203.0.113.2 activate
+    neighbor 203.0.113.2 soft-reconfiguration inbound
+
+    neighbor 203.0.114.2 activate
+    neighbor 203.0.114.2 soft-reconfiguration inbound
+
+    neighbor 203.0.115.2 activate
+    neighbor 203.0.115.2 soft-reconfiguration inbound
+
+    network 203.0.113.0 mask 255.255.255.0
+    network 203.0.114.0 mask 255.255.255.0
+    network 203.0.115.0 mask 255.255.255.0
+  exit-address-family
+!
+!
+! ***** Route-Map Filtering (Advanced) *****
+!
+! route-map FILTER-CUSTOMER-A in
+!   match ip address prefix-list CUSTOMER-A-AUTHORIZED
+!   set local-preference 100
+!   permit
+! !
+! route-map FILTER-CUSTOMER-A in
+!   deny
+! !
+!
+! ***** Community-based Filtering *****
+!
+! ip community-list 1 permit 65000:100
+! ip community-list 1 permit 65000:200
+!
+! route-map COMMUNITY-FILTER in
+!   match community 1
+!   set local-preference 150
+!   permit
+! !
+!
+! ***** Verification *****
+!
+! show ip prefix-list
+! show ip prefix-list CUSTOMER-A-AUTHORIZED detail
+!
+! show ip bgp summary
+! show ip bgp neighbors 203.0.114.2 received-routes
+! show ip bgp neighbors 203.0.114.2 advertised-routes
+!
+! show access-lists
+! show as-path-access-list
+!
+! show route-map
+!
+! debug ip bgp updates | include 203.0.114
+! debug ip bgp route-refresh
+!
+!
+! ***** Key Filtering Principles *****
+!
+! Inbound Filtering (From neighbors):
+! - Only accept expected routes
+! - Block routes that shouldn't be received
+! - Default deny (implicit) for security
+
+! Outbound Filtering (To neighbors):
+! - Only advertise authorized routes
+! - Never advertise customer routes to other customers
+! - Prevent private routes leaking to internet
+!
+! Best Practices:
+! 1. Use prefix-lists (more efficient)
+! 2. Document what each list does
+! 3. Default deny at end of lists
+! 4. Test in lab before production
+! 5. Monitor for unexpected route loss
+! 6. Review filters quarterly
+! 7. Keep prefix-lists organized by customer
+!

@@ -1,0 +1,177 @@
+# VPN Load Balancing Configuration
+# Distribute VPN traffic across multiple gateways
+
+! ===================== CISCO ASA LOAD BALANCING =====================
+
+! Create multiple VPN gateway addresses
+object object-group OBJ_GRP_VPN_SERVERS
+ network-object host 203.0.113.1
+ network-object host 203.0.113.2
+ network-object host 203.0.113.3
+
+! Define access list for load balancing pool
+access-list VPN-POOL-ACL extended permit ip any 10.0.0.0 255.0.0.0
+
+! Create load balancing pool
+! Note: Requires F5/NetScaler/Citrix hardware or cloud LB
+
+! ===================== HAPROXY LOAD BALANCING =====================
+
+global
+ maxconn 4096
+ daemon
+ log 127.0.0.1 local0 debug
+
+defaults
+ mode tcp
+ log global
+ option tcplog
+ timeout connect 5000
+ timeout client 50000
+ timeout server 50000
+ retries 3
+
+! SSL/TLS VPN Load Balancer
+listen ssl-vpn
+ bind 0.0.0.0:443
+ balance roundrobin
+ mode tcp
+ option tcplog
+ option ssl-hello-chk
+ default_backend ssl-vpn-backends
+
+backend ssl-vpn-backends
+ balance roundrobin
+ option httpchk GET /
+ server vpn1 203.0.113.1:443 check inter 5s
+ server vpn2 203.0.113.2:443 check inter 5s
+ server vpn3 203.0.113.3:443 check inter 5s
+
+! IPsec Load Balancer (IKE)
+listen ipsec
+ bind 0.0.0.0:500
+ bind 0.0.0.0:4500
+ balance roundrobin
+ mode tcp
+ default_backend ipsec-backends
+
+backend ipsec-backends
+ balance roundrobin
+ server vpn1 203.0.113.1:500 check inter 3s
+ server vpn2 203.0.113.2:500 check inter 3s
+ server vpn3 203.0.113.3:500 check inter 3s
+
+! OpenVPN Load Balancer
+listen openvpn
+ bind 0.0.0.0:1194
+ balance roundrobin
+ mode tcp
+ default_backend openvpn-backends
+
+backend openvpn-backends
+ balance roundrobin
+ server vpn1 203.0.113.1:1194 check inter 3s
+ server vpn2 203.0.113.2:1194 check inter 3s
+ server vpn3 203.0.113.3:1194 check inter 3s
+
+! ===================== DNS ROUND-ROBIN =====================
+
+! Simple round-robin (DNS level)
+vpn.company.com. IN A 203.0.113.1
+vpn.company.com. IN A 203.0.113.2
+vpn.company.com. IN A 203.0.113.3
+
+! Geolocation-based round-robin (using GeoDNS provider)
+!
+! North America: route to US VPN server
+vpn.company.com @NA -> 203.0.113.1
+!
+! Europe: route to EU VPN server
+vpn.company.com @EU -> 198.51.100.1
+!
+! Asia: route to Asia VPN server
+vpn.company.com @APAC -> 192.0.2.1
+
+! ===================== CISCO ASA LOAD BALANCING USING VIP =====================
+
+! Virtual IP for load balancing
+object network VPN-VIRTUAL-IP
+ host 203.0.113.10
+
+! Real servers
+object network VPN-REAL-1
+ host 203.0.113.1
+
+object network VPN-REAL-2
+ host 203.0.113.2
+
+object network VPN-REAL-3
+ host 203.0.113.3
+
+! Create access list for real servers
+access-list REAL_SERVERS extended permit ip any object VPN-REAL-1
+access-list REAL_SERVERS extended permit ip any object VPN-REAL-2
+access-list REAL_SERVERS extended permit ip any object VPN-REAL-3
+
+! NAT for load balancing
+nat (outside,inside) source static VPN-VIRTUAL-IP VPN-VIRTUAL-IP destination static object VPN-REAL-1 object VPN-REAL-1
+nat (outside,inside) source static VPN-VIRTUAL-IP VPN-VIRTUAL-IP destination static object VPN-REAL-2 object VPN-REAL-2
+nat (outside,inside) source static VPN-VIRTUAL-IP VPN-VIRTUAL-IP destination static object VPN-REAL-3 object VPN-REAL-3
+
+! ===================== NGINX REVERSE PROXY =====================
+
+upstream vpn_servers {
+ least_conn;  ! Load balancing method
+ 
+ server vpn1.example.com weight=1 max_fails=3 fail_timeout=30s;
+ server vpn2.example.com weight=1 max_fails=3 fail_timeout=30s;
+ server vpn3.example.com weight=1 max_fails=3 fail_timeout=30s;
+}
+
+server {
+ listen 443 ssl;
+ server_name vpn.company.com;
+ 
+ ssl_certificate /etc/nginx/certs/vpn.crt;
+ ssl_certificate_key /etc/nginx/certs/vpn.key;
+ ssl_protocols TLSv1.2 TLSv1.3;
+ ssl_ciphers AES-256-GCM:AES-128-GCM;
+ 
+ location / {
+  proxy_pass http://vpn_servers;
+  proxy_set_header Host $host;
+  proxy_set_header X-Real-IP $remote_addr;
+ }
+}
+
+! ===================== MONITORING & HEALTH CHECKS =====================
+
+! Check backend health
+! show backends  ! HAProxy command
+
+! Monitor load distribution
+! show pool members  ! NetScaler command
+
+! Real-time monitoring
+! netstat -tulnp | grep :443  ! Check listening ports
+! ss -s | grep TCP  ! Socket statistics
+
+! ===================== FAILOVER CONSIDERATIONS =====================
+
+! Session persistence:
+! - SSL Session ID caching
+! - Connection pinning to same backend
+! - State replication between backends
+
+! Health check intervals:
+! - Check every 3-5 seconds
+! - Mark down after 3 failures
+! - Mark up after 2 successes
+! - Timeout after 30 seconds
+
+! Load balancing methods:
+! - Round Robin: Equal distribution
+! - Least Connections: Based on active connections
+! - IP Hash: Sticky sessions per IP
+! - Weighted: Custom weight per server
+

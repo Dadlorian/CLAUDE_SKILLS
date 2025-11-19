@@ -1,0 +1,104 @@
+! BGP eBGP Configuration - ISP Peering
+! AS 65001 peering with ISP AS 65000
+
+hostname Customer-Router
+!
+interface Loopback 0
+  ip address 192.168.1.1 255.255.255.255
+!
+! Interface to ISP
+interface GigabitEthernet0/0
+  description ISP Primary Link
+  ip address 203.0.113.2 255.255.255.0
+  no shutdown
+!
+! Interface to ISP Backup
+interface GigabitEthernet0/1
+  description ISP Backup Link
+  ip address 203.0.113.130 255.255.255.128
+  no shutdown
+!
+! Internal OSPF for customer networks
+interface GigabitEthernet0/2
+  description Internal Network
+  ip address 10.0.0.1 255.255.255.0
+  no shutdown
+!
+! BGP Configuration - eBGP to ISP
+router bgp 65001
+  bgp log-neighbor-changes
+  neighbor 203.0.113.1 remote-as 65000
+  neighbor 203.0.113.1 description ISP-Primary-Link
+  neighbor 203.0.113.1 timers 60 180 180 300
+  neighbor 203.0.113.1 password ISP_PASSWORD_KEY
+
+  neighbor 203.0.113.129 remote-as 65000
+  neighbor 203.0.113.129 description ISP-Backup-Link
+  neighbor 203.0.113.129 timers 60 180 180 300
+  neighbor 203.0.113.129 password ISP_PASSWORD_KEY
+
+  ! IPv4 Address Family
+  address-family ipv4
+    neighbor 203.0.113.1 activate
+    neighbor 203.0.113.1 soft-reconfiguration inbound
+    neighbor 203.0.113.1 route-map PRIMARY-POLICY in
+    neighbor 203.0.113.1 route-map ADVERTISE-OUT out
+    neighbor 203.0.113.1 prefix-list ALLOW-FROM-ISP in
+    neighbor 203.0.113.1 prefix-list ALLOW-TO-ISP out
+
+    neighbor 203.0.113.129 activate
+    neighbor 203.0.113.129 soft-reconfiguration inbound
+    neighbor 203.0.113.129 route-map BACKUP-POLICY in
+    neighbor 203.0.113.129 route-map ADVERTISE-OUT out
+    neighbor 203.0.113.129 prefix-list ALLOW-FROM-ISP in
+    neighbor 203.0.113.129 prefix-list ALLOW-TO-ISP out
+
+    ! Redistribute internal routes
+    redistribute ospf 1 route-map OSPF-TO-BGP
+
+    ! Default route origination
+    default-information originate
+  exit-address-family
+!
+! Prefix-lists for filtering
+ip prefix-list ALLOW-FROM-ISP seq 10 permit 0.0.0.0/0
+ip prefix-list ALLOW-FROM-ISP seq 20 deny 0.0.0.0/0 le 32
+
+ip prefix-list ALLOW-TO-ISP seq 10 permit 10.0.0.0/8
+ip prefix-list ALLOW-TO-ISP seq 20 deny 0.0.0.0/0 le 32
+
+! Route-maps for policy
+route-map PRIMARY-POLICY permit 10
+  match ip address prefix-list ALLOW-FROM-ISP
+  set local-preference 200
+  ! Prefer primary link
+
+route-map BACKUP-POLICY permit 10
+  match ip address prefix-list ALLOW-FROM-ISP
+  set local-preference 100
+  ! Backup has lower preference
+
+route-map ADVERTISE-OUT permit 10
+  match ip address prefix-list ALLOW-TO-ISP
+  ! Only advertise our networks
+
+route-map OSPF-TO-BGP permit 10
+  match ip address prefix-list OSPF-ROUTES
+  set origin igp
+  set as-path prepend 65001
+
+ip prefix-list OSPF-ROUTES seq 10 permit 10.0.0.0/8
+!
+! Internal OSPF Configuration
+router ospf 1
+  network 10.0.0.0 0.0.255.255 area 0
+  network 192.168.1.0 0.0.0.255 area 0
+  passive-interface GigabitEthernet0/0
+  passive-interface GigabitEthernet0/1
+!
+! Verification commands:
+! show ip bgp summary
+! show ip bgp neighbors 203.0.113.1
+! show ip bgp neighbors 203.0.113.1 received-routes
+! show ip bgp neighbors 203.0.113.1 advertised-routes
+! show ip route bgp

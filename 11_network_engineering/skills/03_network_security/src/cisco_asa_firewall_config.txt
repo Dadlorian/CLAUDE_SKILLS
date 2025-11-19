@@ -1,0 +1,306 @@
+! Cisco ASA Firewall Configuration Template
+! Production-Grade Security Configuration
+! Last Updated: 2025-01-01
+
+! =====================================
+! Basic System Configuration
+! =====================================
+
+hostname ASA-CORE-01
+domain-name example.com
+clock set 14:30:00 19 Jan 2025
+clock timezone UTC
+ntp server 10.1.50.10
+ntp server 10.1.50.11
+
+! =====================================
+! Interface Configuration
+! =====================================
+
+interface GigabitEthernet0/0
+ nameif outside
+ security-level 0
+ ip address 203.0.113.1 255.255.255.0
+ speed auto
+ duplex auto
+
+interface GigabitEthernet0/1
+ nameif dmz
+ security-level 50
+ ip address 10.1.10.1 255.255.255.0
+
+interface GigabitEthernet0/2
+ nameif inside
+ security-level 100
+ ip address 10.1.1.1 255.255.255.0
+
+interface GigabitEthernet0/3
+ nameif management
+ security-level 90
+ ip address 10.1.100.1 255.255.255.0
+
+interface Management0/0
+ management-only
+ nameif management
+ security-level 100
+ ip address 10.1.100.50 255.255.255.0
+
+! =====================================
+! Routing
+! =====================================
+
+route outside 0.0.0.0 0.0.0.0 203.0.113.254 1
+route inside 10.1.0.0 255.255.0.0 10.1.1.254 1
+
+! =====================================
+! AAA Configuration
+! =====================================
+
+aaa-server TACACS+ protocol tacacs+
+ server 10.1.100.10 key SuperSecretKey123!
+ server 10.1.100.11 key SuperSecretKey123!
+
+aaa-server RADIUS protocol radius
+ server 10.1.100.10 key SuperSecretKey123!
+ server 10.1.100.11 key SuperSecretKey123!
+
+aaa authentication ssh console TACACS+ LOCAL
+aaa authentication enable console TACACS+ LOCAL
+aaa authentication http console TACACS+ LOCAL
+aaa authentication serial console LOCAL
+
+aaa accounting enable console TACACS+
+aaa accounting ssh console TACACS+
+
+! =====================================
+! DHCP Configuration
+! =====================================
+
+dhcpd address 10.1.1.50-10.1.1.200 inside
+dhcpd dns 10.1.50.10 10.1.50.11 inside
+dhcpd default-gateway 10.1.1.1 inside
+dhcpd lease 86400 inside
+dhcpd enable inside
+
+! =====================================
+! DNS Configuration
+! =====================================
+
+dns server-group DefaultDNS
+ nameserver 10.1.50.10
+ nameserver 10.1.50.11
+dns domain-lookup outside
+dns domain-lookup dmz
+dns domain-lookup inside
+
+! =====================================
+! Object Definitions
+! =====================================
+
+object network WEB_SERVERS
+ description Web Server Pool
+ subnet 10.1.10.0 255.255.255.0
+
+object network APP_SERVERS
+ description Application Server Pool
+ subnet 10.1.20.0 255.255.255.0
+
+object network DB_SERVERS
+ description Database Server Pool
+ subnet 10.1.30.0 255.255.255.0
+
+object network INTERNAL_NETWORKS
+ description All Internal Networks
+ subnet 10.1.0.0 255.255.0.0
+
+object network GUEST_USERS
+ description Guest User Network
+ subnet 192.168.100.0 255.255.255.0
+
+object-group network TRUSTED_NETWORKS
+ description All Trusted Internal Networks
+ network-object 10.1.0.0 255.255.0.0
+ network-object 172.16.0.0 255.240.0.0
+
+object-group service WEB_SERVICES tcp
+ description Standard Web Services
+ port-object eq http
+ port-object eq https
+ port-object eq 8080
+ port-object eq 8443
+
+object-group service MANAGEMENT_SERVICES tcp
+ description Administrative Services
+ port-object eq ssh
+ port-object eq 22
+ port-object eq 3389
+ port-object eq 5900
+
+object-group service DB_SERVICES tcp
+ description Database Services
+ port-object eq 3306
+ port-object eq 5432
+ port-object eq 1433
+
+! =====================================
+! Access Control Policies
+! =====================================
+
+! Outside to DMZ - Web Services Only
+access-list OUTSIDE_TO_DMZ extended permit tcp any object WEB_SERVERS object-group WEB_SERVICES log
+access-list OUTSIDE_TO_DMZ extended deny ip any any log
+
+! DMZ to Inside - Limited Access
+access-list DMZ_TO_INSIDE extended permit tcp object WEB_SERVERS object APP_SERVERS object-group DB_SERVICES log
+access-list DMZ_TO_INSIDE extended permit tcp object WEB_SERVERS object DB_SERVERS eq 3306 log
+access-list DMZ_TO_INSIDE extended deny ip any any log
+
+! Inside to Outside - Selective Outbound
+access-list INSIDE_TO_OUTSIDE extended permit tcp object-group TRUSTED_NETWORKS any eq 80 log
+access-list INSIDE_TO_OUTSIDE extended permit tcp object-group TRUSTED_NETWORKS any eq 443 log
+access-list INSIDE_TO_OUTSIDE extended permit tcp object-group TRUSTED_NETWORKS any eq 53 log
+access-list INSIDE_TO_OUTSIDE extended permit udp object-group TRUSTED_NETWORKS any eq 53 log
+access-list INSIDE_TO_OUTSIDE extended permit udp object-group TRUSTED_NETWORKS any eq 123 log
+access-list INSIDE_TO_OUTSIDE extended deny ip any any log
+
+! Management Access - Restricted
+access-list MANAGEMENT_IN extended permit tcp object-group TRUSTED_NETWORKS any object-group MANAGEMENT_SERVICES log
+access-list MANAGEMENT_IN extended deny ip any any log
+
+! Apply Access Lists
+access-group OUTSIDE_TO_DMZ in interface outside
+access-group DMZ_TO_INSIDE in interface dmz
+access-group INSIDE_TO_OUTSIDE in interface inside
+access-group MANAGEMENT_IN in interface management
+
+! =====================================
+! NAT Configuration
+! =====================================
+
+! Dynamic NAT for internal hosts
+nat (inside,outside) dynamic INTERNAL_NETWORKS interface
+
+! Static NAT for web servers
+nat (dmz,outside) static 203.0.113.10 10.1.10.5 netmask 255.255.255.255 service tcp 80 80
+nat (dmz,outside) static 203.0.113.10 10.1.10.5 netmask 255.255.255.255 service tcp 443 443
+
+! =====================================
+! Logging Configuration
+! =====================================
+
+logging enable
+logging buffer-size 512000
+logging buffered informational
+logging class attacks notifications
+logging class default-implementation-level notifications
+logging timestamp
+logging device-id hostname
+logging host inside 10.1.50.10 17 facility LOCAL0 level informational
+
+! =====================================
+! Management Access
+! =====================================
+
+ssh 10.1.100.0 255.255.255.0 management
+ssh timeout 30
+ssh version 2
+
+http 10.1.100.0 255.255.255.0 management
+http server enable
+https server enable
+
+! =====================================
+! High Availability / Failover
+! =====================================
+
+failover
+failover lan unit primary
+failover lan interface failover GigabitEthernet0/4
+failover lan key SuperSecretFailoverKey123!
+failover link state GigabitEthernet0/5 10Mbps
+failover ipsec pre-shared-key FailoverPSK123!
+
+! =====================================
+! SNMP Configuration
+! =====================================
+
+snmp-server community public RO
+snmp-server community SuperSecretCommunity RW
+snmp-server host inside 10.1.100.10 community SuperSecretCommunity
+snmp-server enable traps all
+
+! =====================================
+! Service Policy / QoS
+! =====================================
+
+policy-map global_policy
+ class inspection_default
+  inspect dns default-inspection-traffic
+  inspect http
+  inspect https
+  inspect ssh
+  inspect snmp
+  inspect icmp
+  inspect smtp
+  inspect ftp
+
+service-policy global_policy global
+
+! =====================================
+! Crypto - IPsec Site-to-Site VPN
+! =====================================
+
+crypto ikev2 proposal SITE_TO_SITE
+ encryption aes-cbc-256
+ integrity sha384
+ group 15
+ lifetime 28800
+
+crypto ikev2 policy 1
+ proposal SITE_TO_SITE
+ lifetime 28800
+
+crypto ipsec transform-set SITE_TO_SITE esp-aes 256 esp-sha512-hmac
+ mode tunnel
+ pfs group15
+
+access-list VPN_TRAFFIC permit ip 10.1.0.0 255.255.0.0 10.2.0.0 255.255.0.0
+
+crypto map VPN_CMAP 1 ipsec-isakmp
+ set peer 203.0.113.50
+ set access-list VPN_TRAFFIC
+ set transform-set SITE_TO_SITE
+ set pfs group15
+ set lifetime seconds 3600
+
+crypto map VPN_CMAP interface outside
+
+crypto ikev2 enable outside
+crypto ikev2 dpd 10 3 on-demand
+
+! =====================================
+! Security Contexts (Optional)
+! =====================================
+
+admin-context admin
+context customer1
+ allocate-interface GigabitEthernet0/6
+ config-url disk0:/customer1.cfg
+
+! =====================================
+! Save Configuration
+! =====================================
+
+write memory
+
+! =====================================
+! Verification Commands (run separately)
+! =====================================
+! show version
+! show interfaces
+! show access-lists
+! show nat translations
+! show crypto ipsec sa
+! show crypto ikev2 sa
+! show logging
+! show failover

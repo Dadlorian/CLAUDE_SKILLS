@@ -1,0 +1,49 @@
+{# Cisco IOS Switch Configuration Template #}
+! Configuration for {{ switch_name }}
+! Generated: {{ ansible_date_time.iso8601 }}
+
+hostname {{ switch_name }}
+!
+ip domain-name {{ domain_name }}
+!
+
+{# VLAN Configuration #}
+{% for vlan in vlans %}
+vlan {{ vlan.id }}
+  name {{ vlan.name }}
+!
+{% endfor %}
+
+{# Interface Configuration #}
+{%- for interface in interfaces %}
+interface {{ interface.name }}
+  description {{ interface.description }}
+  {%- if interface.mode == 'trunk' %}
+  switchport mode trunk
+  switchport trunk allowed vlan {{ interface.vlans | join(',') }}
+  {%- elif interface.mode == 'access' %}
+  switchport mode access
+  switchport access vlan {{ interface.vlan }}
+  {%- endif %}
+  {%- if interface.spanning_tree %}
+  spanning-tree portfast
+  {%- endif %}
+  no shutdown
+!
+{% endfor %}
+
+{# VLAN Interfaces #}
+{%- for svi in svi_interfaces %}
+interface vlan {{ svi.id }}
+  description {{ svi.name }}
+  ip address {{ svi.ip }} {{ svi.mask }}
+  no shutdown
+!
+{% endfor %}
+
+{# Spanning Tree #}
+spanning-tree mode rapid-pvst
+spanning-tree vlan 1 root primary
+!
+
+end

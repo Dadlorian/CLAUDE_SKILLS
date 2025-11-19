@@ -1,0 +1,49 @@
+# Wireshark Display Filter Reference
+
+## Protocol Filters
+http                    # HTTP traffic
+https or tls            # HTTPS/TLS traffic
+dns                     # DNS queries and responses
+ssh                     # SSH traffic
+smtp                    # SMTP email
+ftp                     # FTP traffic
+icmp                    # ICMP (ping)
+igmp                    # IGMP multicast
+
+## TCP/UDP Filters
+tcp.port == 22          # SSH
+tcp.port == 80          # HTTP
+tcp.port == 443         # HTTPS
+tcp.port == 3306        # MySQL
+tcp.dstport == 5432     # PostgreSQL destination
+udp.port == 53          # DNS
+
+## Analysis Filters
+tcp.analysis.retransmission     # Retransmitted packets
+tcp.analysis.duplicate_ack      # Duplicate ACKs
+tcp.analysis.out_of_order       # Out of order packets
+tcp.analysis.lost_segment       # Lost packets
+tcp.flags.syn == 1              # SYN packets
+tcp.flags.fin == 1              # FIN packets
+
+## Application Layer
+http.request.method == "GET"    # HTTP GET requests
+http.response.code == 200       # HTTP 200 responses
+http.response.code == 404       # HTTP 404 not found
+dns.qry.name == "example.com"   # DNS query for domain
+
+## Data Link
+eth.src == 00:11:22:33:44:55   # MAC address match
+arp                             # ARP packets
+vlan.id == 100                  # VLAN 100
+
+## Complex Filters
+(tcp.port == 443) and (ip.src == 192.168.1.1)
+(http or dns) and not tcp.port == 22
+tcp.analysis.flags                              # Any TCP analysis
+
+---
+
+**Tool**: Wireshark 4.x
+**Format**: Display Filter Syntax
+**Use**: Post-capture filtering

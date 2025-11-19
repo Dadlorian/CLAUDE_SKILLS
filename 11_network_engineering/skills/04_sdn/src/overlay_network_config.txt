@@ -1,0 +1,38 @@
+# Overlay Network Configuration Example
+
+Overlay Design:
+├─ Technology: VXLAN
+├─ Control Plane: BGP EVPN
+├─ Underlay: IP Fabric (Spine-Leaf)
+└─ Scale: 16M VNIs (24-bit)
+
+VNI Allocation:
+├─ 1-100: System/Management
+├─ 101-1000: Tenant-A (Production)
+├─ 1001-2000: Tenant-B (Development)
+└─ 2001+: Future expansion
+
+Tenant-A Network (VNI 1001):
+├─ Subnet: 10.100.0.0/24
+├─ Gateway: 10.100.0.1/24
+├─ VTEPs: Leaf1, Leaf2 (redundant)
+├─ MTU: 1550 (with VXLAN overhead)
+└─ Replication: Multicast 224.1.1.1
+
+Tenant-A Network (VNI 1002):
+├─ Subnet: 10.101.0.0/24
+├─ Gateway: 10.101.0.1/24
+├─ VTEPs: Leaf2, Leaf3 (redundant)
+└─ Replication: Multicast 224.1.1.2
+
+Inter-VXLAN Routing:
+├─ Distributed Gateway (on each Leaf)
+├─ Anycast Gateway IP: 10.100.0.1 (all leaves)
+├─ Virtual Router MAC: 00:22:BD:F8:19:FF
+└─ ARP Suppression: Enabled
+
+High Availability:
+├─ VM Dual-Homing: vNIC1→Leaf1, vNIC2→Leaf2
+├─ VTEP Redundancy: Each VNI on 2+ leaves
+├─ BGP EVPN Redundancy: Multiple spines
+└─ Fast Failover: Sub-second convergence

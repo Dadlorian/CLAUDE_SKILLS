@@ -1,0 +1,179 @@
+---
+# Cisco IOS Network Configuration Playbook
+- name: Deploy Cisco IOS Configuration
+  hosts: cisco_ios_devices
+  gather_facts: no
+  serial: 2
+
+  vars:
+    deployment_mode: "{{ deployment_mode | default('check') }}"  # 'check' or 'deploy'
+    backup_enabled: true
+    save_config: true
+
+  pre_tasks:
+    - name: Pre-deployment validation
+      block:
+        - name: Verify device connectivity
+          wait_for:
+            host: "{{ inventory_hostname }}"
+            port: 22
+            timeout: 10
+          delegate_to: localhost
+
+        - name: Get device hostname
+          cisco.ios.ios_command:
+            commands: show running-config | include hostname
+          register: device_hostname
+
+        - name: Display device information
+          debug:
+            msg: "Deploying to: {{ device_hostname.stdout[0] }}"
+
+      rescue:
+        - name: Fail on pre-flight check
+          fail:
+            msg: "Device {{ inventory_hostname }} failed pre-flight checks"
+
+  tasks:
+    - name: Backup current configuration
+      block:
+        - name: Get running configuration
+          cisco.ios.ios_command:
+            commands: show running-config
+          register: config_backup
+
+        - name: Create backup directory
+          file:
+            path: "backups/{{ inventory_hostname }}"
+            state: directory
+          delegate_to: localhost
+
+        - name: Save backup to file
+          copy:
+            content: "{{ config_backup.stdout[0] }}"
+            dest: "backups/{{ inventory_hostname }}/{{ inventory_hostname }}_{{ ansible_date_time.iso8601_basic_short }}.cfg"
+          delegate_to: localhost
+
+      when: backup_enabled
+
+    - name: Configure device base settings
+      block:
+        - name: Set hostname and domain
+          cisco.ios.ios_config:
+            lines:
+              - "hostname {{ device_name | default(inventory_hostname) }}"
+              - "ip domain-name {{ domain_name | default('example.com') }}"
+            save_when: changed
+
+        - name: Configure NTP
+          cisco.ios.ios_config:
+            lines:
+              - ntp authentication-key 1 md5 secretkey
+              - ntp authenticate
+              - ntp trusted-key 1
+              - "{% for server in ntp_servers | default(['8.8.8.8', '8.8.4.4']) %}ntp server {{ server }}\n{% endfor %}"
+            save_when: changed
+
+        - name: Configure logging
+          cisco.ios.ios_config:
+            lines:
+              - logging buffered 4096
+              - logging console informational
+              - logging trap informational
+              - "{% if syslog_server %}logging {{ syslog_server }}{% endif %}"
+            save_when: changed
+
+      when: configure_base | default(true)
+
+    - name: Configure interfaces
+      block:
+        - name: Configure management interface
+          cisco.ios.ios_config:
+            lines:
+              - "ip address {{ mgmt_ip }} {{ mgmt_mask }}"
+              - "no shutdown"
+            parents: "interface {{ mgmt_interface | default('Ethernet0/0') }}"
+            save_when: changed
+          when: mgmt_ip is defined
+
+        - name: Configure data interfaces
+          cisco.ios.ios_config:
+            lines:
+              - "description {{ item.description | default('Unconfigured') }}"
+              - "ip address {{ item.ip }} {{ item.mask }}"
+              - "{% if item.ospf_cost %}ip ospf cost {{ item.ospf_cost }}{% endif %}"
+              - "no shutdown"
+            parents: "interface {{ item.name }}"
+            save_when: changed
+          loop: "{{ interfaces | default([]) }}"
+
+      when: configure_interfaces | default(false)
+
+    - name: Configure routing protocols
+      block:
+        - name: Configure BGP
+          cisco.ios.ios_config:
+            lines:
+              - "router bgp {{ bgp_asn }}"
+              - "bgp router-id {{ bgp_router_id }}"
+              - "bgp log-neighbor-changes"
+              - "{% for neighbor in bgp_neighbors %}neighbor {{ neighbor.ip }} remote-as {{ neighbor.remote_asn }}\n{% endfor %}"
+              - "address-family ipv4"
+              - "{% for neighbor in bgp_neighbors %}neighbor {{ neighbor.ip }} activate\n{% endfor %}"
+              - "exit-address-family"
+            save_when: changed
+          when: bgp_enabled | default(false)
+
+        - name: Configure OSPF
+          cisco.ios.ios_config:
+            lines:
+              - "router ospf {{ ospf_process }}"
+              - "router-id {{ ospf_router_id }}"
+              - "passive-interface default"
+              - "{% for network in ospf_networks %}network {{ network.address }} {{ network.wildcard }} area {{ network.area }}\n{% endfor %}"
+            save_when: changed
+          when: ospf_enabled | default(false)
+
+      when: configure_routing | default(false)
+
+  post_tasks:
+    - name: Post-deployment validation
+      block:
+        - name: Verify interface status
+          cisco.ios.ios_command:
+            commands: show interfaces brief
+          register: interface_status
+
+        - name: Display interface status
+          debug:
+            msg: "{{ interface_status.stdout[0] }}"
+
+        - name: Verify routing protocols
+          cisco.ios.ios_command:
+            commands:
+              - show bgp ipv4 unicast summary
+              - show ip ospf neighbors
+          register: routing_status
+          ignore_errors: true
+
+        - name: Save running configuration
+          cisco.ios.ios_command:
+            commands: write memory
+          when: save_config
+
+      when: deployment_mode == 'deploy'
+
+    - name: Generate deployment report
+      template:
+        src: deployment_report.j2
+        dest: "reports/{{ inventory_hostname }}_deployment_{{ ansible_date_time.date }}.html"
+      delegate_to: localhost
+      vars:
+        deployment_status: "{% if ansible_failed %}FAILED{% else %}SUCCESS{% endif %}"
+
+  handlers:
+    - name: Reload device
+      cisco.ios.ios_command:
+        commands: reload
+        confirm: yes
+      when: force_reload | default(false)

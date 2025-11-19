@@ -1,0 +1,114 @@
+! HSRP (Hot Standby Router Protocol) Configuration
+! Active-Standby gateway redundancy
+
+! ***** Primary Gateway (Active) *****
+hostname Gateway-A
+!
+interface GigabitEthernet0/0
+  description Campus Distribution
+  ip address 10.0.0.10 255.255.255.0
+  no shutdown
+!
+interface Loopback 0
+  ip address 192.168.1.10 255.255.255.255
+!
+! HSRP Configuration for VLAN 10
+interface Vlan 10
+  ip address 10.1.0.1 255.255.255.0
+  standby version 2
+  standby 1 ip 10.1.0.254
+  standby 1 priority 150             ! Higher = Active
+  standby 1 preempt
+  standby 1 preempt delay minimum 10
+  standby 1 preempt delay reload 30
+  standby 1 authentication md5 key-string HSRP_PASSWORD
+  no shutdown
+!
+interface Vlan 20
+  ip address 10.2.0.1 255.255.255.0
+  standby version 2
+  standby 2 ip 10.2.0.254
+  standby 2 priority 150
+  standby 2 preempt
+  standby 2 authentication md5 key-string HSRP_PASSWORD
+  no shutdown
+!
+interface Vlan 30
+  ip address 10.3.0.1 255.255.255.0
+  standby version 2
+  standby 3 ip 10.3.0.254
+  standby 3 priority 150
+  standby 3 preempt
+  standby 3 authentication md5 key-string HSRP_PASSWORD
+  no shutdown
+!
+! ***** Secondary Gateway (Standby) *****
+! hostname Gateway-B
+! !
+! interface GigabitEthernet0/0
+!   description Campus Distribution
+!   ip address 10.0.0.11 255.255.255.0
+!   no shutdown
+! !
+! interface Vlan 10
+!   ip address 10.1.0.2 255.255.255.0
+!   standby version 2
+!   standby 1 ip 10.1.0.254
+!   standby 1 priority 100             ! Lower = Standby
+!   standby 1 preempt
+!   standby 1 authentication md5 key-string HSRP_PASSWORD
+!   no shutdown
+! !
+! interface Vlan 20
+!   ip address 10.2.0.2 255.255.255.0
+!   standby version 2
+!   standby 2 ip 10.2.0.254
+!   standby 2 priority 100
+!   standby 2 preempt
+!   standby 2 authentication md5 key-string HSRP_PASSWORD
+!   no shutdown
+! !
+! interface Vlan 30
+!   ip address 10.3.0.2 255.255.255.0
+!   standby version 2
+!   standby 3 ip 10.3.0.254
+!   standby 3 priority 100
+!   standby 3 preempt
+!   standby 3 authentication md5 key-string HSRP_PASSWORD
+!   no shutdown
+! !
+!
+! ***** HSRP with Object Tracking *****
+!
+! Track specific interface for priority adjustment
+! track 1 interface GigabitEthernet0/0 line-protocol
+!
+! interface Vlan 10
+!   standby 1 track 1 decrement 20
+!   ! Priority reduced by 20 if tracked interface down
+! !
+!
+! Verification Commands (on Gateway-A):
+! show standby
+! show standby brief
+! show standby Vlan 10
+! show standby neighbors
+! show track 1
+! debug standby
+!
+! Client Configuration Example:
+! On a client VLAN:
+! ip route 0.0.0.0 0.0.0.0 10.1.0.254
+! ! Uses virtual gateway IP (HSRP VIP)
+!
+! Failover Test:
+! 1. Access client PC
+! 2. ping 10.1.0.254 (should respond from A)
+! 3. On Gateway-A: shutdown Vlan 10
+! 4. ping should still work (B is now active)
+! 5. Failover typically <3 seconds with HSRP timers
+!
+! Graceful shutdown:
+! Gateway-A# standby 1 priority 0 (renounce role)
+! Traffic moves to Gateway-B without packet loss
+!

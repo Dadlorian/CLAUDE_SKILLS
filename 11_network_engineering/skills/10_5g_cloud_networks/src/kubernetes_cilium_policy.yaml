@@ -1,0 +1,187 @@
+# Kubernetes Cilium Network Policies
+# eBPF-based networking and policies
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: production
+  labels:
+    cilium.io/policy: enabled
+
+---
+# Cilium Network Policy - Layer 7
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: api-allow-http
+  namespace: production
+spec:
+  description: "Allow HTTP traffic to API"
+  endpointSelector:
+    matchLabels:
+      app: api
+  ingressRules:
+  - fromEndpoints:
+    - matchLabels:
+        app: frontend
+    toPorts:
+    - ports:
+      - port: "8080"
+        protocol: TCP
+      rules:
+        http:
+        - method: GET
+          path: "/api/.*"
+        - method: POST
+          path: "/api/.*"
+
+---
+# Cilium Network Policy - Egress with FQDN
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: api-egress
+  namespace: production
+spec:
+  endpointSelector:
+    matchLabels:
+      app: api
+  egressRules:
+  - toEndpoints:
+    - matchLabels:
+        app: postgres
+    toPorts:
+    - ports:
+      - port: "5432"
+        protocol: TCP
+  - toFQDNs:
+    - matchName: "api.github.com"
+    toPorts:
+    - ports:
+      - port: "443"
+        protocol: TCP
+
+---
+# Cilium ClusterWidNetworkPolicy - Global rules
+apiVersion: cilium.io/v2
+kind: CiliumClusterWideNetworkPolicy
+metadata:
+  name: default-deny
+spec:
+  description: "Deny all traffic by default"
+  endpointSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+  ingressRules: []
+  egressRules: []
+
+---
+# Cilium Network Policy - Advanced traffic policy
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: frontend-policy
+  namespace: production
+spec:
+  description: "Frontend policies"
+  endpointSelector:
+    matchLabels:
+      app: frontend
+  ingressRules:
+  - fromCIDR:
+    - "0.0.0.0/0"
+    toPorts:
+    - ports:
+      - port: "80"
+        protocol: TCP
+      - port: "443"
+        protocol: TCP
+  egressRules:
+  - toEndpoints:
+    - matchLabels:
+        app: api
+    toPorts:
+    - ports:
+      - port: "8080"
+        protocol: TCP
+  - toFQDNs:
+    - matchPattern: "*.example.com"
+    toPorts:
+    - ports:
+      - port: "443"
+        protocol: TCP
+
+---
+# Cilium L4 Policy - DNS
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-dns
+  namespace: production
+spec:
+  description: "Allow DNS queries"
+  endpointSelector: {}
+  egressRules:
+  - toEndpoints:
+    - matchLabels:
+        k8s-app: coredns
+    toPorts:
+    - ports:
+      - port: "53"
+        protocol: UDP
+      - port: "53"
+        protocol: TCP
+
+---
+# Cilium Network Policy - Service to Service
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: database-policy
+  namespace: production
+spec:
+  description: "Database access policies"
+  endpointSelector:
+    matchLabels:
+      app: postgres
+  ingressRules:
+  - fromEndpoints:
+    - matchLabels:
+        app: api
+    toPorts:
+    - ports:
+      - port: "5432"
+        protocol: TCP
+  - fromEndpoints:
+    - matchLabels:
+        job-type: backup
+    toPorts:
+    - ports:
+      - port: "5432"
+        protocol: TCP
+
+---
+# Cilium Network Policy with identity-based access
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: identity-based-policy
+  namespace: production
+spec:
+  endpointSelector:
+    matchLabels:
+      app: api
+  ingressRules:
+  - fromEndpoints:
+    - matchExpressions:
+      - key: app
+        operator: In
+        values:
+        - frontend
+        - mobile-app
+    toPorts:
+    - ports:
+      - port: "8080"
+        protocol: TCP

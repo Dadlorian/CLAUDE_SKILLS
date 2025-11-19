@@ -1,0 +1,144 @@
+NETWORK DESIGN REQUIREMENTS CHECKLIST
+
+Project: [Organization] Network Design
+Date: November 2025
+Reviewer: Network Architect
+
+BUSINESS REQUIREMENTS
+[ ] User count documented (current and 3/5 year projections)
+[ ] Growth rate validated with business
+[ ] Uptime SLA agreed upon (target: 99.99%)
+[ ] Budget approved ($725,000)
+[ ] Timeline approved (6 month implementation)
+[ ] Stakeholders identified and communicated
+[ ] Executive steering committee scheduled
+
+TECHNICAL REQUIREMENTS
+[ ] Campus bandwidth sizing completed
+[ ] Peak traffic identified (850 Mbps)
+[ ] Growth ratio documented (15% annually)
+[ ] Data center sizing completed (512 servers)
+[ ] WAN circuit requirements defined
+[ ] Redundancy strategy approved
+[ ] Latency targets documented
+[ ] QoS requirements defined
+
+NETWORK DESIGN
+[ ] Campus three-tier model selected
+[ ] Access layer switches selected (C9200L x 24)
+[ ] Distribution layer switches selected (C9500 x 4 pairs)
+[ ] Core layer design completed (2x C9500 full mesh)
+[ ] Spine-leaf fabric designed (32 spines, 64 leaves)
+[ ] WAN topology selected (partial mesh with hubs)
+[ ] Redundancy mechanisms designed
+[ ] HSRP/VRRP gateway config planned
+[ ] BGP routing policy documented
+
+IP ADDRESSING
+[ ] RFC 1918 space selected (10.0.0.0/8)
+[ ] Hierarchical allocation planned
+[ ] Campus subnets sized
+[ ] Data center subnets planned
+[ ] WAN point-to-point addresses allocated
+[ ] Loopback addresses reserved
+[ ] IPv6 planning started (dual-stack ready)
+[ ] IPAM spreadsheet created
+
+VLAN DESIGN
+[ ] VLAN numbering scheme defined
+[ ] User VLANs allocated (10-50)
+[ ] Service VLANs planned (100+)
+[ ] Management VLANs isolated
+[ ] VLAN sizes validated (minimum /24)
+[ ] Gateway redundancy configured
+[ ] Inter-VLAN routing policies defined
+[ ] VLAN trunking configured
+
+REDUNDANCY & HA
+[ ] Link redundancy: EtherChannel (4-port minimum)
+[ ] Gateway redundancy: HSRP/VRRP per VLAN
+[ ] Device redundancy: N+1 distribution pairs
+[ ] Core redundancy: Dual cores, full mesh
+[ ] Internet redundancy: Dual ISP with BGP
+[ ] Failover time targets: <10 seconds
+[ ] Failover testing procedures documented
+[ ] Automatic vs manual failover decided
+
+SECURITY
+[ ] Network segmentation designed (guest isolated)
+[ ] ACLs planned for inter-VLAN traffic
+[ ] Management VLAN access restricted
+[ ] Port security configured (max MAC limit)
+[ ] DHCP snooping enabled
+[ ] Access control matrix created
+[ ] Compliance requirements met (PCI/HIPAA/SOX)
+
+CAPACITY PLANNING
+[ ] 5-year demand projection completed
+[ ] Oversubscription ratios calculated
+[ ] PoE budget validated
+[ ] Power/cooling requirements defined
+[ ] Hardware lifecycle planned
+[ ] Technology refresh schedule created
+[ ] Cost per Mbps optimized
+[ ] Scalability verified
+
+DOCUMENTATION
+[ ] Network topology diagrams created
+[ ] IP addressing plan documented
+[ ] VLAN allocation documented
+[ ] Configuration templates created
+[ ] Design rationale documented
+[ ] Change management process defined
+[ ] As-built documentation planned
+[ ] Knowledge transfer plan created
+
+PROCUREMENT
+[ ] RFQ created with specifications
+[ ] Vendor quotes obtained
+[ ] Pricing negotiated
+[ ] Lead times confirmed
+[ ] Purchase orders issued
+[ ] Delivery schedule confirmed
+[ ] Spares inventory planned
+[ ] Support SLA defined
+
+IMPLEMENTATION
+[ ] Detailed project plan created
+[ ] Team members assigned
+[ ] Training schedule planned
+[ ] Testing procedures documented
+[ ] Rollback procedures documented
+[ ] Change windows scheduled
+[ ] User communication plan
+[ ] Success criteria defined
+
+TESTING & VALIDATION
+[ ] Design review completed with stakeholders
+[ ] Simulation/lab testing planned
+[ ] Failover testing procedures defined
+[ ] Load testing procedures defined
+[ ] Security testing planned
+[ ] Performance baseline established
+[ ] Monitoring tools configured
+[ ] Alerting thresholds set
+
+OPERATIONS
+[ ] Day-1 operations plan
+[ ] Day-2 support model
+[ ] Escalation procedures
+[ ] Monitoring dashboard configured
+[ ] Trending analysis set up
+[ ] Capacity threshold alerts
+[ ] Change notification process
+[ ] Quarterly review schedule
+
+FINAL SIGN-OFF
+[ ] Design complete: _____________ Date: _____
+[ ] CIO approved: _____________ Date: _____
+[ ] Project approved: _____________ Date: _____
+[ ] Ready for procurement: _____________ Date: _____
+
+---
+RESULT: [PASS / FAIL]
+Recommendation: [Proceed / Revise / Hold]
