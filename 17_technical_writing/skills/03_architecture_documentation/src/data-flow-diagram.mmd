@@ -1,0 +1,211 @@
+%% Data Flow Diagram - ETL and Data Pipeline Architecture
+%% Shows data ingestion, transformation, analytics, and ML pipeline stages
+
+graph TB
+    %% Data Sources
+    subgraph DataSources["Data Sources"]
+        OLTP["🗄️ OLTP Systems<br/>Production DB<br/>PostgreSQL<br/>Real-time writes"]
+        APIs["🌐 External APIs<br/>Third-party data<br/>Partner feeds<br/>Webhooks"]
+        Logs["📝 Application Logs<br/>Server logs<br/>Access logs<br/>Error logs"]
+        Events["⚡ Event Streams<br/>User events<br/>System events<br/>Kafka"]
+        IoT["📡 IoT Sensors<br/>Device streams<br/>Time-series<br/>MQTT"]
+        Files["📁 File Storage<br/>S3 buckets<br/>CSV/JSON/Parquet<br/>FTP uploads"]
+    end
+
+    %% Data Ingestion Layer
+    subgraph Ingestion["Data Ingestion Layer"]
+        FluentD["🚰 Fluent/Logstash<br/>Log aggregation<br/>3 collectors<br/>Buffering"]
+        KafkaIngest["🚌 Kafka Cluster<br/>Event ingestion<br/>12 topics<br/>30 brokers"]
+        Fivetran["🔗 Fivetran<br/>SaaS connector<br/>API replication<br/>Automated syncs"]
+        DataLakeIngest["☁️ Cloud Storage<br/>S3/GCS/Blob<br/>Raw zone<br/>Compression"]
+    end
+
+    %% Data Quality & Validation
+    subgraph DataQuality["Data Quality & Validation"]
+        Schema["📋 Schema Registry<br/>Avro/Protobuf<br/>Version control<br/>Compatibility check"]
+        Validation["✔️ Validation Rules<br/>Data types<br/>Constraints<br/>Business rules"]
+        Cleansing["🧹 Data Cleansing<br/>Null handling<br/>Deduplication<br/>Standardization"]
+    end
+
+    %% Data Warehousing
+    subgraph Warehouse["Data Warehouse"]
+        DWStaging["🏢 Staging Layer<br/>Raw data<br/>Minimal transformation<br/>24h retention"]
+        DWCore["⭐ Core Tables<br/>Dimensional model<br/>Facts & dimensions<br/>Star schema"]
+        DWMart["📊 Data Marts<br/>Aggregated views<br/>Department specific<br/>Pre-computed"]
+    end
+
+    %% ETL/ELT Processes
+    subgraph ETLProcess["ETL/ELT Transformation"]
+        Airflow["✈️ Apache Airflow<br/>DAG orchestration<br/>Scheduling<br/>Monitoring"]
+
+        subgraph Transforms["Transformation Jobs"]
+            Python["🐍 Python Jobs<br/>PySpark<br/>Pandas<br/>Complex logic"]
+            SQL["💾 SQL Transforms<br/>dbt<br/>Incremental loads<br/>Version controlled"]
+            Spark["⚡ Spark Jobs<br/>Distributed processing<br/>Partitioned reads<br/>2GB blocks"]
+        end
+
+        Reconciliation["🔄 Reconciliation<br/>Row counts<br/>Hash checks<br/>Data drift detection"]
+    end
+
+    %% Analytics Platform
+    subgraph Analytics["Analytics & BI"]
+        AnalyticsDB["🗄️ Analytics DB<br/>ClickHouse/Snowflake<br/>Columnar storage<br/>Query cache"]
+        OLAP["📊 OLAP Cube<br/>Pre-aggregated<br/>Dimensions<br/>Measures"]
+        DashboardEngine["📈 Dashboard Engine<br/>Tableau/Power BI<br/>Self-service BI<br/>Embedded analytics"]
+    end
+
+    %% Machine Learning Pipeline
+    subgraph MLPipeline["Machine Learning Pipeline"]
+        FeatureStore["🏪 Feature Store<br/>Feast/Tecton<br/>Feature definitions<br/>Online/offline serving"]
+        FeatureEng["🔧 Feature Engineering<br/>Transformation<br/>Aggregation<br/>Scaling"]
+
+        subgraph ModelDev["Model Development"]
+            DataPrep["📊 Data Preparation<br/>Train/val/test split<br/>Sampling<br/>Labeling"]
+            Training["🤖 Model Training<br/>XGBoost/TensorFlow<br/>Hyperparameter tuning<br/>A/B testing"]
+            Validation["✅ Model Validation<br/>Accuracy metrics<br/>Drift detection<br/>Threshold checks"]
+        end
+
+        ModelRegistry["📦 Model Registry<br/>MLflow<br/>Version tracking<br/>Staging→Production"]
+        Inference["🎯 Inference Engine<br/>Real-time serving<br/>Batch scoring<br/>Low latency"]
+    end
+
+    %% Real-time Analytics
+    subgraph Realtime["Real-time Analytics & Streaming"]
+        StreamProcessor["⚡ Stream Processor<br/>Kafka Streams<br/>Flink<br/>Stateful processing"]
+        RealTimeDB["⚡ Real-time DB<br/>Redis/Druid<br/>Sub-second queries<br/>Windowed aggregates"]
+        WebSocket["🔌 WebSocket Server<br/>Push updates<br/>Live dashboards<br/>1000 concurrent"]
+    end
+
+    %% Data Serving
+    subgraph DataServing["Data Serving Layer"]
+        APIGateway["🔌 Analytics API<br/>REST endpoints<br/>GraphQL<br/>Authentication"]
+        CacheLayer["⚡ Cache Layer<br/>Redis<br/>Memcached<br/>TTL: 5 min"]
+        DataMart["📋 Public Data Mart<br/>Anonymized<br/>Aggregated<br/>Approved datasets"]
+    end
+
+    %% Data Governance
+    subgraph Governance["Data Governance"]
+        MetadataDB["📚 Metadata<br/>Data catalog<br/>Lineage tracking<br/>Business glossary"]
+        DataLakeCatalog["🗂️ Data Lake Catalog<br/>Discovery<br/>Location<br/>Owner<br/>PII tags"]
+        Compliance["🏛️ Compliance<br/>Access audit<br/>GDPR export<br/>Right to delete"]
+    end
+
+    %% Monitoring & Observability
+    subgraph Observability["Monitoring & Observability"]
+        Metrics["📊 Metrics<br/>Throughput<br/>Latency<br/>Error rate"]
+        DataQualityMon["⚠️ Data Quality<br/>Freshness checks<br/>Null % monitoring<br/>Schema changes"]
+        Alerting["🚨 Alerting<br/>SLA breaches<br/>Data anomalies<br/>Pipeline failures"]
+    end
+
+    %% Data Sources to Ingestion
+    OLTP -->|CDC| FluentD
+    OLTP -->|Replication| Fivetran
+    APIs -->|Pull| Fivetran
+    Logs -->|Stream| FluentD
+    Events -->|Stream| KafkaIngest
+    IoT -->|MQTT| KafkaIngest
+    Files -->|Load| DataLakeIngest
+
+    %% Ingestion to Quality
+    FluentD -->|Data| Schema
+    KafkaIngest -->|Data| Validation
+    Fivetran -->|Data| Cleansing
+    DataLakeIngest -->|Data| Schema
+
+    %% Quality to Warehouse
+    Schema -->|Parsed| DWStaging
+    Validation -->|Validated| DWStaging
+    Cleansing -->|Cleaned| DWStaging
+
+    %% Warehouse Layers
+    DWStaging -->|Aggregate| DWCore
+    DWCore -->|Mart| DWMart
+
+    %% ETL Orchestration
+    Airflow -->|Schedule| Python
+    Airflow -->|Schedule| SQL
+    Airflow -->|Schedule| Spark
+
+    %% Warehouse to Transforms
+    DWStaging -->|Read| Spark
+    DWCore -->|Transform| SQL
+    DWCore -->|Process| Python
+
+    %% Transforms to Warehouse
+    Python -->|Load| DWMart
+    SQL -->|Load| DWMart
+    Spark -->|Load| DWCore
+
+    %% Reconciliation
+    DWCore -->|Validate| Reconciliation
+    DWMart -->|Validate| Reconciliation
+
+    %% Analytics
+    DWCore -->|Query| AnalyticsDB
+    DWMart -->|Query| OLAP
+    AnalyticsDB -->|Serve| DashboardEngine
+    OLAP -->|Serve| DashboardEngine
+
+    %% Feature Store
+    DWCore -->|Features| FeatureStore
+    AnalyticsDB -->|Features| FeatureStore
+
+    %% ML Pipeline
+    FeatureStore -->|Supply| FeatureEng
+    FeatureEng -->|Data| DataPrep
+    DataPrep -->|Train| Training
+    Training -->|Model| Validation
+    Validation -->|Register| ModelRegistry
+    ModelRegistry -->|Deploy| Inference
+
+    %% Real-time Path
+    KafkaIngest -->|Stream| StreamProcessor
+    StreamProcessor -->|Aggregates| RealTimeDB
+    RealTimeDB -->|Push| WebSocket
+
+    %% Data Serving
+    AnalyticsDB -->|API| APIGateway
+    RealTimeDB -->|API| APIGateway
+    ModelRegistry -->|Predictions| APIGateway
+    Inference -->|Scores| CacheLayer
+    CacheLayer -->|Response| APIGateway
+    APIGateway -->|Public| DataMart
+
+    %% Governance & Metadata
+    DWStaging -.->|Catalog| MetadataDB
+    DWCore -.->|Lineage| MetadataDB
+    DataLakeIngest -.->|Catalog| DataLakeCatalog
+    APIGateway -.->|Access| Compliance
+
+    %% Monitoring
+    Airflow -.->|Health| Metrics
+    StreamProcessor -.->|Performance| Metrics
+    DWCore -.->|Quality| DataQualityMon
+    AnalyticsDB -.->|Freshness| DataQualityMon
+    Metrics -->|Trigger| Alerting
+    DataQualityMon -->|Trigger| Alerting
+
+    %% Styling
+    classDef source fill:#FF6B6B,stroke:#C92A2A,color:#fff,stroke-width:2px
+    classDef ingest fill:#4ECDC4,stroke:#0B7285,color:#fff,stroke-width:2px
+    classDef quality fill:#3498DB,stroke:#1B4F72,color:#fff,stroke-width:2px
+    classDef warehouse fill:#F39C12,stroke:#D68910,color:#fff,stroke-width:2px
+    classDef etl fill:#9B59B6,stroke:#6C3483,color:#fff,stroke-width:2px
+    classDef analytics fill:#E74C3C,stroke:#922B21,color:#fff,stroke-width:2px
+    classDef ml fill:#2ECC71,stroke:#186A3B,color:#fff,stroke-width:2px
+    classDef realtime fill:#1ABC9C,stroke:#0B7285,color:#fff,stroke-width:2px
+    classDef serving fill:#27AE60,stroke:#145A32,color:#fff,stroke-width:2px
+    classDef govern fill:#FFEAA7,stroke:#D68910,color:#333,stroke-width:2px
+    classDef monitor fill:#E67E22,stroke:#92400E,color:#fff,stroke-width:2px
+
+    class OLTP,APIs,Logs,Events,IoT,Files source
+    class FluentD,KafkaIngest,Fivetran,DataLakeIngest ingest
+    class Schema,Validation,Cleansing quality
+    class DWStaging,DWCore,DWMart,AnalyticsDB,OLAP warehouse
+    class Airflow,Python,SQL,Spark,Reconciliation etl
+    class DashboardEngine analytics
+    class FeatureStore,FeatureEng,DataPrep,Training,Validation,ModelRegistry,Inference ml
+    class StreamProcessor,RealTimeDB,WebSocket realtime
+    class APIGateway,CacheLayer,DataMart serving
+    class MetadataDB,DataLakeCatalog,Compliance govern
+    class Metrics,DataQualityMon,Alerting monitor

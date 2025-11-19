@@ -1,0 +1,438 @@
+name: Automated Changelog & Release
+
+# Trigger conditions
+on:
+  push:
+    branches:
+      - main
+      - next
+      - next-major
+      - beta
+      - alpha
+      - develop
+    paths-ignore:
+      - '*.md'
+      - 'docs/**'
+      - '.gitignore'
+      - 'LICENSE'
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+  workflow_dispatch:
+    inputs:
+      force_release:
+        description: 'Force release version'
+        required: false
+        type: choice
+        options:
+          - 'none'
+          - 'patch'
+          - 'minor'
+          - 'major'
+
+# Concurrency control
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Environment variables
+env:
+  NODE_VERSION: '20.x'
+  NPM_REGISTRY: 'https://registry.npmjs.org'
+  REGISTRY_SCOPE: '@organization'
+  ARTIFACT_RETENTION: 7
+
+permissions:
+  contents: write
+  packages: write
+  pull-requests: write
+  issues: write
+  statuses: write
+  checks: write
+
+jobs:
+  # Job 1: Analyze commits and determine version
+  analyze:
+    name: Analyze Commits & Determine Version
+    runs-on: ubuntu-latest
+    outputs:
+      release_type: ${{ steps.analyze.outputs.release_type }}
+      next_version: ${{ steps.analyze.outputs.next_version }}
+      changelog: ${{ steps.analyze.outputs.changelog }}
+      should_release: ${{ steps.analyze.outputs.should_release }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          registry-url: ${{ env.NPM_REGISTRY }}
+
+      - name: Install dependencies
+        run: |
+          npm ci --prefer-offline --no-audit
+          npm install --save-dev \
+            semantic-release \
+            @semantic-release/commit-analyzer \
+            @semantic-release/release-notes-generator \
+            @semantic-release/changelog \
+            @semantic-release/git \
+            @semantic-release/github \
+            @semantic-release/npm \
+            conventional-changelog-conventionalcommits
+
+      - name: Analyze commits
+        id: analyze
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Get last release tag
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "0.0.0")
+          echo "Last tag: $LAST_TAG"
+
+          # Count commits by type
+          BREAKING_COUNT=$(git log ${LAST_TAG}..HEAD --oneline --grep="BREAKING" | wc -l)
+          FEATURE_COUNT=$(git log ${LAST_TAG}..HEAD --oneline --grep="^feat" | wc -l)
+          FIX_COUNT=$(git log ${LAST_TAG}..HEAD --oneline --grep="^fix" | wc -l)
+          TOTAL_COMMITS=$(git rev-list ${LAST_TAG}..HEAD --count)
+
+          echo "Commits since last release:"
+          echo "  Total: $TOTAL_COMMITS"
+          echo "  Breaking: $BREAKING_COUNT"
+          echo "  Features: $FEATURE_COUNT"
+          echo "  Fixes: $FIX_COUNT"
+
+          # Determine release type
+          if [ "$BREAKING_COUNT" -gt 0 ]; then
+            RELEASE_TYPE="major"
+          elif [ "$FEATURE_COUNT" -gt 0 ]; then
+            RELEASE_TYPE="minor"
+          elif [ "$FIX_COUNT" -gt 0 ]; then
+            RELEASE_TYPE="patch"
+          else
+            RELEASE_TYPE="none"
+          fi
+
+          # Determine if release should happen
+          if [ "$TOTAL_COMMITS" -eq 0 ]; then
+            SHOULD_RELEASE="false"
+          else
+            SHOULD_RELEASE="true"
+          fi
+
+          # Force release if specified via workflow_dispatch
+          if [ "${{ github.event.inputs.force_release }}" != "none" ] && [ -n "${{ github.event.inputs.force_release }}" ]; then
+            RELEASE_TYPE="${{ github.event.inputs.force_release }}"
+            SHOULD_RELEASE="true"
+          fi
+
+          # Output results
+          echo "release_type=${RELEASE_TYPE}" >> $GITHUB_OUTPUT
+          echo "should_release=${SHOULD_RELEASE}" >> $GITHUB_OUTPUT
+          echo "commit_count=${TOTAL_COMMITS}" >> $GITHUB_OUTPUT
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          npm run semantic-release -- --dry-run 2>&1 | tee release-output.txt || true
+          CHANGELOG=$(cat release-output.txt | grep -A 100 "# " || echo "No changelog generated")
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Update outputs
+        run: |
+          echo "Release type: ${{ steps.analyze.outputs.release_type }}"
+          echo "Should release: ${{ steps.analyze.outputs.should_release }}"
+
+  # Job 2: Build and test
+  build:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    needs: analyze
+    if: needs.analyze.outputs.should_release == 'true'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --prefer-offline
+
+      - name: Run linter
+        run: npm run lint --if-present || true
+
+      - name: Run tests
+        run: npm test --if-present || true
+
+      - name: Build project
+        run: npm run build --if-present || true
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: dist/
+          retention-days: ${{ env.ARTIFACT_RETENTION }}
+          if-no-files-found: ignore
+
+      - name: Run security audit
+        run: npm audit --audit-level=moderate || true
+
+  # Job 3: Generate changelog and create release
+  changelog:
+    name: Generate Changelog
+    runs-on: ubuntu-latest
+    needs: [analyze, build]
+    if: needs.analyze.outputs.should_release == 'true' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          registry-url: ${{ env.NPM_REGISTRY }}
+
+      - name: Install dependencies
+        run: npm ci --prefer-offline
+
+      - name: Setup git config
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-artifacts
+          path: dist/
+
+      - name: Run semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          npx semantic-release@latest \
+            --branches main \
+            --ci true \
+            --repository-url ${{ github.server_url }}/${{ github.repository }}.git
+
+      - name: Update release notes
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const changelog = fs.readFileSync('CHANGELOG.md', 'utf8');
+
+            console.log('Changelog updated successfully');
+            console.log('First 500 characters:');
+            console.log(changelog.substring(0, 500));
+
+      - name: Notify release status
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const status = '${{ job.status }}';
+            const releaseType = '${{ needs.analyze.outputs.release_type }}';
+            const message = `Release job completed with status: ${status} (type: ${releaseType})`;
+            console.log(message);
+
+  # Job 4: Docker image build and push
+  docker:
+    name: Build & Push Docker Image
+    runs-on: ubuntu-latest
+    needs: [analyze, build, changelog]
+    if: needs.analyze.outputs.should_release == 'true' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Docker buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract version
+        id: meta
+        run: |
+          VERSION=$(npm run env | grep npm_package_version | cut -d= -f2)
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Build version: ${VERSION}"
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:${{ steps.meta.outputs.version }}
+            ghcr.io/${{ github.repository }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+            VCS_REF=${{ github.sha }}
+            VERSION=${{ steps.meta.outputs.version }}
+
+  # Job 5: Publish to npm
+  publish:
+    name: Publish to npm Registry
+    runs-on: ubuntu-latest
+    needs: [analyze, build, changelog]
+    if: needs.analyze.outputs.should_release == 'true' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          registry-url: ${{ env.NPM_REGISTRY }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Publish to npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish || echo "Package already published"
+
+  # Job 6: Slack notification
+  notify:
+    name: Send Notifications
+    runs-on: ubuntu-latest
+    needs: [analyze, changelog, docker, publish]
+    if: always()
+
+    steps:
+      - name: Determine notification status
+        id: status
+        run: |
+          if [ "${{ needs.changelog.result }}" = "success" ]; then
+            echo "status=success" >> $GITHUB_OUTPUT
+            echo "emoji=:rocket:" >> $GITHUB_OUTPUT
+            echo "color=good" >> $GITHUB_OUTPUT
+          else
+            echo "status=failure" >> $GITHUB_OUTPUT
+            echo "emoji=:x:" >> $GITHUB_OUTPUT
+            echo "color=danger" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Send Slack notification
+        uses: slackapi/slack-github-action@v1.24.0
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          payload: |
+            {
+              "text": "Release Notification",
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "${{ steps.status.outputs.emoji }} Release ${{ steps.status.outputs.status }}"
+                  }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Repository:*\n${{ github.repository }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Release Type:*\n${{ needs.analyze.outputs.release_type }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Branch:*\n${{ github.ref_name }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Commit:*\n<${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}>"
+                    }
+                  ]
+                },
+                {
+                  "type": "actions",
+                  "elements": [
+                    {
+                      "type": "button",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "View Workflow"
+                      },
+                      "url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                    }
+                  ]
+                }
+              ]
+            }
+        if: always()
+
+  # Job 7: Create pull request with changelog (for non-main branches)
+  changelog-pr:
+    name: Create Changelog PR
+    runs-on: ubuntu-latest
+    needs: analyze
+    if: github.event_name == 'pull_request' && needs.analyze.outputs.should_release == 'true'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Comment on PR with changelog preview
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const changelogPreview = `${{ needs.analyze.outputs.changelog }}`;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## Changelog Preview (${context.payload.pull_request.title})\n\n${changelogPreview || 'No changes detected'}`
+            });
+
+# Workflow status check
+status: success

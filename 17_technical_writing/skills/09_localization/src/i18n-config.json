@@ -1,0 +1,118 @@
+{
+  "version": "1.0",
+  "languages": {
+    "en": {
+      "name": "English",
+      "nativeName": "English",
+      "enabled": true,
+      "default": true,
+      "direction": "ltr"
+    },
+    "es": {
+      "name": "Spanish",
+      "nativeName": "Español",
+      "enabled": true,
+      "default": false,
+      "direction": "ltr",
+      "region": "ES"
+    },
+    "fr": {
+      "name": "French",
+      "nativeName": "Français",
+      "enabled": true,
+      "default": false,
+      "direction": "ltr",
+      "region": "FR"
+    },
+    "ja": {
+      "name": "Japanese",
+      "nativeName": "日本語",
+      "enabled": true,
+      "default": false,
+      "direction": "ltr"
+    },
+    "zh-CN": {
+      "name": "Chinese (Simplified)",
+      "nativeName": "简体中文",
+      "enabled": true,
+      "default": false,
+      "direction": "ltr"
+    },
+    "de": {
+      "name": "German",
+      "nativeName": "Deutsch",
+      "enabled": false,
+      "default": false,
+      "direction": "ltr"
+    },
+    "pt-BR": {
+      "name": "Portuguese (Brazil)",
+      "nativeName": "Português (Brasil)",
+      "enabled": false,
+      "default": false,
+      "direction": "ltr"
+    },
+    "ar": {
+      "name": "Arabic",
+      "nativeName": "العربية",
+      "enabled": false,
+      "default": false,
+      "direction": "rtl"
+    }
+  },
+  "translation": {
+    "provider": "crowdin",
+    "crowdin": {
+      "projectId": "YOUR_PROJECT_ID",
+      "apiToken": "YOUR_API_TOKEN",
+      "autoUpload": true,
+      "autoDownload": true
+    }
+  },
+  "sourceLanguage": "en",
+  "sourceLanguageDir": "docs",
+  "translationOutputDir": "i18n",
+  "format": "markdown",
+  "glossary": {
+    "API": "API",
+    "authentication": {
+      "en": "authentication",
+      "es": "autenticación",
+      "fr": "authentification",
+      "ja": "認証",
+      "zh-CN": "身份验证"
+    },
+    "endpoint": {
+      "en": "endpoint",
+      "es": "punto final",
+      "fr": "point de terminaison",
+      "ja": "エンドポイント",
+      "zh-CN": "端点"
+    },
+    "charge": {
+      "en": "charge",
+      "es": "transacción",
+      "fr": "paiement",
+      "ja": "課金",
+      "zh-CN": "收费"
+    },
+    "refund": {
+      "en": "refund",
+      "es": "reembolso",
+      "fr": "remboursement",
+      "ja": "払い戻し",
+      "zh-CN": "退款"
+    }
+  },
+  "quality": {
+    "minimumTranslationQuality": 95,
+    "reviewRequired": true,
+    "proofreadingRequired": true
+  },
+  "expansion": {
+    "de": 1.3,
+    "fr": 1.2,
+    "ja": 0.7,
+    "zh-CN": 0.7
+  }
+}

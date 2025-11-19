@@ -1,0 +1,153 @@
+baseURL = "https://docs.example.com/"
+languageCode = "en-us"
+title = "Project Documentation"
+theme = "docs"
+disqusShortname = ""
+
+# Output formats
+[outputs]
+  home = ["HTML", "JSON"]
+
+# Menu configuration
+[menu]
+  [[menu.main]]
+    name = "Docs"
+    url = "/docs/"
+    weight = 1
+    identifier = "docs"
+
+  [[menu.main]]
+    name = "API"
+    url = "/api/"
+    weight = 2
+    identifier = "api"
+
+  [[menu.main]]
+    name = "Guides"
+    url = "/guides/"
+    weight = 3
+    identifier = "guides"
+
+  [[menu.main]]
+    name = "Blog"
+    url = "/blog/"
+    weight = 4
+    identifier = "blog"
+
+  [[menu.main]]
+    name = "GitHub"
+    url = "https://github.com/organization/project"
+    weight = 5
+    identifier = "github"
+
+# Parameters
+[params]
+  author = "Organization"
+  description = "Comprehensive documentation for Project"
+  keywords = "documentation, API, guide, tutorial"
+  logo = "/images/logo.svg"
+  favicon = "/images/favicon.ico"
+
+  # Search
+  [params.search]
+    enabled = true
+    maxResults = 20
+
+  # Analytics
+  [params.analytics]
+    google = "UA-XXXXXXXXX-X"
+
+  # Social links
+  [params.social]
+    [[params.social.links]]
+      title = "GitHub"
+      url = "https://github.com/organization/project"
+      icon = "fab fa-github"
+
+    [[params.social.links]]
+      title = "Twitter"
+      url = "https://twitter.com/example"
+      icon = "fab fa-twitter"
+
+    [[params.social.links]]
+      title = "Discord"
+      url = "https://discord.gg/example"
+      icon = "fab fa-discord"
+
+  # Custom CSS
+  [params.css]
+    custom = ["css/custom.css"]
+
+  # Syntax highlighting
+  [params.highlight]
+    style = "monokai"
+    languages = ["python", "javascript", "typescript", "bash", "json", "yaml"]
+
+  # Table of contents
+  [params.toc]
+    startLevel = 2
+    endLevel = 4
+
+# Markup configuration
+[markup]
+  [markup.highlight]
+    anchorLineNos = false
+    codeFences = true
+    guessSyntax = false
+    hl_Lines = ""
+    hl_inline = false
+    lineAnchors = ""
+    lineNoStart = 1
+    lineNos = false
+    noClasses = true
+    noHl = false
+    style = "monokai"
+    tabWidth = 4
+
+  [markup.goldmark]
+    [markup.goldmark.extensions]
+      definitionList = true
+      footnote = true
+      linkify = true
+      strikethrough = true
+      table = true
+      taskList = true
+      typographer = true
+
+    [markup.goldmark.extensions.passthrough]
+      delimiters = [['\[', '\]'], ["$$", "$$"]]
+      enable = false
+
+    [markup.goldmark.parser]
+      autoHeadingID = true
+      autoHeadingIDType = "github"
+      wrapStandAloneImageWithinParagraph = true
+
+      [markup.goldmark.parser.attribute]
+        block = false
+        title = true
+
+    [markup.goldmark.renderer]
+      hardWraps = false
+      unsafe = false
+      xhtml = false
+
+  [markup.tableOfContents]
+    endLevel = 3
+    ordered = false
+    startLevel = 2
+
+# Server configuration
+[server]
+  [[server.headers]]
+    for = "/api/*"
+    [server.headers.values]
+      X-Frame-Options = "SAMEORIGIN"
+      X-Content-Type-Options = "nosniff"
+      X-XSS-Protection = "1; mode=block"
+
+# Module configuration (if using Hugo modules)
+[module]
+  [module.hugoVersion]
+    extended = true
+    min = "0.112.0"

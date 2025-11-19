@@ -1,0 +1,256 @@
+---
+name: Meta Information Requirements
+desc: Ensures documents contain required metadata and frontmatter
+message: "Document should include: '%s'"
+level: error
+scope: document
+action:
+  name: suggest
+
+extends: existence
+
+# Required frontmatter fields
+frontmatter:
+  format: YAML
+  required_fields:
+    - field: "title"
+      type: "string"
+      description: "Document title"
+      pattern: '^[A-Z].*'
+      severity: error
+
+    - field: "description"
+      type: "string"
+      description: "Brief document summary"
+      max_length: 160
+      severity: error
+
+    - field: "author"
+      type: "string"
+      description: "Document author"
+      severity: warning
+
+    - field: "date"
+      type: "date"
+      description: "Last updated date"
+      format: "YYYY-MM-DD"
+      severity: warning
+
+    - field: "tags"
+      type: "array"
+      description: "Document tags for categorization"
+      min_items: 2
+      severity: suggestion
+
+    - field: "category"
+      type: "string"
+      description: "Document category"
+      allowed_values: ["guide", "reference", "tutorial", "howto", "faq", "api"]
+      severity: warning
+
+    - field: "status"
+      type: "string"
+      description: "Document status"
+      allowed_values: ["draft", "review", "published", "archived", "deprecated"]
+      severity: warning
+
+  optional_fields:
+    - field: "version"
+      type: "string"
+      description: "Document version"
+      pattern: '^\d+\.\d+\.\d+$'
+
+    - field: "last_reviewed"
+      type: "date"
+      description: "Last review date"
+      format: "YYYY-MM-DD"
+
+    - field: "next_review"
+      type: "date"
+      description: "Next scheduled review"
+      format: "YYYY-MM-DD"
+
+    - field: "audience"
+      type: "string"
+      description: "Target audience"
+      examples: ["developers", "users", "administrators"]
+
+    - field: "keywords"
+      type: "array"
+      description: "SEO keywords"
+
+    - field: "related"
+      type: "array"
+      description: "Related documents"
+
+    - field: "deprecated_by"
+      type: "string"
+      description: "URL of replacement document"
+      severity: error
+      if_status: "deprecated"
+
+# Document structure
+document_structure:
+  required_sections:
+    - section: "Title/Heading"
+      level: "h1"
+      required: true
+      position: "start"
+      severity: error
+
+    - section: "Overview/Introduction"
+      content: "Brief description of document purpose"
+      position: "after title"
+      severity: warning
+
+    - section: "Table of Contents"
+      required_if: "document length > 1000 words"
+      severity: suggestion
+
+    - section: "Related Links"
+      position: "end"
+      severity: suggestion
+
+    - section: "Last Updated"
+      format: "Last updated: [DATE]"
+      position: "end"
+      severity: suggestion
+
+# Headers and hierarchy
+heading_requirements:
+  rules:
+    - rule: "Start with h1 heading"
+      pattern: '^# '
+      severity: error
+
+    - rule: "H2 headings for major sections"
+      required_count: "minimum 1"
+      severity: suggestion
+
+    - rule: "Proper heading hierarchy"
+      message: "Don't skip heading levels (h1 → h2 → h3)"
+      severity: warning
+
+    - rule: "Consistent heading capitalization"
+      style: "Title Case"
+      severity: suggestion
+
+# Meta tags requirements
+meta_tags:
+  required:
+    - tag: "og:title"
+      source: "frontmatter.title"
+
+    - tag: "og:description"
+      source: "frontmatter.description"
+
+    - tag: "og:url"
+      source: "document URL"
+
+    - tag: "og:type"
+      value: "article"
+
+  optional:
+    - tag: "og:image"
+      description: "Featured image"
+
+    - tag: "twitter:card"
+      value: "summary_large_image"
+
+# SEO requirements
+seo:
+  requirements:
+    - title_length: "50-60 characters"
+      severity: suggestion
+
+    - description_length: "150-160 characters"
+      severity: suggestion
+
+    - keywords_present: true
+      severity: suggestion
+
+    - external_links: true
+      severity: suggestion
+
+    - internal_links: true
+      severity: suggestion
+
+    - headers_optimized: true
+      severity: suggestion
+
+# Accessibility metadata
+accessibility:
+  required:
+    - field: "lang"
+      value: "en"
+      severity: error
+
+    - field: "alt text"
+      for: "all images"
+      severity: error
+
+    - field: "aria-labels"
+      for: "interactive elements"
+      severity: suggestion
+
+  guidelines:
+    - "Proper semantic HTML"
+    - "Color contrast ratios"
+    - "Keyboard navigation support"
+
+# Document metadata checklist
+checklist:
+  frontmatter:
+    - "[ ] Title is descriptive"
+    - "[ ] Description is under 160 chars"
+    - "[ ] Author is specified"
+    - "[ ] Date is current"
+    - "[ ] Tags are relevant"
+    - "[ ] Category is valid"
+    - "[ ] Status is defined"
+
+  structure:
+    - "[ ] Begins with h1 heading"
+    - "[ ] Has introduction section"
+    - "[ ] Headings are hierarchical"
+    - "[ ] Contains related links"
+    - "[ ] Includes last updated date"
+
+  content:
+    - "[ ] All images have alt text"
+    - "[ ] All links are functional"
+    - "[ ] Code blocks have language tags"
+    - "[ ] No orphaned sections"
+
+# Template requirements
+template_structure:
+  markdown:
+    format: |
+      ---
+      title: "Document Title"
+      description: "Brief description under 160 characters"
+      author: "Author Name"
+      date: "YYYY-MM-DD"
+      category: "guide"
+      tags: ["tag1", "tag2"]
+      status: "published"
+      ---
+
+      # Document Title
+
+      ## Overview
+
+      Brief introduction paragraph explaining document purpose and scope.
+
+      ## Main Sections
+
+      Content sections here.
+
+      ## Related Resources
+
+      - [Related Document 1](link)
+      - [Related Document 2](link)
+
+      ---
+
+      Last updated: [DATE]

@@ -1,0 +1,65 @@
+sequenceDiagram
+    participant User as User/Client
+    participant Gateway as API Gateway
+    participant Auth as Auth Service
+    participant PaymentSvc as Payment Service
+    participant Stripe as Stripe API
+    participant Queue as Message Queue
+    participant DB as PostgreSQL
+
+    User->>Gateway: POST /charges<br/>{"amount": 2000}
+
+    activate Gateway
+    Gateway->>Gateway: Validate Request
+
+    Gateway->>Auth: Verify JWT Token
+    activate Auth
+    Auth->>Auth: Check Token Signature
+    Auth-->>Gateway: Token Valid
+    deactivate Auth
+
+    Gateway->>Gateway: Check Rate Limit
+
+    Gateway->>PaymentSvc: CreateCharge(amount, currency)
+    activate PaymentSvc
+
+    PaymentSvc->>PaymentSvc: Validate Amount
+    PaymentSvc->>PaymentSvc: Check Business Rules
+
+    PaymentSvc->>Stripe: POST /v1/charges<br/>(amount, currency)
+    activate Stripe
+    Stripe->>Stripe: Process Payment
+    Stripe-->>PaymentSvc: {"id": "ch_123", "status": "succeeded"}
+    deactivate Stripe
+
+    PaymentSvc->>DB: INSERT INTO payments<br/>values...
+    activate DB
+    DB-->>PaymentSvc: Payment ID: 42
+    deactivate DB
+
+    PaymentSvc->>Queue: Queue Event<br/>payment.created
+    activate Queue
+    Queue-->>PaymentSvc: Acknowledged
+    deactivate Queue
+
+    PaymentSvc-->>Gateway: {"id": "ch_123", "status": "succeeded"}
+    deactivate PaymentSvc
+
+    Gateway->>Gateway: Format Response
+    Gateway-->>User: 200 OK<br/>{"charge": {...}}
+    deactivate Gateway
+
+    par Async Processing
+        Queue->>Queue: Process payment.created Event
+        activate Queue
+        Queue->>Gateway: Send Notification
+        Queue->>DB: Update Payment Status
+        deactivate Queue
+    end
+
+    rect rgb(200, 220, 255)
+    Note over User,DB: Error Scenario
+    User->>Gateway: POST /charges<br/>{"amount": -100}
+    Gateway->>Gateway: Validation Fails
+    Gateway-->>User: 400 Bad Request
+    end

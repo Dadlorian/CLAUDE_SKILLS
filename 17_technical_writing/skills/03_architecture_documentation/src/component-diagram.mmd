@@ -1,0 +1,67 @@
+graph TB
+    subgraph APIGateway["API Gateway Container"]
+        AuthMiddleware["🔐 Auth Middleware<br/>JWT Verification"]
+        ValidationMiddleware["✓ Validation Middleware<br/>Request Schema Check"]
+        RateLimiter["⏱️ Rate Limiter<br/>Token Bucket Algorithm"]
+        ErrorHandler["❌ Error Handler<br/>Exception Processing"]
+
+        ChargeController["💳 Charge Controller<br/>POST /charges<br/>GET /charges/:id"]
+        RefundController["↩️ Refund Controller<br/>POST /charges/:id/refund"]
+        WebhookController["🪝 Webhook Controller<br/>POST /webhooks"]
+    end
+
+    subgraph PaymentService["Payment Service"]
+        PaymentBusiness["📋 Payment Business Logic<br/>Amount validation<br/>Currency conversion"]
+        StripeClient["🔌 Stripe Client<br/>API Integration<br/>Error Handling"]
+        PaymentRepository["📦 Payment Repository<br/>Database Access<br/>Query building"]
+    end
+
+    subgraph AuthService["Auth Service"]
+        JWTValidator["🔑 JWT Validator<br/>Token signature<br/>Expiration check"]
+        PermissionChecker["📋 Permission Checker<br/>Scope validation<br/>User verification"]
+        TokenCache["⚡ Token Cache<br/>Redis"]
+    end
+
+    subgraph Queue["Message Queue"]
+        PaymentQueue["💼 Payment Queue<br/>Stripe callbacks<br/>Retry logic"]
+        NotificationQueue["📧 Notification Queue<br/>Email sending<br/>SMS sending"]
+    end
+
+    subgraph Database["Data Access"]
+        PostgreSQL["📦 PostgreSQL<br/>Payments table<br/>Users table<br/>Webhooks table"]
+    end
+
+    AuthMiddleware -->|Token| JWTValidator
+    JWTValidator -->|Check Cache| TokenCache
+    JWTValidator -->|Validate| PermissionChecker
+
+    ValidationMiddleware -->|Validates| ChargeController
+    RateLimiter -->|Check Limit| TokenCache
+
+    ChargeController -->|Create| PaymentBusiness
+    RefundController -->|Refund| PaymentBusiness
+    WebhookController -->|Handle Event| PaymentBusiness
+
+    PaymentBusiness -->|Charge| StripeClient
+    PaymentBusiness -->|Store| PaymentRepository
+    PaymentRepository -->|Query| PostgreSQL
+
+    StripeClient -->|Event| PaymentQueue
+    PaymentBusiness -->|Queue Notification| NotificationQueue
+
+    ErrorHandler -->|Catches| ChargeController
+    ErrorHandler -->|Catches| RefundController
+    ErrorHandler -->|Catches| WebhookController
+
+    classDef middleware fill:#FF6B6B,stroke:#C92A2A,color:#fff
+    classDef controller fill:#4ECDC4,stroke:#0B7285,color:#fff
+    classDef service fill:#45B7D1,stroke:#0C5F7E,color:#fff
+    classDef data fill:#96CEB4,stroke:#47624F,color:#fff
+    classDef external fill:#FFEAA7,stroke:#D68910,color:#333
+    classDef queue fill:#DDA0DD,stroke:#9932CC,color:#fff
+
+    class AuthMiddleware,ValidationMiddleware,RateLimiter,ErrorHandler middleware
+    class ChargeController,RefundController,WebhookController controller
+    class PaymentBusiness,StripeClient,PaymentRepository,JWTValidator,PermissionChecker service
+    class PostgreSQL,TokenCache data
+    class PaymentQueue,NotificationQueue queue

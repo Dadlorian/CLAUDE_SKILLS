@@ -1,0 +1,191 @@
+---
+name: Capitalization Consistency
+desc: Enforces consistent capitalization across technical terms
+message: "Inconsistent capitalization: '%s' should be '%s'"
+level: error
+scope: paragraph, heading
+action:
+  name: replace
+
+extends: existence
+match: []
+
+# Case sensitivity rules for common technical terms
+rules:
+  - term: "JavaScript"
+    variants:
+      - "javascript"
+      - "Javascript"
+      - "JAVASCRIPT"
+    correct: "JavaScript"
+
+  - term: "TypeScript"
+    variants:
+      - "typescript"
+      - "Typescript"
+      - "TYPESCRIPT"
+    correct: "TypeScript"
+
+  - term: "Python"
+    variants:
+      - "python"
+      - "PYTHON"
+    correct: "Python"
+
+  - term: "Node.js"
+    variants:
+      - "nodejs"
+      - "Node.JS"
+      - "node.js"
+    correct: "Node.js"
+
+  - term: "React"
+    variants:
+      - "react"
+      - "REACT"
+    correct: "React"
+
+  - term: "Vue.js"
+    variants:
+      - "vuejs"
+      - "vue"
+      - "Vue"
+    correct: "Vue.js"
+
+  - term: "Angular"
+    variants:
+      - "angular"
+      - "ANGULAR"
+    correct: "Angular"
+
+  - term: "MongoDB"
+    variants:
+      - "mongodb"
+      - "Mongodb"
+    correct: "MongoDB"
+
+  - term: "PostgreSQL"
+    variants:
+      - "postgresql"
+      - "Postgresql"
+    correct: "PostgreSQL"
+
+  - term: "MySQL"
+    variants:
+      - "mysql"
+      - "Mysql"
+    correct: "MySQL"
+
+  - term: "Docker"
+    variants:
+      - "docker"
+      - "DOCKER"
+    correct: "Docker"
+
+  - term: "Kubernetes"
+    variants:
+      - "kubernetes"
+      - "K8s"
+      - "k8s"
+    correct: "Kubernetes"
+
+  - term: "AWS"
+    variants:
+      - "aws"
+      - "Amazon Web Services"
+    correct: "AWS"
+
+  - term: "JSON"
+    variants:
+      - "json"
+      - "Json"
+    correct: "JSON"
+
+  - term: "YAML"
+    variants:
+      - "yaml"
+      - "Yaml"
+    correct: "YAML"
+
+  - term: "REST"
+    variants:
+      - "rest"
+      - "Rest"
+    correct: "REST"
+
+  - term: "GraphQL"
+    variants:
+      - "graphql"
+      - "Graph QL"
+    correct: "GraphQL"
+
+  - term: "HTTP"
+    variants:
+      - "http"
+      - "Http"
+    correct: "HTTP"
+
+  - term: "HTTPS"
+    variants:
+      - "https"
+      - "Https"
+    correct: "HTTPS"
+
+  - term: "URL"
+    variants:
+      - "url"
+      - "Url"
+    correct: "URL"
+
+  - term: "API"
+    variants:
+      - "api"
+      - "Api"
+    correct: "API"
+
+  - term: "CLI"
+    variants:
+      - "cli"
+      - "Cli"
+    correct: "CLI"
+
+  - term: "SDK"
+    variants:
+      - "sdk"
+      - "Sdk"
+    correct: "SDK"
+
+  - term: "IDE"
+    variants:
+      - "ide"
+      - "Ide"
+    correct: "IDE"
+
+  - term: "UI"
+    variants:
+      - "ui"
+      - "Ui"
+    correct: "UI"
+
+  - term: "UX"
+    variants:
+      - "ux"
+      - "Ux"
+    correct: "UX"
+
+  - term: "SQL"
+    variants:
+      - "sql"
+      - "Sql"
+    correct: "SQL"
+
+# Product-specific capitalization
+product_terms:
+  - GitHub
+  - GitLab
+  - Bitbucket
+  - Jira
+  - Slack
+  - Confluence
+  - Tableau
+  - Salesforce

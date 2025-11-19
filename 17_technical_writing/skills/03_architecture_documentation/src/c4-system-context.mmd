@@ -1,0 +1,30 @@
+graph TB
+    User["👤 User<br/>Developer/API Consumer"]
+    WebApp["🌐 Web Application<br/>React, Vite, Tailwind CSS"]
+    MobileApp["📱 Mobile App<br/>React Native"]
+    APIGateway["🔌 API Gateway<br/>Kong/AWS API Gateway"]
+    PaymentSystem["💳 Payment System<br/>Stripe/Square"]
+    EmailService["📧 Email Service<br/>SendGrid"]
+
+    Analytics["📊 Analytics Platform<br/>Mixpanel/Segment"]
+    ErrorTracking["🐛 Error Tracking<br/>Sentry/Rollbar"]
+
+    User -->|Uses| WebApp
+    User -->|Uses| MobileApp
+    WebApp -->|API Calls| APIGateway
+    MobileApp -->|API Calls| APIGateway
+    APIGateway -->|Processes Payments| PaymentSystem
+    APIGateway -->|Sends Emails| EmailService
+    APIGateway -->|Logs Events| Analytics
+    APIGateway -->|Reports Errors| ErrorTracking
+    WebApp -->|Tracks Events| Analytics
+    MobileApp -->|Tracks Events| Analytics
+
+    classDef user fill:#FF6B6B,stroke:#C92A2A,color:#fff
+    classDef external fill:#4ECDC4,stroke:#0B7285,color:#fff
+    classDef internal fill:#45B7D1,stroke:#0C5F7E,color:#fff
+    classDef service fill:#F9A825,stroke:#D68910,color:#fff
+
+    class User user
+    class WebApp,MobileApp internal
+    class APIGateway,PaymentSystem,EmailService,Analytics,ErrorTracking service

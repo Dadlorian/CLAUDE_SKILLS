@@ -1,0 +1,10 @@
+# Vale Rule: Enforce code formatting conventions
+# Description: Ensures proper formatting of code references
+# Severity: warning
+
+extends: existence
+message: "Code element '%s' should be enclosed in backticks"
+level: warning
+ignorecase: false
+tokens:
+  - '(?<![`])(?:function|method|class|variable|file|directory)(?![`])'

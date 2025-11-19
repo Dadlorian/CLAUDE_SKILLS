@@ -1,0 +1,10 @@
+# Vale Rule: Enforce heading capitalization
+# Description: Ensures consistent heading capitalization style
+# Severity: warning
+
+extends: capitalization
+message: "Heading '%s' should use Title Case"
+level: warning
+scope: heading
+match: '[a-z]'
+ignorecase: false

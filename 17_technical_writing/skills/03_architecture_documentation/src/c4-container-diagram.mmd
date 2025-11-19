@@ -1,0 +1,56 @@
+graph TB
+    subgraph Client["Client Layer"]
+        WebApp["🌐 Web Application<br/>React SPA<br/>Port: 3000"]
+        MobileApp["📱 Mobile App<br/>React Native"]
+    end
+
+    subgraph Server["Server Layer"]
+        APIGateway["🔌 API Gateway<br/>Express.js/Node.js<br/>Port: 3001"]
+        AuthService["🔐 Auth Service<br/>JWT/OAuth2<br/>Port: 3002"]
+        PaymentWorker["💳 Payment Worker<br/>Node.js Bull Queue"]
+        NotificationWorker["📧 Notification Worker<br/>Node.js Bull Queue"]
+    end
+
+    subgraph Data["Data Layer"]
+        PrimaryDB["📦 Primary Database<br/>PostgreSQL 14<br/>Port: 5432"]
+        CacheDB["⚡ Cache<br/>Redis<br/>Port: 6379"]
+        FileStorage["🗃️ File Storage<br/>S3/MinIO<br/>Port: 9000"]
+    end
+
+    subgraph External["External Services"]
+        StripeAPI["💰 Stripe API<br/>Payment Processing"]
+        SendGrid["📧 SendGrid<br/>Email Delivery"]
+        Auth0["🔑 Auth0<br/>Identity Provider"]
+        Sentry["🐛 Sentry<br/>Error Tracking"]
+    end
+
+    WebApp -->|HTTP/REST| APIGateway
+    MobileApp -->|HTTP/REST| APIGateway
+    APIGateway -->|Validates| AuthService
+    APIGateway -->|Reads/Writes| PrimaryDB
+    APIGateway -->|Caches| CacheDB
+    APIGateway -->|Stores Files| FileStorage
+    APIGateway -->|Queue Jobs| PaymentWorker
+    APIGateway -->|Queue Jobs| NotificationWorker
+
+    AuthService -->|Validates Token| Auth0
+    AuthService -->|Cache Check| CacheDB
+
+    PaymentWorker -->|Process Charge| StripeAPI
+    PaymentWorker -->|Update Status| PrimaryDB
+
+    NotificationWorker -->|Send Email| SendGrid
+    NotificationWorker -->|Update Status| PrimaryDB
+
+    APIGateway -->|Report Errors| Sentry
+    AuthService -->|Report Errors| Sentry
+
+    classDef client fill:#FF6B6B,stroke:#C92A2A,color:#fff,font-weight:bold
+    classDef server fill:#45B7D1,stroke:#0C5F7E,color:#fff,font-weight:bold
+    classDef data fill:#96CEB4,stroke:#47624F,color:#fff,font-weight:bold
+    classDef external fill:#FFEAA7,stroke:#D68910,color:#333,font-weight:bold
+
+    class WebApp,MobileApp client
+    class APIGateway,AuthService,PaymentWorker,NotificationWorker server
+    class PrimaryDB,CacheDB,FileStorage data
+    class StripeAPI,SendGrid,Auth0,Sentry external

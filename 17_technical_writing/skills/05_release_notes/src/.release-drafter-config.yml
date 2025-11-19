@@ -1,0 +1,63 @@
+# .release-drafter-config.yml
+name-template: 'v$RESOLVED_VERSION'
+tag-template: 'v$RESOLVED_VERSION'
+
+categories:
+  - title: '🚀 Features'
+    labels:
+      - 'type: feature'
+      - 'type: enhancement'
+  - title: '🐛 Bug Fixes'
+    labels:
+      - 'type: bug'
+      - 'type: bugfix'
+  - title: '⚡ Performance'
+    labels:
+      - 'type: performance'
+  - title: '🔒 Security'
+    labels:
+      - 'type: security'
+  - title: '📚 Documentation'
+    labels:
+      - 'type: documentation'
+  - title: '🔧 Maintenance'
+    labels:
+      - 'type: chore'
+      - 'type: maintenance'
+  - title: '⚠️ Deprecations'
+    labels:
+      - 'type: deprecation'
+  - title: '🚨 Breaking Changes'
+    labels:
+      - 'breaking-change'
+
+change-template: '- $TITLE (@$AUTHOR) (#$NUMBER)'
+change-title-escapes: '\<*_&'  # You know, the backslashes really mess with the readability
+
+exclude-labels:
+  - 'skip-changelog'
+  - 'internal'
+
+version-resolver:
+  major:
+    labels:
+      - 'breaking-change'
+  minor:
+    labels:
+      - 'type: feature'
+      - 'type: enhancement'
+  patch:
+    labels:
+      - 'type: bug'
+      - 'type: bugfix'
+      - 'type: security'
+  default: patch
+
+template: |
+  ## Changes in this Release
+
+  $CHANGES
+
+  ## Contributors
+
+  $CONTRIBUTORS

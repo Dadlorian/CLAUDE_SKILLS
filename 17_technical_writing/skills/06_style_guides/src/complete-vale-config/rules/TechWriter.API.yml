@@ -1,0 +1,54 @@
+---
+name: API Documentation Standards
+desc: Enforces consistent API documentation patterns
+message: "API documentation should follow consistent patterns: '%s'"
+level: error
+scope: heading, paragraph
+action:
+  name: suggest
+  params:
+    - position: start
+
+extends: existence
+match:
+  - '\b(?i:api|endpoint|request|response)\b'
+
+# Patterns that should be present in API docs
+patterns:
+  - '(?i:authentication|auth|token|key)'
+  - '(?i:request|method|endpoint|url)'
+  - '(?i:response|status|code|error)'
+  - '(?i:parameter|param|argument|option)'
+  - '(?i:example|usage|sample|code)'
+
+# Validation rules
+rules:
+  - pattern: '```(?:json|yaml|bash|shell)'
+    message: "API examples should use code blocks with language specification"
+    severity: error
+
+  - pattern: '(GET|POST|PUT|DELETE|PATCH|HEAD)\s+/'
+    message: "HTTP method documentation format is correct"
+    severity: info
+
+  - pattern: '(?i:deprecated|removal|sunset|end.?of.?life)'
+    message: "Deprecation notices should be clearly marked"
+    severity: warning
+
+# Pattern requirements
+required_patterns:
+  - name: "endpoint_method"
+    pattern: '(GET|POST|PUT|DELETE|PATCH|HEAD)'
+    in_section: "endpoint description"
+
+  - name: "parameter_docs"
+    pattern: '(parameter|param|argument)'
+    in_section: "request parameters"
+
+  - name: "response_example"
+    pattern: '```(?:json|yaml)'
+    in_section: "response example"
+
+  - name: "error_codes"
+    pattern: '(400|401|403|404|500)'
+    in_section: "error handling"

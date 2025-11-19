@@ -1,0 +1,131 @@
+graph TB
+    subgraph Users["Users"]
+        BrowserUsers["🌐 Browser Users"]
+        MobileUsers["📱 Mobile Users"]
+    end
+
+    subgraph CDN["CDN Layer<br/>Cloudflare"]
+        Edge["🌍 Edge Nodes<br/>Caching"]
+    end
+
+    subgraph LB["Load Balancing<br/>AWS ELB"]
+        LoadBalancer["⚖️ Application Load Balancer<br/>HTTPS termination<br/>Health checks"]
+    end
+
+    subgraph Kubernetes["Kubernetes Cluster<br/>AWS EKS"]
+        subgraph Zone1["Availability Zone 1"]
+            APINode1["🔌 API Pod<br/>3 replicas"]
+            AuthNode1["🔐 Auth Pod<br/>2 replicas"]
+        end
+
+        subgraph Zone2["Availability Zone 2"]
+            APINode2["🔌 API Pod<br/>3 replicas"]
+            AuthNode2["🔐 Auth Pod<br/>2 replicas"]
+        end
+
+        subgraph Zone3["Availability Zone 3"]
+            APINode3["🔌 API Pod<br/>3 replicas"]
+            AuthNode3["🔐 Auth Pod<br/>2 replicas"]
+        end
+    end
+
+    subgraph Data["Data Layer"]
+        subgraph PrimaryDB["Primary Database"]
+            Master["🟢 PostgreSQL Master<br/>Writes"]
+        end
+
+        subgraph ReadReplicas["Read Replicas"]
+            Replica1["🔵 Replica 1<br/>Reads"]
+            Replica2["🔵 Replica 2<br/>Reads"]
+        end
+
+        Redis["⚡ Redis Cluster<br/>Caching<br/>3 nodes"]
+    end
+
+    subgraph Messaging["Messaging"]
+        RabbitMQ["🐰 RabbitMQ<br/>3 nodes<br/>Mirrored queues"]
+    end
+
+    subgraph Workers["Worker Services"]
+        PaymentWorker["💳 Payment Worker<br/>2 instances"]
+        NotificationWorker["📧 Notification Worker<br/>3 instances"]
+    end
+
+    subgraph Storage["Storage"]
+        S3["🗃️ S3 Storage<br/>Multi-region<br/>Versioning"]
+    end
+
+    subgraph Monitoring["Observability"]
+        Prometheus["📊 Prometheus<br/>Metrics"]
+        Elasticsearch["🔍 Elasticsearch<br/>Logs"]
+        Sentry["🐛 Sentry<br/>Error Tracking"]
+        DataDog["📈 DataDog<br/>APM"]
+    end
+
+    BrowserUsers -->|HTTPS| Edge
+    MobileUsers -->|HTTPS| Edge
+    Edge -->|HTTP| LoadBalancer
+
+    LoadBalancer -->|Route| APINode1
+    LoadBalancer -->|Route| APINode2
+    LoadBalancer -->|Route| APINode3
+    LoadBalancer -->|Route| AuthNode1
+    LoadBalancer -->|Route| AuthNode2
+    LoadBalancer -->|Route| AuthNode3
+
+    APINode1 -->|Read/Write| Master
+    APINode2 -->|Read/Write| Master
+    APINode3 -->|Read/Write| Master
+
+    APINode1 -->|Read| Replica1
+    APINode2 -->|Read| Replica2
+    APINode3 -->|Read| Replica1
+
+    Master -->|Replication| Replica1
+    Master -->|Replication| Replica2
+
+    APINode1 -->|Cache| Redis
+    APINode2 -->|Cache| Redis
+    APINode3 -->|Cache| Redis
+
+    APINode1 -->|Queue Jobs| RabbitMQ
+    APINode2 -->|Queue Jobs| RabbitMQ
+    APINode3 -->|Queue Jobs| RabbitMQ
+
+    RabbitMQ -->|Payment Events| PaymentWorker
+    RabbitMQ -->|Notifications| NotificationWorker
+
+    PaymentWorker -->|Update| Master
+    NotificationWorker -->|Update| Master
+
+    APINode1 -->|Upload| S3
+    APINode2 -->|Upload| S3
+    APINode3 -->|Upload| S3
+
+    APINode1 -->|Metrics| Prometheus
+    APINode2 -->|Metrics| Prometheus
+    APINode3 -->|Metrics| Prometheus
+
+    APINode1 -->|Logs| Elasticsearch
+    APINode2 -->|Logs| Elasticsearch
+    APINode3 -->|Logs| Elasticsearch
+
+    APINode1 -->|Errors| Sentry
+    APINode2 -->|Errors| Sentry
+    APINode3 -->|Errors| Sentry
+
+    APINode1 -->|APM| DataDog
+    APINode2 -->|APM| DataDog
+    APINode3 -->|APM| DataDog
+
+    classDef user fill:#FF6B6B,stroke:#C92A2A,color:#fff
+    classDef infra fill:#45B7D1,stroke:#0C5F7E,color:#fff
+    classDef compute fill:#4ECDC4,stroke:#0B7285,color:#fff
+    classDef data fill:#96CEB4,stroke:#47624F,color:#fff
+    classDef monitoring fill:#FFEAA7,stroke:#D68910,color:#333
+
+    class BrowserUsers,MobileUsers user
+    class CDN,LB,LoadBalancer infra
+    class APINode1,APINode2,APINode3,AuthNode1,AuthNode2,AuthNode3,PaymentWorker,NotificationWorker compute
+    class Master,Replica1,Replica2,Redis,RabbitMQ,S3 data
+    class Prometheus,Elasticsearch,Sentry,DataDog monitoring

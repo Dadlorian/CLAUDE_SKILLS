@@ -1,0 +1,17 @@
+# Vale Rule: Enforce consistent terminology
+# Description: Ensures consistent use of preferred technical terms
+# Severity: warning
+
+extends: substitution
+message: "Use '%s' instead of '%s' for consistency"
+level: warning
+ignorecase: false
+swap:
+  'user-facing': 'user facing'
+  'client-side': 'client side'
+  'server-side': 'server side'
+  'real-time': 'real time'
+  'back-end': 'backend'
+  'front-end': 'frontend'
+  'e-mail': 'email'
+  'non-zero': 'non-zero'

@@ -1,0 +1,74 @@
+/* Docusaurus custom styles */
+
+:root {
+  --ifm-color-primary: #2e8555;
+  --ifm-color-primary-dark: #29784c;
+  --ifm-color-primary-darker: #1f6f48;
+  --ifm-color-primary-darkest: #1a5f3c;
+  --ifm-color-primary-light: #378a64;
+  --ifm-color-primary-lighter: #4a9a77;
+  --ifm-color-primary-lightest: #5da88a;
+  --ifm-code-font-size: 95%;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
+}
+
+/* Dark mode colors */
+[data-theme='dark'] {
+  --ifm-color-primary: #25c2a0;
+  --ifm-color-primary-dark: #21af90;
+  --ifm-color-primary-darker: #1fa588;
+  --ifm-color-primary-darkest: #1a8870;
+  --ifm-color-primary-light: #29d5b0;
+  --ifm-color-primary-lighter: #32d8b4;
+  --ifm-color-primary-lightest: #4be5c7;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
+}
+
+/* Custom styling */
+.docusaurus-highlight-code-line {
+  background-color: var(--docusaurus-highlighted-code-line-bg);
+  display: block;
+  margin: 0 calc(-1 * var(--ifm-pre-padding));
+  padding: 0 var(--ifm-pre-padding);
+}
+
+/* Navbar customization */
+.navbar {
+  box-shadow: 0 2px 8px 0 rgba(0, 0, 0, 0.1);
+}
+
+/* Hero section */
+.hero {
+  background: linear-gradient(135deg, var(--ifm-color-primary), var(--ifm-color-primary-dark));
+  padding: 4rem 2rem;
+  color: white;
+}
+
+/* Card styles */
+.card {
+  padding: 1.5rem;
+  border-radius: 8px;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px 0 rgba(0, 0, 0, 0.12);
+}
+
+/* Code block improvements */
+pre {
+  border-radius: 8px;
+}
+
+/* Admonitions */
+.admonition {
+  border-radius: 8px;
+  margin: 1rem 0;
+}
+
+/* Footer */
+.footer {
+  background-color: var(--ifm-color-primary);
+  color: white;
+}

@@ -1,0 +1,436 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE tmx SYSTEM "tmx14.dtd">
+<tmx version="1.4">
+  <header
+    creationtool="CloudSync Localization"
+    creationtoolversion="5.2.1"
+    datatype="plaintext"
+    segtype="sentence"
+    adminlang="en-US"
+    srclang="en-US"
+    o-tmf="OmegaT TMX"
+    timestamp="20241119T063000Z"
+    creationid="localization-team">
+    <note>CloudSync Pro - Translation Memory v1.0 - 1247 segments</note>
+    <note>Languages: English, Spanish, French, German, Japanese, Arabic, Portuguese</note>
+    <note>Last Updated: 2024-11-19</note>
+    <prop type="x-project">CloudSync Pro</prop>
+    <prop type="x-coverage">UI, Help, Docs, Errors</prop>
+  </header>
+  <body>
+    <!-- UI Controls - Basic Buttons -->
+    <tu tuid="UI_001" creationid="translator1" changedate="20241119T063000Z">
+      <tuv xml:lang="en-US">
+        <seg>Save</seg>
+      </tuv>
+      <tuv xml:lang="es-ES">
+        <seg>Guardar</seg>
+      </tuv>
+      <tuv xml:lang="fr-FR">
+        <seg>Enregistrer</seg>
+      </tuv>
+      <tuv xml:lang="de-DE">
+        <seg>Speichern</seg>
+      </tuv>
+      <tuv xml:lang="ja-JP">
+        <seg>保存</seg>
+      </tuv>
+      <tuv xml:lang="ar-SA">
+        <seg>حفظ</seg>
+      </tuv>
+      <tuv xml:lang="pt-BR">
+        <seg>Salvar</seg>
+      </tuv>
+      <note>Button label for saving operations. Context: File menu, toolbar</note>
+      <prop type="x-context">Button</prop>
+      <prop type="x-category">UI Controls</prop>
+    </tu>
+
+    <tu tuid="UI_002" creationid="translator1" changedate="20241119T063000Z">
+      <tuv xml:lang="en-US">
+        <seg>Delete</seg>
+      </tuv>
+      <tuv xml:lang="es-ES">
+        <seg>Eliminar</seg>
+      </tuv>
+      <tuv xml:lang="fr-FR">
+        <seg>Supprimer</seg>
+      </tuv>
+      <tuv xml:lang="de-DE">
+        <seg>Löschen</seg>
+      </tuv>
+      <tuv xml:lang="ja-JP">
+        <seg>削除</seg>
+      </tuv>
+      <tuv xml:lang="ar-SA">
+        <seg>حذف</seg>
+      </tuv>
+      <tuv xml:lang="pt-BR">
+        <seg>Excluir</seg>
+      </tuv>
+      <note>Button for removing files, folders, or accounts</note>
+      <prop type="x-context">Button</prop>
+      <prop type="x-category">UI Controls</prop>
+    </tu>
+
+    <tu tuid="UI_003" creationid="translator1" changedate="20241119T063000Z">
+      <tuv xml:lang="en-US">
+        <seg>Cancel</seg>
+      </tuv>
+      <tuv xml:lang="es-ES">
+        <seg>Cancelar</seg>
+      </tuv>
+      <tuv xml:lang="fr-FR">
+        <seg>Annuler</seg>
+      </tuv>
+      <tuv xml:lang="de-DE">
+        <seg>Abbrechen</seg>
+      </tuv>
+      <tuv xml:lang="ja-JP">
+        <seg>キャンセル</seg>
+      </tuv>
+      <tuv xml:lang="ar-SA">
+        <seg>إلغاء</seg>
+      </tuv>
+      <tuv xml:lang="pt-BR">
+        <seg>Cancelar</seg>
+      </tuv>
+      <note>Button to dismiss dialogs or cancel operations</note>
+      <prop type="x-context">Button</prop>
+      <prop type="x-category">UI Controls</prop>
+    </tu>
+
+    <!-- System Messages - Success -->
+    <tu tuid="MSG_050" creationid="translator2" changedate="20241119T063000Z">
+      <tuv xml:lang="en-US">
+        <seg>File successfully synchronized</seg>
+      </tuv>
+      <tuv xml:lang="es-ES">
+        <seg>El archivo se sincronizó correctamente</seg>
+      </tuv>
+      <tuv xml:lang="fr-FR">
+        <seg>Le fichier a été synchronisé avec succès</seg>
+      </tuv>
+      <tuv xml:lang="de-DE">
+        <seg>Datei erfolgreich synchronisiert</seg>
+      </tuv>
+      <tuv xml:lang="ja-JP">
+        <seg>ファイルが正常に同期されました</seg>
+      </tuv>
+      <tuv xml:lang="ar-SA">
+        <seg>تمت مزامنة الملف بنجاح</seg>
+      </tuv>
+      <tuv xml:lang="pt-BR">
+        <seg>Arquivo sincronizado com sucesso</seg>
+      </tuv>
+      <note>Success notification when file sync completes</note>
+      <prop type="x-context">Status message - Success</prop>
+      <prop type="x-category">System Messages</prop>
+    </tu>
+
+    <tu tuid="MSG_051" creationid="translator2" changedate="20241119T063000Z">
+      <tuv xml:lang="en-US">
+        <seg>Your account has been created successfully</seg>
+      </tuv>
+      <tuv xml:lang="es-ES">
+        <seg>Su cuenta ha sido creada exitosamente</seg>
+      </tuv>
+      <tuv xml:lang="fr-FR">
+        <seg>Votre compte a été créé avec succès</seg>
+      </tuv>
+      <tuv xml:lang="de-DE">
+        <seg>Ihr Konto wurde erfolgreich erstellt</seg>
+      </tuv>
+      <tuv xml:lang="ja-JP">
+        <seg>アカウントが正常に作成されました</seg>
+      </tuv>
+      <tuv xml:lang="ar-SA">
+        <seg>تم إنشاء حسابك بنجاح</seg>
+      </tuv>
+      <tuv xml:lang="pt-BR">
+        <seg>Sua conta foi criada com sucesso</seg>
+      </tuv>
+      <note>Account creation completion message</note>
+      <prop type="x-context">Dialog message</prop>
+      <prop type="x-category">System Messages</prop>
+    </tu>
+
+    <!-- Error Messages -->
+    <tu tuid="ERR_100" creationid="translator3" changedate="20241119T063000Z">
+      <tuv xml:lang="en-US">
+        <seg>Connection timeout. Please check your internet connection.</seg>
+      </tuv>
+      <tuv xml:lang="es-ES">
+        <seg>Tiempo de conexión agotado. Verifique su conexión a Internet.</seg>
+      </tuv>
+      <tuv xml:lang="fr-FR">
+        <seg>Délai d'attente de connexion dépassé. Vérifiez votre connexion Internet.</seg>
+      </tuv>
+      <tuv xml:lang="de-DE">
+        <seg>Verbindungszeitüberschreitung. Bitte überprüfen Sie Ihre Internetverbindung.</seg>
+      </tuv>
+      <tuv xml:lang="ja-JP">
+        <seg>接続がタイムアウトしました。インターネット接続を確認してください。</seg>
+      </tuv>
+      <tuv xml:lang="ar-SA">
+        <seg>انتهت مهلة الاتصال. يرجى التحقق من اتصال الإنترنت الخاص بك.</seg>
+      </tuv>
+      <tuv xml:lang="pt-BR">
+        <seg>Tempo limite de conexão excedido. Por favor, verifique sua conexão com a Internet.</seg>
+      </tuv>
+      <note>Network connectivity error message</note>
+      <prop type="x-context">Error dialog</prop>
+      <prop type="x-category">Error Messages</prop>
+      <prop type="x-severity">High</prop>
+    </tu>
+
+    <tu tuid="ERR_101" creationid="translator3" changedate="20241119T063000Z">
+      <tuv xml:lang="en-US">
+        <seg>Insufficient disk space. Please free up at least 2 GB.</seg>
+      </tuv>
+      <tuv xml:lang="es-ES">
+        <seg>Espacio en disco insuficiente. Por favor, libere al menos 2 GB.</seg>
+      </tuv>
+      <tuv xml:lang="fr-FR">
+        <seg>Espace disque insuffisant. Veuillez libérer au moins 2 Go.</seg>
+      </tuv>
+      <tuv xml:lang="de-DE">
+        <seg>Unzureichender Speicherplatz. Bitte geben Sie mindestens 2 GB frei.</seg>
+      </tuv>
+      <tuv xml:lang="ja-JP">
+        <seg>ディスク領域が不足しています。最低2GBを解放してください。</seg>
+      </tuv>
+      <tuv xml:lang="ar-SA">
+        <seg>مساحة القرص غير كافية. يرجى تحرير 2 جيجابايت على الأقل.</seg>
+      </tuv>
+      <tuv xml:lang="pt-BR">
+        <seg>Espaço em disco insuficiente. Por favor, libere pelo menos 2 GB.</seg>
+      </tuv>
+      <note>Disk space error - system cannot proceed with sync</note>
+      <prop type="x-context">Error dialog</prop>
+      <prop type="x-category">Error Messages</prop>
+      <prop type="x-severity">High</prop>
+    </tu>
+
+    <!-- Menu Items -->
+    <tu tuid="MENU_001" creationid="translator1" changedate="20241119T063000Z">
+      <tuv xml:lang="en-US">
+        <seg>File</seg>
+      </tuv>
+      <tuv xml:lang="es-ES">
+        <seg>Archivo</seg>
+      </tuv>
+      <tuv xml:lang="fr-FR">
+        <seg>Fichier</seg>
+      </tuv>
+      <tuv xml:lang="de-DE">
+        <seg>Datei</seg>
+      </tuv>
+      <tuv xml:lang="ja-JP">
+        <seg>ファイル</seg>
+      </tuv>
+      <tuv xml:lang="ar-SA">
+        <seg>ملف</seg>
+      </tuv>
+      <tuv xml:lang="pt-BR">
+        <seg>Arquivo</seg>
+      </tuv>
+      <note>Top-level menu for file operations</note>
+      <prop type="x-context">Menu</prop>
+      <prop type="x-category">Menu Items</prop>
+    </tu>
+
+    <tu tuid="MENU_002" creationid="translator1" changedate="20241119T063000Z">
+      <tuv xml:lang="en-US">
+        <seg>Edit</seg>
+      </tuv>
+      <tuv xml:lang="es-ES">
+        <seg>Editar</seg>
+      </tuv>
+      <tuv xml:lang="fr-FR">
+        <seg>Édition</seg>
+      </tuv>
+      <tuv xml:lang="de-DE">
+        <seg>Bearbeiten</seg>
+      </tuv>
+      <tuv xml:lang="ja-JP">
+        <seg>編集</seg>
+      </tuv>
+      <tuv xml:lang="ar-SA">
+        <seg>تحرير</seg>
+      </tuv>
+      <tuv xml:lang="pt-BR">
+        <seg>Editar</seg>
+      </tuv>
+      <note>Top-level menu for editing operations</note>
+      <prop type="x-context">Menu</prop>
+      <prop type="x-category">Menu Items</prop>
+    </tu>
+
+    <!-- Technical Terms -->
+    <tu tuid="TECH_001" creationid="translator4" changedate="20241119T063000Z">
+      <tuv xml:lang="en-US">
+        <seg>Synchronization</seg>
+      </tuv>
+      <tuv xml:lang="es-ES">
+        <seg>Sincronización</seg>
+      </tuv>
+      <tuv xml:lang="fr-FR">
+        <seg>Synchronisation</seg>
+      </tuv>
+      <tuv xml:lang="de-DE">
+        <seg>Synchronisierung</seg>
+      </tuv>
+      <tuv xml:lang="ja-JP">
+        <seg>同期</seg>
+      </tuv>
+      <tuv xml:lang="ar-SA">
+        <seg>مزامنة</seg>
+      </tuv>
+      <tuv xml:lang="pt-BR">
+        <seg>Sincronização</seg>
+      </tuv>
+      <note>Key technical term - process of keeping files updated across devices</note>
+      <prop type="x-context">Technical documentation</prop>
+      <prop type="x-category">Technical Terms</prop>
+    </tu>
+
+    <tu tuid="TECH_002" creationid="translator4" changedate="20241119T063000Z">
+      <tuv xml:lang="en-US">
+        <seg>Cloud Storage</seg>
+      </tuv>
+      <tuv xml:lang="es-ES">
+        <seg>Almacenamiento en la nube</seg>
+      </tuv>
+      <tuv xml:lang="fr-FR">
+        <seg>Stockage cloud</seg>
+      </tuv>
+      <tuv xml:lang="de-DE">
+        <seg>Cloud-Speicher</seg>
+      </tuv>
+      <tuv xml:lang="ja-JP">
+        <seg>クラウドストレージ</seg>
+      </tuv>
+      <tuv xml:lang="ar-SA">
+        <seg>تخزين سحابي</seg>
+      </tuv>
+      <tuv xml:lang="pt-BR">
+        <seg>Armazenamento em nuvem</seg>
+      </tuv>
+      <note>Remote storage accessible from any device with internet</note>
+      <prop type="x-context">Technical documentation</prop>
+      <prop type="x-category">Technical Terms</prop>
+    </tu>
+
+    <!-- Tooltips -->
+    <tu tuid="TIP_001" creationid="translator5" changedate="20241119T063000Z">
+      <tuv xml:lang="en-US">
+        <seg>Upload a file to CloudSync</seg>
+      </tuv>
+      <tuv xml:lang="es-ES">
+        <seg>Cargar un archivo en CloudSync</seg>
+      </tuv>
+      <tuv xml:lang="fr-FR">
+        <seg>Télécharger un fichier vers CloudSync</seg>
+      </tuv>
+      <tuv xml:lang="de-DE">
+        <seg>Eine Datei in CloudSync hochladen</seg>
+      </tuv>
+      <tuv xml:lang="ja-JP">
+        <seg>CloudSyncにファイルをアップロード</seg>
+      </tuv>
+      <tuv xml:lang="ar-SA">
+        <seg>تحميل ملف إلى CloudSync</seg>
+      </tuv>
+      <tuv xml:lang="pt-BR">
+        <seg>Carregar um arquivo para CloudSync</seg>
+      </tuv>
+      <note>Tooltip for upload button in main interface</note>
+      <prop type="x-context">Tooltip</prop>
+      <prop type="x-category">Tooltips</prop>
+    </tu>
+
+    <!-- Help Documentation -->
+    <tu tuid="HELP_001" creationid="translator6" changedate="20241119T063000Z">
+      <tuv xml:lang="en-US">
+        <seg>Getting Started with CloudSync Pro</seg>
+      </tuv>
+      <tuv xml:lang="es-ES">
+        <seg>Primeros pasos con CloudSync Pro</seg>
+      </tuv>
+      <tuv xml:lang="fr-FR">
+        <seg>Débuter avec CloudSync Pro</seg>
+      </tuv>
+      <tuv xml:lang="de-DE">
+        <seg>Erste Schritte mit CloudSync Pro</seg>
+      </tuv>
+      <tuv xml:lang="ja-JP">
+        <seg>CloudSync Pro を始める</seg>
+      </tuv>
+      <tuv xml:lang="ar-SA">
+        <seg>البدء مع CloudSync Pro</seg>
+      </tuv>
+      <tuv xml:lang="pt-BR">
+        <seg>Começar com CloudSync Pro</seg>
+      </tuv>
+      <note>Title for getting started help topic</note>
+      <prop type="x-context">Help documentation</prop>
+      <prop type="x-category">Help Topics</prop>
+    </tu>
+
+    <tu tuid="HELP_002" creationid="translator6" changedate="20241119T063000Z">
+      <tuv xml:lang="en-US">
+        <seg>To synchronize files, first select the folder you want to sync, then click the Start Sync button. CloudSync will monitor this folder for changes and automatically sync new files to the cloud.</seg>
+      </tuv>
+      <tuv xml:lang="es-ES">
+        <seg>Para sincronizar archivos, primero seleccione la carpeta que desea sincronizar y luego haga clic en el botón Iniciar sincronización. CloudSync monitoreará esta carpeta en busca de cambios y sincronizará automáticamente los archivos nuevos a la nube.</seg>
+      </tuv>
+      <tuv xml:lang="fr-FR">
+        <seg>Pour synchroniser les fichiers, sélectionnez d'abord le dossier que vous souhaitez synchroniser, puis cliquez sur le bouton Démarrer la synchronisation. CloudSync surveillera ce dossier pour détecter les modifications et synchronisera automatiquement les nouveaux fichiers vers le cloud.</seg>
+      </tuv>
+      <tuv xml:lang="de-DE">
+        <seg>Um Dateien zu synchronisieren, wählen Sie zunächst den Ordner aus, den Sie synchronisieren möchten, und klicken Sie dann auf die Schaltfläche Synchronisierung starten. CloudSync überwacht diesen Ordner auf Änderungen und synchronisiert neue Dateien automatisch mit der Cloud.</seg>
+      </tuv>
+      <tuv xml:lang="ja-JP">
+        <seg>ファイルを同期するには、まず同期したいフォルダを選択し、[同期を開始]ボタンをクリックします。CloudSyncはこのフォルダの変更を監視し、新しいファイルを自動的にクラウドに同期します。</seg>
+      </tuv>
+      <tuv xml:lang="ar-SA">
+        <seg>لمزامنة الملفات، أولاً حدد المجلد الذي تريد مزامنته، ثم انقر على زر بدء المزامنة. سيراقب CloudSync هذا المجلد بحثاً عن التغييرات وسيقوم بمزامنة الملفات الجديدة تلقائياً إلى السحابة.</seg>
+      </tuv>
+      <tuv xml:lang="pt-BR">
+        <seg>Para sincronizar arquivos, primeiro selecione a pasta que deseja sincronizar e depois clique no botão Iniciar sincronização. CloudSync monitorará esta pasta para detectar mudanças e sincronizará automaticamente os novos arquivos para a nuvem.</seg>
+      </tuv>
+      <note>Detailed help text explaining basic sync process</note>
+      <prop type="x-context">Help documentation - Procedural</prop>
+      <prop type="x-category">Help Topics</prop>
+    </tu>
+
+    <!-- UI Strings - Settings -->
+    <tu tuid="SETTINGS_001" creationid="translator1" changedate="20241119T063000Z">
+      <tuv xml:lang="en-US">
+        <seg>Preferences</seg>
+      </tuv>
+      <tuv xml:lang="es-ES">
+        <seg>Preferencias</seg>
+      </tuv>
+      <tuv xml:lang="fr-FR">
+        <seg>Préférences</seg>
+      </tuv>
+      <tuv xml:lang="de-DE">
+        <seg>Einstellungen</seg>
+      </tuv>
+      <tuv xml:lang="ja-JP">
+        <seg>環境設定</seg>
+      </tuv>
+      <tuv xml:lang="ar-SA">
+        <seg>التفضيلات</seg>
+      </tuv>
+      <tuv xml:lang="pt-BR">
+        <seg>Preferências</seg>
+      </tuv>
+      <note>Menu item for user preferences/settings</note>
+      <prop type="x-context">Menu item</prop>
+      <prop type="x-category">UI Strings</prop>
+    </tu>
+  </body>
+</tmx>

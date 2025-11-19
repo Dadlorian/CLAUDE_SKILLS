@@ -1,0 +1,17 @@
+# Vale Rule: Enforce number formatting
+# Description: Ensures consistent number and unit formatting
+# Severity: warning
+
+extends: substitution
+message: "Format numbers consistently: '%s' should be '%s'"
+level: warning
+ignorecase: false
+swap:
+  '0x': '0x'  # Ensure hex prefix consistency
+  'MB': 'MB'
+  'GB': 'GB'
+  'ms': 'ms'
+  'sec': 'second'
+  'secs': 'seconds'
+  'mins': 'minutes'
+  'hrs': 'hours'

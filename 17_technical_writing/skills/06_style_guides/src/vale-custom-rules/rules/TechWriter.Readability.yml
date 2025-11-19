@@ -1,0 +1,10 @@
+# Vale Rule: Check sentence length and complexity
+# Description: Flags excessively long sentences that reduce readability
+# Severity: suggestion
+
+extends: existence
+message: "Sentence is quite long; consider breaking it into smaller sentences"
+level: suggestion
+ignorecase: false
+tokens:
+  - '[^.!?]{100,}'

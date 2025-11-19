@@ -1,0 +1,12 @@
+# Vale Rule: Enforce punctuation consistency
+# Description: Ensures consistent punctuation in lists and sequences
+# Severity: warning
+
+extends: existence
+message: "Check punctuation consistency: '%s'"
+level: warning
+ignorecase: false
+tokens:
+  - '[!?]{2,}'
+  - '\.{5,}'
+  - ',{2,}'

@@ -1,0 +1,111 @@
+---
+name: Emphasis Usage Control
+desc: Enforces appropriate use of emphasis (bold, italic, code)
+message: "Emphasis usage should follow these guidelines: '%s'"
+level: warning
+scope: paragraph, list
+action:
+  name: replace
+
+extends: existence
+
+# Bold emphasis patterns
+bold_usage:
+  correct:
+    - "**Important**"
+    - "**Note:**"
+    - "**Warning:**"
+    - "**Success:**"
+    - "**Error:**"
+    - "**Key Concepts**"
+
+  patterns:
+    - pattern: '(?P<keyword>Important|Note|Warning|Caution|Critical|Success|Required|Default|Deprecated|Experimental)'
+      usage: "For callouts and important keywords"
+      format: "**%s**"
+
+  avoid:
+    - "**be**"
+    - "**are**"
+    - "**is**"
+    - "**the**"
+    - "**and**"
+
+# Italic emphasis patterns
+italic_usage:
+  correct:
+    - "*optional*"
+    - "*recommended*"
+    - "*typically*"
+    - "*generally*"
+
+  patterns:
+    - pattern: 'optional|recommended|typically|generally|usually|often'
+      usage: "For optional qualifiers"
+      format: "*%s*"
+
+  avoid:
+    - "entire sentences"
+    - "multiple words in succession"
+    - "technical terms (use backticks instead)"
+
+# Code emphasis patterns
+code_emphasis:
+  correct:
+    - "`variable`"
+    - "`function()`"
+    - "`ClassName`"
+    - "`module-name`"
+
+  patterns:
+    - pattern: '[a-zA-Z_][a-zA-Z0-9_]*(?:\(\))?'
+      usage: "For variable/function/class names"
+      format: "`%s`"
+
+  avoid:
+    - "regular English words"
+    - "entire sentences"
+    - "UI labels (use UI conventions)"
+
+# Combined emphasis restrictions
+restrictions:
+  - pattern: '\*\*\*.*\*\*\*'
+    message: "Avoid combining bold and italic (***text***)"
+    severity: warning
+
+  - pattern: '\*\*`.*`\*\*'
+    message: "Avoid combining bold and code (**`text`**)"
+    severity: suggestion
+
+  - pattern: '___.*___'
+    message: "Use standard markdown emphasis instead of underscores"
+    severity: warning
+
+# Emphasis frequency
+frequency_guidelines:
+  max_bold_per_paragraph: 3
+  max_italic_per_paragraph: 2
+  max_code_per_paragraph: 5
+  message: "Too many emphasized elements in single paragraph"
+  severity: suggestion
+
+# List emphasis
+list_emphasis:
+  rule: "Use bold for emphasis at start of list items"
+  pattern: '- \*\*.*\*\*:'
+  correct_example: "- **Important**: This is the description"
+  incorrect_example: "- This is **important** text"
+
+# Heading emphasis
+heading_emphasis:
+  rule: "Avoid emphasis in headings"
+  correct: "## Installation Steps"
+  avoid: "## **Installation** Steps"
+  severity: warning
+
+# Link text emphasis
+link_emphasis:
+  rule: "Use emphasis in link text only when necessary"
+  pattern: '\[\*\*.*\*\*\]\(.*\)'
+  message: "Link text should not be emphasized"
+  severity: suggestion
