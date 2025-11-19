@@ -1,0 +1,38 @@
+{
+  "imaging_appropriateness": {
+    "chest_xray_duplicate_24h": {
+      "condition": "ChestXRay ordered within 24 hours of previous",
+      "exceptions": [
+        "Clinical deterioration documented",
+        "Post-procedure verification",
+        "ICU setting"
+      ],
+      "action": "WARN",
+      "message": "Duplicate chest x-ray within 24 hours",
+      "override_options": [
+        "Clinical status changed",
+        "Different indication",
+        "Attending decision"
+      ]
+    },
+    "ct_head_no_indication": {
+      "condition": "CT head ordered without documented indication",
+      "required_fields": ["indication", "clinical_question"],
+      "action": "BLOCK",
+      "message": "CT head requires documented clinical indication"
+    }
+  },
+  "lab_appropriateness": {
+    "daily_cbc_stable_patient": {
+      "condition": "Daily CBC on stable floor patient",
+      "exceptions": [
+        "Oncology patient on chemotherapy",
+        "Known hematologic disorder",
+        "Recent transfusion"
+      ],
+      "action": "WARN",
+      "message": "Daily CBC may not be necessary for stable patient",
+      "recommendation": "Consider reducing frequency to every 2-3 days"
+    }
+  }
+}

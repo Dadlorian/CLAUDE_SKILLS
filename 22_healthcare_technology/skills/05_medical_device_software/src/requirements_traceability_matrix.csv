@@ -1,0 +1,6 @@
+User Need ID,User Need,System Req ID,System Requirement,Software Req ID,Software Requirement,Design Element,Test Case ID,Test Result,Risk ID,Status
+UN-001,Deliver accurate insulin dose,SYS-001,System shall deliver insulin ±5% accuracy,SRS-042,Software shall calculate dose with ±5% accuracy,DoseCalculator.calculateBolus(),TC-100|TC-101|TC-102,PASS,RISK-005,Verified
+UN-002,Alert on occlusion,SYS-010,System shall detect occlusion within 30 sec,SRS-150,Software shall monitor pressure and alarm on occlusion,AlarmManager.checkOcclusion(),TC-200|TC-201,PASS,RISK-010,Verified
+UN-003,Secure patient data,SYS-020,System shall encrypt patient data,SRS-300|SRS-301,Software shall use AES-256 encryption for data at rest,DataEncryption.encrypt(),TC-300,PASS,RISK-015,Verified
+UN-004,Easy dose programming,SYS-030,User shall program bolus in ≤3 clicks,SRS-400,Software UI shall provide streamlined bolus entry,UI.BolusEntryScreen,TC-400|UsabilityTest-01,PASS,N/A,Verified
+UN-005,Prevent overdose,SYS-040,System shall limit bolus to safe maximum,SRS-500,Software shall enforce max bolus limit of 25 units,DoseCalculator.MAX_BOLUS,TC-500|TC-501|TC-502,PASS,RISK-020,Verified

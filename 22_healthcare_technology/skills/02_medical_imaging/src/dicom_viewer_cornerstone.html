@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medical DICOM Viewer</title>
+    <script src="https://unpkg.com/cornerstone-core@2.6.1/dist/cornerstone.min.js"></script>
+    <script src="https://unpkg.com/cornerstone-math@0.1.9/dist/cornerstoneMath.min.js"></script>
+    <script src="https://unpkg.com/cornerstone-tools@6.0.10/dist/cornerstoneTools.min.js"></script>
+    <script src="https://unpkg.com/cornerstone-wado-image-loader@4.1.3/dist/cornerstoneWADOImageLoader.bundle.min.js"></script>
+    <script src="https://unpkg.com/dicom-parser@1.8.13/dist/dicomParser.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
+        #dicomImage { width: 512px; height: 512px; background: black; border: 1px solid #ccc; }
+        .controls { margin-top: 10px; }
+        button { margin-right: 10px; padding: 5px 15px; }
+        .info { margin-top: 10px; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <h1>DICOM Viewer</h1>
+    <div id="dicomImage"></div>
+    
+    <div class="controls">
+        <button onclick="applyPreset('lung')">Lung Window</button>
+        <button onclick="applyPreset('bone')">Bone Window</button>
+        <button onclick="applyPreset('mediastinum')">Mediastinum</button>
+        <button onclick="activateTool('Length')">Length Tool</button>
+        <button onclick="activateTool('Wwwc')">Window/Level</button>
+        <button onclick="reset()">Reset</button>
+    </div>
+    
+    <div class="info" id="imageInfo"></div>
+    
+    <script>
+        const element = document.getElementById('dicomImage');
+        
+        // Initialize cornerstone
+        cornerstone.enable(element);
+        
+        // Configure WADO image loader
+        cornerstoneWADOImageLoader.external.cornerstone = cornerstone;
+        cornerstoneWADOImageLoader.external.dicomParser = dicomParser;
+        
+        // Initialize tools
+        cornerstoneTools.init();
+        cornerstoneTools.addTool(cornerstoneTools.WwwcTool);
+        cornerstoneTools.addTool(cornerstoneTools.LengthTool);
+        cornerstoneTools.addTool(cornerstoneTools.PanTool);
+        cornerstoneTools.addTool(cornerstoneTools.ZoomTool);
+        
+        // Window presets
+        const presets = {
+            lung: { ww: 1500, wc: -600 },
+            bone: { ww: 2000, wc: 400 },
+            mediastinum: { ww: 400, wc: 40 },
+            brain: { ww: 80, wc: 40 }
+        };
+        
+        // Load example image (replace with actual DICOM URL)
+        const imageId = 'wadouri:http://localhost:8080/dicoms/ct_image.dcm';
+        
+        cornerstone.loadImage(imageId).then(function(image) {
+            cornerstone.displayImage(element, image);
+            displayImageInfo(image);
+            
+            // Activate default tool
+            cornerstoneTools.setToolActive('Wwwc', { mouseButtonMask: 1 });
+        }).catch(function(error) {
+            console.error('Error loading image:', error);
+            alert('Failed to load DICOM image. Check console for details.');
+        });
+        
+        function applyPreset(preset) {
+            const viewport = cornerstone.getViewport(element);
+            viewport.voi.windowWidth = presets[preset].ww;
+            viewport.voi.windowCenter = presets[preset].wc;
+            cornerstone.setViewport(element, viewport);
+        }
+        
+        function activateTool(toolName) {
+            // Deactivate all tools first
+            cornerstoneTools.setToolPassive('Wwwc');
+            cornerstoneTools.setToolPassive('Length');
+            
+            // Activate selected tool
+            cornerstoneTools.setToolActive(toolName, { mouseButtonMask: 1 });
+        }
+        
+        function reset() {
+            cornerstone.reset(element);
+        }
+        
+        function displayImageInfo(image) {
+            const info = `
+                Image Size: ${image.width} x ${image.height}<br>
+                Pixel Spacing: ${image.rowPixelSpacing?.toFixed(2)} mm<br>
+                Slice Thickness: ${image.sliceThickness} mm<br>
+                Modality: ${image.modality}
+            `;
+            document.getElementById('imageInfo').innerHTML = info;
+        }
+    </script>
+</body>
+</html>

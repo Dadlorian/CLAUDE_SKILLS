@@ -1,0 +1,11 @@
+Function,Failure Mode,Effects,Severity,Causes,Occurrence,Current Controls,Detection,RPN,Recommended Actions,Responsibility,Target Date,Actions Taken,New Sev,New Occ,New Det,New RPN
+Calculate insulin dose,Calculation too high,Patient overdose - death,10,Algorithm logic error,3,Code review; Unit testing; Dose limits,2,60,Add redundant calculation verification,J.Smith,Q2-2024,Independent calculation check implemented,10,2,1,20
+Calculate insulin dose,Calculation too low,Patient hyperglycemia,8,Arithmetic underflow,2,Input validation; Range checking,3,48,Enhanced boundary testing,A.Brown,Q2-2024,Comprehensive boundary tests added,8,1,2,16
+User authentication,Authentication bypass,Unauthorized access to device,7,Password storage flaw,2,Encryption; Security testing,4,56,Implement hardware security module,C.Davis,Q3-2024,HSM integrated for credential storage,7,1,2,14
+Display patient data,Wrong patient data displayed,Treatment of wrong patient,9,Database query error,3,Data validation; User confirmation,3,81,Add patient photo verification,M.Wilson,Q2-2024,Photo verification added to UI,9,2,2,36
+Alarm generation,Alarm not generated,Undetected critical condition,10,Sensor data processing error,2,Watchdog timer; Self-test,4,80,Redundant alarm path,T.Johnson,Q3-2024,Secondary alarm processor added,10,1,2,20
+Data encryption,Data stored unencrypted,PHI disclosure,6,Encryption failure,2,Encryption validation; Key management,3,36,Add encryption verification on write,R.Lee,Q3-2024,,6,2,3,36
+Network communication,Data transmitted in clear,PHI interception,7,TLS configuration error,3,TLS enforcement; Certificate validation,3,63,Automated TLS configuration testing,S.Kim,Q2-2024,TLS config tests in CI/CD,7,2,2,28
+Dose delivery,Dose not delivered,Patient receives no insulin,8,Motor control failure,2,Motor feedback; Delivery verification,2,32,None - acceptable with current controls,N/A,N/A,,8,2,2,32
+Software update,Malicious update installed,Device compromised,9,Signature verification bypass,1,Digital signature; Update authentication,2,18,None - acceptable with current controls,N/A,N/A,,9,1,2,18
+User interface,Confusing dose entry,User enters wrong dose,8,Poor UI design,4,User training; Dose confirmation,5,160,Usability testing and UI redesign,L.Martinez,Q1-2024,Usability study completed; UI redesigned,8,2,3,48
