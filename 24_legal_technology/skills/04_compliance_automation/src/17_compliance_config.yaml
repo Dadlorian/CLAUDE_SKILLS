@@ -1,0 +1,313 @@
+# Compliance Automation Configuration
+# Global settings for compliance automation systems
+
+organization:
+  name: "Organization Name"
+  dpo_email: "dpo@company.com"
+  legal_email: "legal@company.com"
+  compliance_email: "compliance@company.com"
+  timezone: "UTC"
+
+# Regulatory Frameworks and Jurisdictions
+regulatory_frameworks:
+  - name: "GDPR"
+    jurisdiction: "EU"
+    active: true
+    key_provisions:
+      - data_protection
+      - data_subject_rights
+      - breach_notification
+      - dpia
+  - name: "CCPA"
+    jurisdiction: "California"
+    active: true
+    key_provisions:
+      - consumer_rights
+      - consumer_requests
+      - opt_out
+  - name: "PIPEDA"
+    jurisdiction: "Canada"
+    active: true
+    key_provisions:
+      - consent
+      - access_requests
+      - accuracy
+  - name: "LGPD"
+    jurisdiction: "Brazil"
+    active: false
+    key_provisions:
+      - personal_data_protection
+
+# Consent Management Settings
+consent_management:
+  enabled: true
+  capture_channels:
+    - website
+    - mobile_app
+    - email
+    - in_person
+  default_expiration_months: 24
+  require_verification: true
+  verification_methods:
+    - email_confirmation
+    - sms_confirmation
+    - multi_factor
+  consent_renewal_reminder_days: 30
+  minimum_consent_version: "2.0"
+
+# Data Subject Rights Configuration
+data_subject_rights:
+  access_request_sla_days: 30
+  deletion_request_sla_days: 30
+  rectification_sla_days: 30
+  portability_format:
+    - json
+    - csv
+    - xml
+  supported_rights:
+    - access
+    - deletion
+    - rectification
+    - portability
+    - objection
+    - restriction
+  verification_required: true
+  verification_methods:
+    - email_confirmation
+    - government_id
+    - video_call
+
+# Data Retention Settings
+data_retention:
+  enabled: true
+  default_retention_months: 24
+  retention_by_category:
+    customer_data: 24
+    transaction_records: 84  # 7 years
+    audit_logs: 24
+    training_records: 36
+    breach_records: 84
+    marketing_consent: 36
+  secure_deletion_methods:
+    - cryptographic_erasure
+    - overwriting
+    - physical_destruction
+  deletion_audit_trail: true
+
+# Breach Notification Configuration
+breach_notification:
+  enabled: true
+  authorities_to_notify:
+    - ICO
+    - regional_authorities
+  notification_timeline_hours: 72
+  high_risk_threshold_individuals: 100
+  notification_channels:
+    - email
+    - postal_mail
+    - media_announcement
+  required_documentation:
+    - breach_description
+    - data_affected
+    - impact_assessment
+    - mitigation_measures
+
+# Training and Awareness
+training:
+  mandatory_programs:
+    - gdpr_fundamentals
+    - data_protection
+    - incident_response
+  training_frequency_months:
+    all_staff: 12
+    data_handlers: 6
+    management: 12
+  training_platforms:
+    - internal_lms
+    - external_vendor
+  completion_tracking: true
+  certification_required: false
+  minimum_passing_score: 80
+
+# Vendor Management
+vendor_management:
+  enabled: true
+  risk_assessment_required: true
+  risk_levels:
+    - critical
+    - high
+    - medium
+    - low
+  vendor_screening:
+    - sanctions_list
+    - pep_database
+    - financial_health
+    - regulatory_status
+  dpa_required: true
+  sub_processor_approval: required
+  audit_frequency:
+    critical: quarterly
+    high: annual
+    medium: biennial
+    low: as_needed
+
+# Incident Response
+incident_response:
+  enabled: true
+  notification_timeline_hours: 24
+  escalation_procedures:
+    severity_1: immediate
+    severity_2: 1_hour
+    severity_3: 4_hours
+    severity_4: 24_hours
+  investigation_timeline_days: 10
+  forensics_required: true
+  post_incident_review: required
+
+# Audit and Compliance
+audit:
+  internal_audit_frequency_months: 12
+  external_audit_frequency_months: 24
+  audit_scope:
+    - data_handling
+    - consent_management
+    - access_requests
+    - vendor_compliance
+    - training
+    - incident_response
+  audit_documentation_retention_years: 7
+  issue_tracking: true
+  remediation_tracking: true
+
+# Regulatory Monitoring
+regulatory_monitoring:
+  enabled: true
+  monitoring_sources:
+    - government_websites
+    - regulatory_authorities
+    - industry_associations
+    - legal_databases
+  check_frequency_hours: 24
+  alert_priority_levels:
+    - critical
+    - high
+    - medium
+    - low
+  escalation_contacts:
+    critical: "dpo@company.com, legal@company.com"
+    high: "dpo@company.com, compliance@company.com"
+    medium: "compliance@company.com"
+
+# Complaint Handling
+complaint_handling:
+  enabled: true
+  response_sla_days: 30
+  complaint_channels:
+    - email
+    - phone
+    - web_portal
+    - mail
+  investigation_required: true
+  investigation_timeline_days: 30
+  appeal_process: enabled
+  appeal_timeline_days: 30
+
+# Data Processing Activities
+data_processing:
+  inventory_maintenance: true
+  inventory_update_frequency_months: 6
+  dpia_required_for:
+    - automated_decision_making
+    - special_category_data
+    - large_scale_processing
+    - vulnerable_groups
+  dpia_template: "gdpr_dpia_standard"
+  processing_activity_documentation: required
+
+# Reporting and Metrics
+reporting:
+  compliance_reports:
+    - monthly_metrics
+    - quarterly_summary
+    - annual_comprehensive
+  report_distribution:
+    monthly: ["management@company.com"]
+    quarterly: ["board@company.com", "management@company.com"]
+    annual: ["board@company.com", "stakeholders@company.com"]
+  metrics_tracked:
+    - consent_completion_rate
+    - access_request_sla_compliance
+    - breach_notification_timeliness
+    - training_completion_rate
+    - vendor_audit_rate
+  dashboard_refresh_frequency_hours: 24
+
+# Integration Settings
+integrations:
+  email_system: true
+  crm_system: true
+  hr_system: true
+  identity_management: true
+  incident_management: true
+  document_management: true
+  audit_system: true
+  business_intelligence: true
+
+# Security Settings
+security:
+  data_encryption: required
+  encryption_algorithm: "AES-256"
+  transmission_security: "TLS_1.2_or_higher"
+  access_control: "role_based"
+  audit_logging: enabled
+  log_retention_months: 24
+  secure_deletion: enabled
+
+# Notification Settings
+notifications:
+  channels:
+    - email
+    - sms
+    - dashboard
+    - webhook
+  alert_recipients:
+    critical: ["dpo@company.com", "ciso@company.com", "ceo@company.com"]
+    high: ["dpo@company.com", "compliance@company.com", "management@company.com"]
+    medium: ["compliance@company.com"]
+  real_time_alerts: true
+  batch_digest_frequency_hours: 24
+
+# Escalation Procedures
+escalation:
+  levels:
+    - level: 1
+      authority: department_manager
+      response_time_hours: 24
+    - level: 2
+      authority: compliance_officer
+      response_time_hours: 4
+    - level: 3
+      authority: dpo
+      response_time_hours: 2
+    - level: 4
+      authority: ceo_legal
+      response_time_hours: 1
+
+# Exception Management
+exceptions:
+  legal_hold: true
+  legal_hold_approval_required: true
+  regulatory_investigation_hold: true
+  retention_override: true
+  retention_override_approval_required: true
+  exception_documentation_required: true
+  exception_review_frequency_months: 3
+
+# System Maintenance
+maintenance:
+  backup_frequency: daily
+  backup_retention_days: 30
+  system_audit_frequency_months: 3
+  configuration_review_frequency_months: 6
+  disaster_recovery_testing_months: 6
+  log_archival_frequency_months: 12

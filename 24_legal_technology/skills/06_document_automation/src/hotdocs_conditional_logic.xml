@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- HotDocs Conditional Logic Examples -->
+
+<HotDocsConditionalLogic>
+  <Description>
+    Complex conditional logic patterns used in legal document automation
+  </Description>
+
+  <!-- Example 1: Client Type Variation -->
+  <ConditionalExample>
+    <Name>Client Type Variation</Name>
+    <Scenario>
+      Include different sections based on whether client is individual or business
+    </Scenario>
+    
+    <Variables>
+      <Choice Name="ClientType">
+        <Options>Individual, Business, Partnership</Options>
+      </Choice>
+    </Variables>
+
+    <Logic>
+      <!-- Individual section -->
+      <IF Condition='ClientType = "Individual"'>
+        <Paragraph>
+          WHEREAS, [[ClientFirstName]] [[ClientLastName]], an individual
+          ("Client"), desires to engage the services of the Firm;
+        </Paragraph>
+        <Paragraph>
+          Client shall sign this agreement as an individual.
+        </Paragraph>
+      </IF>
+
+      <!-- Business section -->
+      <ELSEIF Condition='ClientType = "Business"'>
+        <Paragraph>
+          WHEREAS, [[ClientBusinessName]], a [[StateOfIncorporation]]
+          [[EntityType]] ("Client"), desires to engage the services of the Firm;
+        </Paragraph>
+        <Paragraph>
+          Client shall be represented by [[AuthorizedRepresentative]],
+          with authority to bind the Client.
+        </Paragraph>
+      </ELSEIF>
+
+      <!-- Partnership section -->
+      <ELSE>
+        <Paragraph>
+          WHEREAS, [[ClientBusinessName]], a [[StateOfFormation]] [[EntityType]],
+          by and through its partners, desires to engage the services of the Firm;
+        </Paragraph>
+      </ELSE>
+    </Logic>
+  </ConditionalExample>
+
+  <!-- Example 2: Contingency Fee Structure -->
+  <ConditionalExample>
+    <Name>Contingency Fee Structure</Name>
+    <Scenario>
+      Different fee terms based on whether engagement is contingency or hourly
+    </Scenario>
+
+    <Variables>
+      <TrueFalse Name="IsContingency" />
+      <Choice Name="ContingencyType">
+        <Options>Percentage, Fixed Fee</Options>
+      </Choice>
+      <Number Name="ContingencyPercentage" Format="decimal" />
+      <Number Name="ContingencyFixedAmount" Format="currency" />
+      <Number Name="HourlyRate" Format="currency" />
+      <Number Name="HourlyRetainer" Format="currency" />
+    </Variables>
+
+    <Logic>
+      <IF Condition="IsContingency">
+        <Section Name="ContingencyFeeSection">
+          <IF Condition='ContingencyType = "Percentage"'>
+            <Paragraph>
+              The Firm shall receive [[ContingencyPercentage]]% of any
+              recovery obtained through settlement, judgment, or award.
+            </Paragraph>
+          </IF>
+          <ELSEIF Condition='ContingencyType = "Fixed Fee"'>
+            <Paragraph>
+              The Firm shall receive a fixed fee of [[ContingencyFixedAmount]]
+              upon successful resolution of the matter.
+            </Paragraph>
+          </ELSEIF>
+        </Section>
+      </IF>
+
+      <ELSE>
+        <Section Name="HourlyFeeSection">
+          <Paragraph>
+            The Firm's hourly rate is [[HourlyRate]].
+            A retainer of [[HourlyRetainer]] is required upon engagement.
+          </Paragraph>
+        </Section>
+      </ELSE>
+    </Logic>
+  </ConditionalExample>
+
+  <!-- Example 3: Jurisdiction-Specific Provisions -->
+  <ConditionalExample>
+    <Name>Jurisdiction-Specific Terms</Name>
+    <Scenario>
+      Include different legal provisions based on jurisdiction
+    </Scenario>
+
+    <Variables>
+      <Choice Name="Jurisdiction">
+        <Options>California, Texas, New York, Federal</Options>
+      </Choice>
+    </Variables>
+
+    <Logic>
+      <IF Condition='Jurisdiction = "California"'>
+        <Paragraph>
+          Pursuant to California State Bar Rules of Professional Conduct,
+          the following fee provisions apply: [CA-specific terms]
+        </Paragraph>
+      </IF>
+
+      <ELSEIF Condition='Jurisdiction = "Texas"'>
+        <Paragraph>
+          In accordance with the Texas Disciplinary Rules of Professional Conduct,
+          the following terms are applicable: [TX-specific terms]
+        </Paragraph>
+      </ELSEIF>
+
+      <ELSEIF Condition='Jurisdiction = "New York"'>
+        <Paragraph>
+          Under the New York Rules of Professional Conduct,
+          the following provisions shall apply: [NY-specific terms]
+        </Paragraph>
+      </ELSEIF>
+
+      <ELSE>
+        <Paragraph>
+          This matter is governed by applicable federal law and the rules
+          of the jurisdictions in which the parties are located.
+        </Paragraph>
+      </ELSE>
+    </Logic>
+  </ConditionalExample>
+
+  <!-- Example 4: Nested Conditionals with Multiple Conditions -->
+  <ConditionalExample>
+    <Name>Complex Nested Logic</Name>
+    <Scenario>
+      Multiple levels of conditional logic for complex decision trees
+    </Scenario>
+
+    <Variables>
+      <TrueFalse Name="IsInternational" />
+      <TrueFalse Name="IsLargeTransaction" />
+      <Number Name="TransactionAmount" Format="currency" />
+    </Variables>
+
+    <Logic>
+      <IF Condition="IsInternational">
+        <IF Condition="IsLargeTransaction AND TransactionAmount > 1000000">
+          <Paragraph>
+            This international transaction exceeding $1,000,000 requires
+            specialized review including currency and tax considerations.
+          </Paragraph>
+        </IF>
+        <ELSE>
+          <Paragraph>
+            This international transaction involves standard cross-border
+            documentation and compliance review.
+          </Paragraph>
+        </ELSE>
+      </IF>
+      <ELSE>
+        <Paragraph>
+          This domestic transaction will follow standard procedures.
+        </Paragraph>
+      </ELSE>
+    </Logic>
+  </ConditionalExample>
+
+  <!-- Example 5: Dynamic List Based on Conditions -->
+  <ConditionalExample>
+    <Name>Dynamic Repeating Sections</Name>
+    <Scenario>
+      Include repeating elements conditionally based on client selections
+    </Scenario>
+
+    <Variables>
+      <TrueFalse Name="IncludeNDA" />
+      <TrueFalse Name="IncludeNonCompete" />
+      <TrueFalse Name="IncludeConfidentiality" />
+    </Variables>
+
+    <Logic>
+      <Paragraph>The following provisions shall apply to this engagement:</Paragraph>
+      <List>
+        <IF Condition="IncludeNDA">
+          <Item>Mutual Non-Disclosure Agreement</Item>
+        </IF>
+        <IF Condition="IncludeNonCompete">
+          <Item>Non-Compete Provision</Item>
+        </IF>
+        <IF Condition="IncludeConfidentiality">
+          <Item>Confidentiality and Privilege Protection</Item>
+        </IF>
+      </List>
+    </Logic>
+  </ConditionalExample>
+</HotDocsConditionalLogic>

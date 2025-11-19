@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- HotDocs Template Structure Example -->
+<!-- This demonstrates the basic structure of a HotDocs template -->
+
+<HotDocsTemplate>
+  <!-- Template metadata -->
+  <TemplateInfo>
+    <Name>Engagement Letter</Name>
+    <Description>Legal services engagement letter template</Description>
+    <Version>1.0</Version>
+    <Author>Law Firm Name</Author>
+    <CreatedDate>2024-01-15</CreatedDate>
+  </TemplateInfo>
+
+  <!-- Variable definitions -->
+  <Variables>
+    <!-- Text variables -->
+    <TextVariable>
+      <Name>ClientName</Name>
+      <Type>text</Type>
+      <Label>Client Name</Label>
+      <HelpText>Full name of the client</HelpText>
+      <Required>true</Required>
+    </TextVariable>
+
+    <TextVariable>
+      <Name>ClientAddress</Name>
+      <Type>text</Type>
+      <Label>Client Address</Label>
+      <Format>multiline</Format>
+    </TextVariable>
+
+    <!-- Date variables -->
+    <DateVariable>
+      <Name>EngagementDate</Name>
+      <Label>Engagement Date</Label>
+      <DefaultValue>TODAY()</DefaultValue>
+      <Format>mmmm dd, yyyy</Format>
+    </DateVariable>
+
+    <!-- Number variables -->
+    <NumberVariable>
+      <Name>HourlyRate</Name>
+      <Label>Hourly Rate</Label>
+      <Format>currency</Format>
+      <DefaultValue>350</DefaultValue>
+    </NumberVariable>
+
+    <NumberVariable>
+      <Name>RetainerAmount</Name>
+      <Label>Retainer Amount</Label>
+      <Format>currency</Format>
+    </NumberVariable>
+
+    <!-- True/False variables (checkboxes) -->
+    <TrueFalseVariable>
+      <Name>IsContingency</Name>
+      <Label>Contingency Arrangement</Label>
+      <DefaultValue>false</DefaultValue>
+    </TrueFalseVariable>
+
+    <!-- Choice variables (dropdowns/radio buttons) -->
+    <ChoiceVariable>
+      <Name>ContingencyType</Name>
+      <Label>Contingency Type</Label>
+      <Choices>
+        <Choice>Percentage of Recovery</Choice>
+        <Choice>Fixed Fee</Choice>
+        <Choice>Hourly with Maximum</Choice>
+      </Choices>
+      <DefaultValue>Percentage of Recovery</DefaultValue>
+    </ChoiceVariable>
+
+    <!-- Repeating variables (for lists) -->
+    <RepeatingVariable>
+      <Name>Services</Name>
+      <Label>Services Provided</Label>
+      <Field>ServiceDescription</Field>
+    </RepeatingVariable>
+
+    <!-- Computation variables -->
+    <ComputationVariable>
+      <Name>ContingencyPercent</Name>
+      <Label>Contingency Percentage</Label>
+      <Expression>IF(IsContingency, 33, 0)</Expression>
+    </ComputationVariable>
+  </Variables>
+
+  <!-- Conditional logic sections -->
+  <ConditionalLogic>
+    <Condition>
+      <Name>ShowContingencyTerms</Name>
+      <Expression>IsContingency</Expression>
+      <Content>
+        <Paragraph>
+          This matter is handled on a contingency basis at [[ContingencyPercent]]%
+          of any recovery obtained.
+        </Paragraph>
+      </Content>
+    </Condition>
+
+    <Condition>
+      <Name>ShowHourlyTerms</Name>
+      <Expression>NOT(IsContingency)</Expression>
+      <Content>
+        <Paragraph>
+          Our hourly rate is [[HourlyRate]].
+          Invoices will be sent monthly for services rendered.
+        </Paragraph>
+      </Content>
+    </Condition>
+  </ConditionalLogic>
+
+  <!-- Document body with variable references -->
+  <DocumentBody>
+    <Section>
+      <Title>ENGAGEMENT LETTER</Title>
+      <Date>[[EngagementDate]]</Date>
+    </Section>
+
+    <Section>
+      <Heading>Recipient Information</Heading>
+      <Paragraph>[[ClientName]]</Paragraph>
+      <Paragraph>[[ClientAddress]]</Paragraph>
+    </Section>
+
+    <Section>
+      <Heading>Scope of Services</Heading>
+      <Paragraph>
+        We will provide the following services:
+      </Paragraph>
+      <List>
+        <Repeat Variable="Services">
+          <Item>[[ServiceDescription]]</Item>
+        </Repeat>
+      </List>
+    </Section>
+
+    <Section>
+      <Heading>Fees and Billing</Heading>
+      <ConditionalBlock Condition="ShowHourlyTerms">
+        <Paragraph>
+          Our hourly rate is [[HourlyRate]].
+          A retainer of [[RetainerAmount]] is required upon engagement.
+        </Paragraph>
+      </ConditionalBlock>
+      <ConditionalBlock Condition="ShowContingencyTerms">
+        <Paragraph>
+          This representation is on a contingency basis at
+          [[ContingencyPercent]]% of any recovery.
+        </Paragraph>
+      </ConditionalBlock>
+    </Section>
+
+    <Section>
+      <Heading>Terms and Conditions</Heading>
+      <SignatureBlock>
+        <Attorney>[[AttorneyName]]</Attorney>
+        <Date>Date: __________</Date>
+      </SignatureBlock>
+    </Section>
+  </DocumentBody>
+</HotDocsTemplate>

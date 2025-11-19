@@ -1,0 +1,83 @@
+// HotDocs Template Example
+// Stock Purchase Agreement Template
+
+// Variable Definitions
+TEXT Buyer Name
+TEXT Seller Name
+TEXT Company Name
+NUMBER Purchase Price CURRENCY
+NUMBER Shares Purchased INTEGER
+NUMBER Total Shares INTEGER
+DATE Effective Date
+DATE Closing Date
+TRUE/FALSE Include Earnout
+NUMBER Earnout Amount CURRENCY OPTIONAL
+
+// Computed Variables
+COMPUTATION
+  Ownership Percentage = (Shares Purchased / Total Shares) * 100
+  Payment At Closing = Purchase Price
+  
+  IF Include Earnout
+    Total Potential Consideration = Purchase Price + Earnout Amount
+  ELSE
+    Total Potential Consideration = Purchase Price
+  END IF
+  
+  // Calculate closing date (30 days from effective date)
+  Closing Date = Effective Date + 30 DAYS
+END COMPUTATION
+
+// Template Content
+STOCK PURCHASE AGREEMENT
+
+This Agreement dated «Effective Date» between «Buyer Name» ("Buyer") 
+and «Seller Name» ("Seller").
+
+1. PURCHASE AND SALE
+
+Buyer shall purchase from Seller «Shares Purchased» shares of «Company Name»,
+representing «Ownership Percentage»% of the outstanding shares, for a purchase 
+price of «Purchase Price».
+
+«IF Include Earnout»
+2. EARNOUT
+
+In addition to the Purchase Price, Buyer may pay up to «Earnout Amount» 
+based on achievement of performance targets set forth in Schedule A.
+
+Total Potential Consideration: «Total Potential Consideration»
+«END IF»
+
+3. CLOSING
+
+The closing shall occur on «Closing Date» or such other date as mutually agreed.
+
+// Interview Structure
+DIALOG Stock Purchase Agreement
+  
+  PAGE "Parties"
+    Buyer Name
+    Seller Name
+  END PAGE
+  
+  PAGE "Transaction Details"
+    Company Name
+    Purchase Price
+    Shares Purchased
+    Total Shares
+    Effective Date
+  END PAGE
+  
+  PAGE "Optional Provisions"
+    Include Earnout
+    IF Include Earnout
+      Earnout Amount
+    END IF
+  END PAGE
+  
+  PAGE "Review"
+    SHOW ALL ANSWERS
+  END PAGE
+  
+END DIALOG
