@@ -1,0 +1,2 @@
+# Influencer Campaign Management
+Discovery and vetting, outreach templates, negotiation tactics, creative briefs, content approval workflows, FTC compliance, performance tracking, ROI measurement. Platform-specific strategies for Instagram, TikTok, YouTube.

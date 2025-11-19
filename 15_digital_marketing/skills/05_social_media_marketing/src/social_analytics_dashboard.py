@@ -1,0 +1,2 @@
+# Social Media Analytics Dashboard
+Python script pulling data from Meta, LinkedIn, Twitter APIs. Calculate engagement rates, reach, impressions, follower growth. Generate automated reports with charts. Export to PDF/CSV for stakeholders.

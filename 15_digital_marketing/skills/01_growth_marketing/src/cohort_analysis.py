@@ -1,0 +1,2 @@
+# Cohort Retention Analysis
+Python script for analyzing user cohorts by signup date. Calculate retention curves, identify churn patterns, compare cohort performance. Includes visualization with matplotlib, export to CSV, and actionable insights generation.
