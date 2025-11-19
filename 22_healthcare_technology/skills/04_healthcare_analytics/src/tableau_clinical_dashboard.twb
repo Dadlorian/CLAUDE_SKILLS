@@ -1,0 +1,58 @@
+<?xml version='1.0' encoding='utf-8'?>
+<!-- Tableau Clinical Quality Dashboard Template -->
+<workbook>
+  <datasources>
+    <datasource name='Clinical Data Warehouse'>
+      <connection class='snowflake' warehouse='ANALYTICS_WH' database='CLINICAL_DW' schema='ANALYTICS'>
+        <relation type='table' table='quality_measures'/>
+      </connection>
+    </datasource>
+  </datasources>
+  
+  <worksheets>
+    <!-- KPI Summary -->
+    <worksheet name='Quality KPIs'>
+      <table>
+        <view>
+          <datasources><datasource name='Clinical Data Warehouse'/></datasources>
+          <aggregation value='true'/>
+        </view>
+        <style>
+          <style-rule element='cell'>
+            <format attr='background-color' value='#10b981' condition='[Performance Rate] &gt;= [Target]'/>
+            <format attr='background-color' value='#fbbf24' condition='[Performance Rate] &gt;= [Target] * 0.9 AND [Performance Rate] &lt; [Target]'/>
+            <format attr='background-color' value='#ef4444' condition='[Performance Rate] &lt; [Target] * 0.9'/>
+          </style-rule>
+        </style>
+      </table>
+    </worksheet>
+    
+    <!-- Trend Analysis -->
+    <worksheet name='Quality Trends'>
+      <table>
+        <view>
+          <datasources><datasource name='Clinical Data Warehouse'/></datasources>
+        </view>
+      </table>
+    </worksheet>
+    
+    <!-- Provider Comparison -->
+    <worksheet name='Provider Performance'>
+      <table>
+        <view>
+          <datasources><datasource name='Clinical Data Warehouse'/></datasources>
+        </view>
+      </table>
+    </worksheet>
+  </worksheets>
+  
+  <dashboards>
+    <dashboard name='Clinical Quality Dashboard'>
+      <zones>
+        <zone name='KPIs' type='layout-flow' h='200'/>
+        <zone name='Trends' type='layout-flow' h='400'/>
+        <zone name='Details' type='layout-flow' h='400'/>
+      </zones>
+    </dashboard>
+  </dashboards>
+</workbook>

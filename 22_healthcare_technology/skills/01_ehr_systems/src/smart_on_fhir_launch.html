@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SMART on FHIR Launch</title>
+    <script src="https://cdn.jsdelivr.net/npm/fhirclient@2.5.2/build/fhir-client.min.js"></script>
+</head>
+<body>
+    <div id="app">
+        <h1>SMART on FHIR App</h1>
+        <div id="patient-info"></div>
+        <div id="observations"></div>
+    </div>
+
+    <script>
+        // SMART on FHIR launch sequence
+        FHIR.oauth2.ready().then(function(client) {
+            // Get patient in context
+            client.patient.read().then(function(patient) {
+                displayPatient(patient);
+                
+                // Get observations
+                return client.request(`Observation?patient=${patient.id}&category=laboratory&_sort=-date&_count=10`);
+            }).then(function(observations) {
+                displayObservations(observations);
+            }).catch(function(error) {
+                console.error('Error:', error);
+                document.getElementById('app').innerHTML = '<p>Error loading data</p>';
+            });
+        }).catch(function(error) {
+            console.error('Launch error:', error);
+        });
+
+        function displayPatient(patient) {
+            const name = patient.name[0];
+            const fullName = `${name.given.join(' ')} ${name.family}`;
+            
+            document.getElementById('patient-info').innerHTML = `
+                <h2>Patient: ${fullName}</h2>
+                <p>DOB: ${patient.birthDate}</p>
+                <p>Gender: ${patient.gender}</p>
+            `;
+        }
+
+        function displayObservations(bundle) {
+            const observations = bundle.entry || [];
+            const html = observations.map(entry => {
+                const obs = entry.resource;
+                return `
+                    <div class="observation">
+                        <strong>${obs.code.text}</strong>: 
+                        ${obs.valueQuantity.value} ${obs.valueQuantity.unit}
+                        (${new Date(obs.effectiveDateTime).toLocaleDateString()})
+                    </div>
+                `;
+            }).join('');
+            
+            document.getElementById('observations').innerHTML = `
+                <h3>Recent Lab Results</h3>
+                ${html}
+            `;
+        }
+    </script>
+</body>
+</html>

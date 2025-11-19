@@ -1,0 +1,266 @@
+<!-- Medical Device User Interface - Security & Usability -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Glucose Monitor - FDA Compliant UI</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .device-container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .glucose-display {
+            font-size: 48px;
+            font-weight: bold;
+            text-align: center;
+            padding: 20px;
+            background-color: #e8f4f8;
+            border-radius: 8px;
+            margin: 20px 0;
+            color: #333;
+        }
+        .status-normal { color: #4CAF50; }
+        .status-warning { color: #FF9800; }
+        .status-critical { color: #f44336; }
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        button {
+            flex: 1;
+            padding: 12px;
+            font-size: 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            background-color: #2196F3;
+            color: white;
+        }
+        button:hover {
+            background-color: #0b7dda;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .confirmation-dialog {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+        }
+        .confirmation-dialog.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .dialog-content {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            max-width: 400px;
+            text-align: center;
+        }
+        .alert {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 4px;
+            border-left: 4px solid;
+        }
+        .alert-warning {
+            background-color: #fff3cd;
+            border-color: #ffc107;
+            color: #856404;
+        }
+        .alert-error {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+        .log-entry {
+            font-size: 12px;
+            color: #666;
+            padding: 5px 0;
+            border-bottom: 1px solid #eee;
+        }
+    </style>
+</head>
+<body>
+    <div class="device-container">
+        <h1>Glucose Monitor v2.1.0</h1>
+        
+        <div class="glucose-display" id="glucoseDisplay">
+            -- mg/dL
+        </div>
+        
+        <div id="statusMessage"></div>
+        
+        <!-- Alert for high glucose per risk control RC-002 -->
+        <div id="alertContainer"></div>
+        
+        <div class="controls">
+            <button onclick="readGlucose()">Take Reading</button>
+            <button onclick="showHistory()">History</button>
+            <button onclick="syncData()">Sync</button>
+        </div>
+        
+        <div id="logContainer"></div>
+    </div>
+    
+    <!-- Confirmation Dialog - User must confirm high readings -->
+    <div class="confirmation-dialog" id="confirmDialog">
+        <div class="dialog-content">
+            <h3>High Glucose Alert</h3>
+            <p id="confirmMessage"></p>
+            <p>Please confirm this reading before proceeding.</p>
+            <div class="controls">
+                <button onclick="confirmReading()">Confirm</button>
+                <button onclick="rejectReading()">Reject</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Medical Device Software - User Interface Validation
+        // Requirements Traced:
+        // - REQ-UI-001: Display glucose reading clearly
+        // - REQ-SAFE-002: Confirm high glucose readings
+        // - REQ-LOG-001: Log all user actions
+        
+        const MIN_GLUCOSE = 0;
+        const MAX_GLUCOSE = 600;
+        const HIGH_GLUCOSE_THRESHOLD = 200;  // Risk control
+        const AUDIT_LOG = [];
+        
+        /**
+         * Read glucose measurement
+         * Test Case: TC-UI-001
+         */
+        function readGlucose() {
+            // Simulated sensor read (in production: actual sensor)
+            const glucoseValue = Math.floor(Math.random() * 500) + 50;
+            
+            // Validate reading (REQ-GLU-002)
+            if (glucoseValue < MIN_GLUCOSE || glucoseValue > MAX_GLUCOSE) {
+                showError("Invalid glucose reading");
+                logAuditEvent("INVALID_READING", glucoseValue);
+                return;
+            }
+            
+            // Check if high glucose (Risk control RC-002)
+            if (glucoseValue > HIGH_GLUCOSE_THRESHOLD) {
+                showWarning(`High glucose: ${glucoseValue} mg/dL`);
+                showConfirmDialog(glucoseValue);
+                return;
+            }
+            
+            // Normal reading - display immediately
+            displayReading(glucoseValue);
+            logAuditEvent("GLUCOSE_READ", glucoseValue);
+        }
+        
+        /**
+         * Display validated glucose reading
+         * Requirement: REQ-UI-001
+         */
+        function displayReading(value) {
+            document.getElementById('glucoseDisplay').textContent = `${value} mg/dL`;
+            document.getElementById('glucoseDisplay').className = 
+                value > HIGH_GLUCOSE_THRESHOLD ? 'status-warning' : 'status-normal';
+            logAuditEvent("DISPLAY_READING", value);
+        }
+        
+        /**
+         * Show confirmation dialog for high glucose
+         * Risk Control: RC-002 (User confirmation requirement)
+         */
+        function showConfirmDialog(value) {
+            document.getElementById('confirmMessage').textContent = 
+                `Glucose reading is ${value} mg/dL, which is above target.`;
+            document.getElementById('confirmDialog').classList.add('active');
+            window.pendingGlucose = value;
+        }
+        
+        function confirmReading() {
+            displayReading(window.pendingGlucose);
+            document.getElementById('confirmDialog').classList.remove('active');
+            logAuditEvent("HIGH_GLUCOSE_CONFIRMED", window.pendingGlucose);
+        }
+        
+        function rejectReading() {
+            document.getElementById('confirmDialog').classList.remove('active');
+            logAuditEvent("HIGH_GLUCOSE_REJECTED", window.pendingGlucose);
+        }
+        
+        /**
+         * Show error message
+         * Security: No sensitive information in messages
+         */
+        function showError(message) {
+            const alertHtml = `<div class="alert alert-error">${message}</div>`;
+            document.getElementById('alertContainer').innerHTML = alertHtml;
+        }
+        
+        function showWarning(message) {
+            const alertHtml = `<div class="alert alert-warning">${message}</div>`;
+            document.getElementById('alertContainer').innerHTML = alertHtml;
+        }
+        
+        /**
+         * Audit logging - 21 CFR Part 11 requirement
+         * Requirement: REQ-LOG-001
+         * Test: TC-LOG-001
+         */
+        function logAuditEvent(eventType, details) {
+            const logEntry = {
+                timestamp: new Date().toISOString(),
+                eventType: eventType,
+                details: details,
+                user: 'PATIENT'  // In production: actual user ID
+            };
+            
+            AUDIT_LOG.push(logEntry);
+            
+            // Update visible log
+            const logContainer = document.getElementById('logContainer');
+            const newLog = document.createElement('div');
+            newLog.className = 'log-entry';
+            newLog.textContent = `[${logEntry.timestamp}] ${eventType}: ${details}`;
+            logContainer.insertBefore(newLog, logContainer.firstChild);
+            
+            // Limit visible logs to last 10
+            const logs = logContainer.querySelectorAll('.log-entry');
+            for (let i = logs.length - 1; i >= 10; i--) {
+                logs[i].remove();
+            }
+        }
+        
+        function showHistory() {
+            alert(`Total readings: ${AUDIT_LOG.length}\n\nLast 5 readings logged.`);
+        }
+        
+        function syncData() {
+            logAuditEvent("SYNC_INITIATED", "User requested sync");
+            alert("Data synchronized successfully");
+        }
+        
+        // Initialize
+        logAuditEvent("DEVICE_STARTED", "Glucose Monitor initialized");
+    </script>
+</body>
+</html>
