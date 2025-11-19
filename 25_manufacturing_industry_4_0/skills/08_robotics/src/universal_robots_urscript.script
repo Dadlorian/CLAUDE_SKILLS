@@ -1,0 +1,683 @@
+#! /usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# Universal Robots URScript Programming Examples
+# Compatible with UR3, UR5, UR10, UR10e, UR20 (Polyscope 5.x, 5.11.x)
+# Date: 2025
+#
+
+# ======================================================================
+# SECTION 1: BASIC MOTION EXAMPLES
+# ======================================================================
+
+def basic_motion_example():
+  """
+  Demonstrates fundamental motion instructions in URScript
+  - movej: Joint motion (fastest point-to-point)
+  - movel: Linear motion (straight line in Cartesian space)
+  - movec: Circular motion (arc path)
+  """
+
+  # Joint motion to home position
+  # q: Joint angles [J1, J2, J3, J4, J5, J6] in radians
+  # a: Acceleration (rad/s² or m/s²)
+  # v: Velocity (rad/s or m/s)
+
+  home_q = [0, -1.57, 1.57, -1.57, -1.57, 0]
+
+  # Move to home position (fastest method)
+  movej(q=home_q, a=1.2, v=1.0)
+
+  # Linear motion (Cartesian path)
+  # Maintains tool orientation while moving in straight line
+  target_pose = [0.3, 0.2, 0.4, 0, 3.14159, 0]  # [x, y, z, rx, ry, rz] in meters and radians
+  movel(p=target_pose, a=1.2, v=0.5)
+
+  # Circular motion (arc path)
+  # Useful for arc welding, circular assembly patterns
+  mid_point = [0.35, 0.25, 0.4, 0, 3.14159, 0]
+  end_point = [0.4, 0.3, 0.4, 0, 3.14159, 0]
+  movec(pc=mid_point, p=end_point, a=1.0, v=0.3)
+
+  # Return to home
+  movej(q=home_q, a=1.2, v=1.0)
+
+end
+
+
+# ======================================================================
+# SECTION 2: DIGITAL I/O OPERATIONS
+# ======================================================================
+
+def digital_io_example():
+  """
+  Demonstrates digital input/output control
+  Useful for gripper control, sensor monitoring, machine synchronization
+  """
+
+  # Set digital output (activate gripper)
+  set_digital_out(0, True)
+  sleep(0.5)
+
+  # Set digital output (deactivate gripper)
+  set_digital_out(0, False)
+  sleep(0.3)
+
+  # Wait for digital input with timeout
+  # Parameters: pin, state, timeout_seconds
+  wait_digital_in(1, True, 5.0)
+
+  # Read current digital input state
+  input_state = get_digital_in(1)
+
+  # Conditional logic based on input
+  if input_state == True:
+    set_digital_out(2, True)   # Activate output 2
+  else:
+    set_digital_out(2, False)  # Deactivate output 2
+  end
+
+end
+
+
+# ======================================================================
+# SECTION 3: ANALOG I/O OPERATIONS
+# ======================================================================
+
+def analog_io_example():
+  """
+  Demonstrates analog input/output for continuous value control
+  Examples: Pressure control, speed references, sensor monitoring
+  """
+
+  # Set analog output (0-10V or 4-20mA depending on configuration)
+  # Typical: 0V = 0%, 10V = 100%
+  set_analog_out(0, 5.0)  # Set to 5V (50%)
+
+  # Read analog input
+  pressure = get_analog_in(0)
+
+  # Conditional control based on analog value
+  if pressure > 80.0:
+    set_analog_out(1, 3.0)   # Reduce pressure
+  elif pressure < 40.0:
+    set_analog_out(1, 7.0)   # Increase pressure
+  else:
+    set_analog_out(1, 5.0)   # Maintain current
+  end
+
+end
+
+
+# ======================================================================
+# SECTION 4: COMPLETE PICK AND PLACE CYCLE
+# ======================================================================
+
+def pick_and_place_cycle():
+  """
+  Complete pick and place application
+  Demonstrates: Motion, gripper control, error handling, synchronization
+
+  Application scenarios:
+  - Parts transfer between conveyor and machine
+  - Machine loading/unloading
+  - Buffer to buffer transfer
+  """
+
+  # Define tool frame (TCP - Tool Center Point)
+  # Offset from wrist mounting point to tool tip
+  # In this example: 100mm down from wrist, centered in X and Y
+  set_tcp([0.0, 0.0, 0.15, 0, 0, 0])
+
+  # Set tool weight for dynamics compensation
+  # Helps controller predict motion more accurately
+  set_payload(mass=1.2, cog=[0, 0, 0.075])
+
+  # Home position (joint angles)
+  home_q = [0, -1.57, 1.57, -1.57, -1.57, 0]
+
+  # Predefined positions
+  approach_q = [-0.785, -1.57, 1.57, -1.57, -1.57, 0]  # 45 degrees rotated
+
+  # Move to home position
+  movej(q=home_q, a=1.0, v=0.8)
+
+  # Signal that robot is ready
+  set_digital_out(7, True)  # Ready light
+
+  cycle_count = 0
+  max_cycles = 1000
+
+  while cycle_count < max_cycles:
+
+    # Wait for part available signal from feeder
+    # 10 second timeout - if no signal, continue anyway
+    timeout = 10.0
+    start_time = get_time()
+
+    while get_time() - start_time < timeout:
+      if get_digital_in(0) == True:
+        break
+      end
+      sleep(0.1)
+    end
+
+    # Move to approach position above part
+    movej(q=approach_q, a=1.2, v=1.0)
+
+    # Move down to grasp position (linear motion for accuracy)
+    # Moving slowly (0.3 m/s) for safe approach
+    grasp_pose = [0.2, 0.3, 0.05, 0, 3.14159, 0]
+    movel(p=grasp_pose, a=0.5, v=0.3)
+
+    # Close gripper
+    set_digital_out(1, True)
+    sleep(0.5)  # Wait for gripper to fully close
+
+    # Verify grasp with sensor feedback
+    if get_digital_in(1) == True:
+      # Grasp successful - continue
+
+      # Retract upward
+      retract_pose = [0.2, 0.3, 0.3, 0, 3.14159, 0]
+      movel(p=retract_pose, a=0.8, v=0.5)
+
+      # Move to transfer position (joint motion for speed)
+      transfer_q = [1.57, -1.57, 1.57, -1.57, -1.57, 0]
+      movej(q=transfer_q, a=1.2, v=1.0)
+
+      # Move to assembly fixture
+      place_approach_q = [1.57, -1.3, 1.3, -1.57, -1.57, 0]
+      movej(q=place_approach_q, a=1.2, v=1.0)
+
+      # Linear motion to precise placement
+      place_pose = [0.4, -0.2, 0.1, 0, 3.14159, 0]
+      movel(p=place_pose, a=0.5, v=0.3)
+
+      # Release gripper
+      set_digital_out(1, False)
+      sleep(0.3)
+
+      # Retract from assembly
+      movel(p=[0.4, -0.2, 0.3, 0, 3.14159, 0], a=0.8, v=0.5)
+
+      # Return to home
+      movej(q=home_q, a=1.2, v=1.0)
+
+      # Increment cycle counter
+      cycle_count = cycle_count + 1
+
+      # Send cycle count to external system (via analog output)
+      # Scale 0-1000 cycles to 0-10V
+      analog_value = (cycle_count % 1000) / 100.0
+      set_analog_out(0, analog_value)
+
+    else:
+      # Grasp failed - error handling
+      set_digital_out(4, True)   # Activate alarm light
+      sleep(0.5)
+      set_digital_out(4, False)  # Turn off alarm
+
+      # Attempt recovery
+      set_digital_out(1, False)  # Open gripper
+      sleep(0.5)
+
+      movej(q=home_q, a=1.2, v=1.0)
+      sleep(2.0)  # Wait before retry
+
+    end
+
+  end
+
+  # Program complete
+  movej(q=home_q, a=1.2, v=1.0)
+  set_digital_out(7, False)  # Ready light off
+  set_digital_out(1, False)  # Ensure gripper open
+
+end
+
+
+# ======================================================================
+# SECTION 5: FORCE CONTROL AND COMPLIANCE
+# ======================================================================
+
+def force_control_example():
+  """
+  Demonstrates force control for compliant motion
+  Applications:
+  - Assembly with force feedback
+  - Surface following
+  - Deburring and finishing
+  """
+
+  # Set TCP (Tool Center Point)
+  set_tcp([0, 0, 0.1, 0, 0, 0])
+
+  # Move to starting position
+  start_q = [0, -1.57, 1.57, -1.57, -1.57, 0]
+  movej(q=start_q, a=1.2, v=1.0)
+
+  # Enable force control in specific directions
+  # selection_vector: Which axes to control force [Fx, Fy, Fz, Tx, Ty, Tz]
+  # wrench: Target force [Fx, Fy, Fz, Tx, Ty, Tz] in N and Nm
+  # type: 2 = admittance (robot follows applied force)
+  # limits: Force/torque limits for protection [N, N, N, Nm, Nm, Nm]
+
+  force_mode(
+    task_frame=get_tcp_offset(),
+    selection_vector=[0, 0, 1, 0, 0, 0],  # Force control Z-axis only
+    wrench=[0, 0, 50, 0, 0, 0],           # Target 50N downward
+    type=2,                               # Admittance mode
+    limits=[100, 100, 100, 0.5, 0.5, 0.5]  # Protection limits
+  )
+
+  # Move down while maintaining contact force
+  # Robot will comply to maintain 50N contact
+  contact_pose = [0.3, 0.2, -0.05, 0, 3.14159, 0]
+  movel(p=contact_pose, a=0.2, v=0.05)
+
+  # Monitor force during operation
+  for i in range(0, 50):
+    current_force = get_tcp_force()
+
+    # current_force = [Fx, Fy, Fz, Tx, Ty, Tz]
+    # Check if force exceeds limit
+    if current_force[2] > 100:  # Z-force exceeds 100N
+      stopl(acc=1.0)
+      break
+    end
+
+    sleep(0.1)
+  end
+
+  # Disable force control and return to normal mode
+  end_force_mode()
+
+  # Retract
+  movej(q=start_q, a=1.2, v=1.0)
+
+end
+
+
+# ======================================================================
+# SECTION 6: HAND GUIDING (Manual Teach Mode)
+# ======================================================================
+
+def hand_guide_mode():
+  """
+  Enable operator to manually guide robot using wrist force feedback
+  Safety: Operator can stop robot by pulling back
+  Applications: Teaching new positions, collaborative assembly
+  """
+
+  # Enter passive force control (robot follows hand)
+  force_mode(
+    task_frame=get_tcp_offset(),
+    selection_vector=[1, 1, 1, 0, 0, 0],  # Force on all translation axes
+    wrench=[0, 0, 0, 0, 0, 0],            # No target force (fully passive)
+    type=2,                               # Admittance mode
+    limits=[10, 10, 10, 0.5, 0.5, 0.5]    # Soft force limits
+  )
+
+  # Robot now follows manual guidance
+  # Operator can move robot by applying force
+
+  teach_timeout = 300  # 5 minute timeout
+  start_time = get_time()
+
+  # Continue until operator pulls back significantly
+  while True:
+
+    # Monitor for operator command to exit
+    if get_time() - start_time > teach_timeout:
+      break
+    end
+
+    # Check for strong withdrawal (pulling back)
+    current_force = get_tcp_force()
+    if current_force[2] < -10:  # Pulling back more than 10N
+      break
+    end
+
+    # Allow some motion to occur
+    sleep(0.05)
+
+  end
+
+  # Exit force control mode
+  end_force_mode()
+
+  # Return to safe position
+  home_q = [0, -1.57, 1.57, -1.57, -1.57, 0]
+  movej(q=home_q, a=1.2, v=1.0)
+
+end
+
+
+# ======================================================================
+# SECTION 7: MACHINE TENDING WITH SYNCHRONIZATION
+# ======================================================================
+
+def machine_tending_cycle():
+  """
+  Coordinate with CNC machine for load/unload
+  Synchronization: Waits for machine signals before continuing
+  """
+
+  set_tcp([0, 0, 0.1, 0, 0, 0])
+  set_payload(mass=2.0, cog=[0, 0, 0.1])
+
+  home_q = [0, -1.57, 1.57, -1.57, -1.57, 0]
+
+  cycle_count = 0
+
+  while True:
+
+    # Wait for machine ready signal
+    # Machine idle and chuck empty - ready for load
+    wait_digital_in(0, True, 30.0)
+
+    # Move to part staging area
+    movej(q=[-0.785, -1.57, 1.57, -1.57, -1.57, 0], a=1.2, v=1.0)
+
+    # Move to feeder position
+    feeder_pose = [0.1, 0.3, 0.05, 0, 3.14159, 0]
+    movel(p=feeder_pose, a=0.8, v=0.5)
+
+    # Open gripper and close on new part
+    set_digital_out(1, False)  # Open
+    sleep(0.3)
+    set_digital_out(1, True)   # Close on part
+    sleep(0.5)
+
+    # Move part to machine chuck
+    retract_pose = [0.1, 0.3, 0.4, 0, 3.14159, 0]
+    movel(p=retract_pose, a=1.0, v=0.5)
+
+    machine_approach_q = [1.57, -1.3, 1.3, -1.57, -1.57, 0]
+    movej(q=machine_approach_q, a=1.2, v=1.0)
+
+    load_pose = [0.5, 0.0, 0.1, 0, 3.14159, 0]
+    movel(p=load_pose, a=0.5, v=0.3)
+
+    # Release part in machine chuck
+    set_digital_out(1, False)  # Open gripper
+    sleep(0.5)
+
+    # Retract from machine
+    movel(p=[0.5, 0.0, 0.4, 0, 3.14159, 0], a=1.0, v=0.5)
+
+    # Signal machine to start cycle
+    set_digital_out(2, True)   # Machine start signal
+    sleep(0.1)
+    set_digital_out(2, False)
+
+    # Wait for machine cycle complete
+    wait_digital_in(1, True, 60.0)  # 60 second timeout
+
+    # Machine cycle complete - move to unload position
+    movej(q=machine_approach_q, a=1.2, v=1.0)
+
+    unload_pose = [0.5, 0.0, 0.1, 0, 3.14159, 0]
+    movel(p=unload_pose, a=0.5, v=0.3)
+
+    # Grasp finished part
+    set_digital_out(1, True)   # Close gripper
+    sleep(0.5)
+
+    # Remove part from machine
+    movel(p=[0.5, 0.0, 0.4, 0, 3.14159, 0], a=1.0, v=0.5)
+
+    # Move to output conveyor
+    output_q = [-1.57, -1.57, 1.57, -1.57, -1.57, 0]
+    movej(q=output_q, a=1.2, v=1.0)
+
+    output_pose = [-0.3, 0.3, 0.05, 0, 3.14159, 0]
+    movel(p=output_pose, a=0.8, v=0.5)
+
+    # Release part on output
+    set_digital_out(1, False)  # Open gripper
+    sleep(0.3)
+
+    # Return to home
+    movej(q=home_q, a=1.2, v=1.0)
+
+    cycle_count = cycle_count + 1
+
+  end
+
+end
+
+
+# ======================================================================
+# SECTION 8: ERROR HANDLING AND RECOVERY
+# ======================================================================
+
+def error_handling_example():
+  """
+  Demonstrates error handling and recovery strategies
+  """
+
+  home_q = [0, -1.57, 1.57, -1.57, -1.57, 0]
+
+  try:
+
+    # Attempt to perform motion
+    movej(q=home_q, a=1.2, v=1.0)
+
+    # If error occurs (e.g., limit exceeded, collision):
+    # Program stops and moves to except block
+
+  except:
+
+    # Error handling code
+    # Stop current motion
+    stopl(acc=2.0)
+
+    # Log error
+    textmsg("Error detected")
+
+    # Recovery attempt
+    # Move to safe position with slow speed
+    safe_q = [0, -1.2, 1.2, -1.2, -1.2, 0]
+    movej(q=safe_q, a=0.5, v=0.3)
+
+  end
+
+end
+
+
+# ======================================================================
+# SECTION 9: VISION SYSTEM INTEGRATION
+# ======================================================================
+
+def vision_guided_picking():
+  """
+  Integrate with external vision system for part detection
+  Vision system provides: X, Y position, Rotation angle
+  """
+
+  set_tcp([0, 0, 0.1, 0, 0, 0])
+  home_q = [0, -1.57, 1.57, -1.57, -1.57, 0]
+
+  # Move to vision scan position
+  vision_pose_q = [-0.5, -1.57, 1.57, -1.57, -1.57, 0]
+  movej(q=vision_pose_q, a=1.2, v=1.0)
+
+  # Trigger vision camera
+  set_digital_out(5, True)   # Vision trigger
+  sleep(0.1)
+  set_digital_out(5, False)
+
+  # Wait for vision system to process
+  sleep(0.5)
+
+  # Read vision coordinates from external system
+  # In real implementation, would receive from separate vision controller
+  # via analog inputs, digital communication, or Modbus TCP
+
+  # Example: Read position from analog inputs
+  # Assuming: Analog input 0 = X position (0-10V = -1m to +1m)
+  # Assuming: Analog input 1 = Y position (0-10V = -1m to +1m)
+
+  analog_x = get_analog_in(0)
+  analog_y = get_analog_in(1)
+
+  # Convert analog to position
+  detected_x = (analog_x / 10.0) * 2.0 - 1.0  # -1m to +1m
+  detected_y = (analog_y / 10.0) * 2.0 - 1.0  # -1m to +1m
+  detected_z = 0.05                           # Grasp height
+
+  # Create grasp pose based on vision
+  grasp_offset = [detected_x, detected_y, detected_z, 0, 3.14159, 0]
+
+  # Move to grasp position
+  movel(p=grasp_offset, a=0.8, v=0.5)
+
+  # Close gripper
+  set_digital_out(1, True)
+  sleep(0.5)
+
+  # Retract and place
+  movel(p=[detected_x, detected_y, 0.3, 0, 3.14159, 0], a=1.0, v=0.5)
+
+  # Move to placement position
+  place_q = [1.57, -1.57, 1.57, -1.57, -1.57, 0]
+  movej(q=place_q, a=1.2, v=1.0)
+
+  movel(p=[0.5, -0.2, 0.1, 0, 3.14159, 0], a=0.5, v=0.3)
+
+  # Release
+  set_digital_out(1, False)
+  sleep(0.3)
+
+  # Return to home
+  movej(q=home_q, a=1.2, v=1.0)
+
+end
+
+
+# ======================================================================
+# SECTION 10: PROGRAM FLOW AND CONTROL
+# ======================================================================
+
+def program_flow_example():
+  """
+  Demonstrates program control structures:
+  - While loops
+  - For loops
+  - If/else conditions
+  - Sleep/timing
+  """
+
+  home_q = [0, -1.57, 1.57, -1.57, -1.57, 0]
+
+  # ===== WHILE LOOP =====
+  counter = 0
+  max_iterations = 100
+
+  while counter < max_iterations:
+
+    movej(q=home_q, a=1.2, v=1.0)
+
+    counter = counter + 1
+
+    # Optional: Add delay between cycles
+    sleep(1.0)
+
+  end
+
+  # ===== FOR LOOP =====
+  target_positions = [
+    [0, -1.57, 1.57, -1.57, -1.57, 0],
+    [0.785, -1.57, 1.57, -1.57, -1.57, 0],
+    [1.57, -1.57, 1.57, -1.57, -1.57, 0]
+  ]
+
+  for i in range(0, 3):
+    movej(q=target_positions[i], a=1.2, v=1.0)
+  end
+
+  # ===== IF/ELSE CONDITIONS =====
+  current_time = get_time()
+  time_in_minutes = current_time / 60
+
+  if time_in_minutes > 60:
+    # More than 1 hour of operation
+    textmsg("Long operation detected")
+  elif time_in_minutes > 30:
+    # More than 30 minutes
+    textmsg("Moderate operation time")
+  else:
+    # Less than 30 minutes
+    textmsg("Short operation time")
+  end
+
+end
+
+
+# ======================================================================
+# MAIN PROGRAM - SELECT WHICH EXAMPLE TO RUN
+# ======================================================================
+
+def main():
+  """
+  Main program entry point
+  Select which example program to execute
+  """
+
+  # Change this number to select which example runs
+  # 1 = Basic motion
+  # 2 = Pick and place
+  # 3 = Force control
+  # 4 = Hand guiding
+  # 5 = Machine tending
+  # 6 = Vision guided
+  # 7 = Program flow
+
+  example_number = 2
+
+  if example_number == 1:
+    textmsg("Running: Basic Motion Example")
+    basic_motion_example()
+
+  elif example_number == 2:
+    textmsg("Running: Pick and Place Cycle")
+    pick_and_place_cycle()
+
+  elif example_number == 3:
+    textmsg("Running: Force Control Example")
+    force_control_example()
+
+  elif example_number == 4:
+    textmsg("Running: Hand Guide Mode")
+    hand_guide_mode()
+
+  elif example_number == 5:
+    textmsg("Running: Machine Tending Cycle")
+    machine_tending_cycle()
+
+  elif example_number == 6:
+    textmsg("Running: Vision Guided Picking")
+    vision_guided_picking()
+
+  elif example_number == 7:
+    textmsg("Running: Program Flow Example")
+    program_flow_example()
+
+  else:
+    textmsg("Unknown example number")
+
+  end
+
+  # Move to home at end
+  home_q = [0, -1.57, 1.57, -1.57, -1.57, 0]
+  movej(q=home_q, a=1.2, v=1.0)
+
+  textmsg("Program complete")
+
+end
+
+
+# Execute main program
+main()
