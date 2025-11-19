@@ -1,0 +1,175 @@
+{
+  "validationSchemas": {
+    "engagementLetter": {
+      "description": "Validation schema for engagement letter intake form",
+      "fields": {
+        "clientName": {
+          "type": "string",
+          "required": true,
+          "minLength": 2,
+          "maxLength": 255,
+          "pattern": "^[a-zA-Z\\s'-]+$",
+          "errorMessage": "Client name must be 2-255 characters, letters only"
+        },
+        "clientType": {
+          "type": "string",
+          "required": true,
+          "enum": ["individual", "business", "partnership", "nonprofit"],
+          "errorMessage": "Please select a valid client type"
+        },
+        "clientEmail": {
+          "type": "string",
+          "required": true,
+          "pattern": "^[^@]+@[^@]+\\.[^@]+$",
+          "errorMessage": "Please enter a valid email address"
+        },
+        "clientPhone": {
+          "type": "string",
+          "required": true,
+          "pattern": "^(\\+1)?[-\\s.]?\\(?[0-9]{3}\\)?[-\\s.]?[0-9]{3}[-\\s.]?[0-9]{4}$",
+          "errorMessage": "Please enter a valid US phone number"
+        },
+        "matterDescription": {
+          "type": "string",
+          "required": true,
+          "minLength": 10,
+          "maxLength": 1000,
+          "errorMessage": "Matter description must be between 10-1000 characters"
+        },
+        "engagementDate": {
+          "type": "date",
+          "required": true,
+          "minDate": "today",
+          "maxDate": "+30days",
+          "errorMessage": "Engagement date must be today or within 30 days"
+        },
+        "hourlyRate": {
+          "type": "number",
+          "required": true,
+          "minimum": 50,
+          "maximum": 1000,
+          "errorMessage": "Hourly rate must be between $50 and $1000"
+        },
+        "retainerAmount": {
+          "type": "number",
+          "required": true,
+          "minimum": 500,
+          "maximum": 100000,
+          "errorMessage": "Retainer must be between $500 and $100,000"
+        },
+        "isContingency": {
+          "type": "boolean",
+          "required": true
+        },
+        "contingencyPercentage": {
+          "type": "number",
+          "required": false,
+          "minimum": 10,
+          "maximum": 50,
+          "conditionalRequired": "isContingency === true",
+          "errorMessage": "Contingency percentage must be between 10-50% when applicable"
+        },
+        "estimatedHours": {
+          "type": "number",
+          "required": false,
+          "minimum": 1,
+          "maximum": 10000,
+          "errorMessage": "Estimated hours must be positive"
+        },
+        "jurisdiction": {
+          "type": "string",
+          "required": true,
+          "enum": ["CA", "TX", "NY", "FL", "IL", "PA", "OH", "GA", "NC", "MI"],
+          "errorMessage": "Please select a valid jurisdiction"
+        }
+      },
+      "dependencies": {
+        "contingencyPercentage": ["isContingency"],
+        "retainerAmount": ["!isContingency"]
+      }
+    },
+    "courtFiling": {
+      "description": "Validation schema for court filing form",
+      "fields": {
+        "caseNumber": {
+          "type": "string",
+          "required": true,
+          "pattern": "^[0-9]{2}-[CV|CR]-[0-9]{5}$",
+          "errorMessage": "Case number format: YY-CV-XXXXX or YY-CR-XXXXX"
+        },
+        "courtName": {
+          "type": "string",
+          "required": true,
+          "errorMessage": "Court name is required"
+        },
+        "filingDate": {
+          "type": "date",
+          "required": true,
+          "maxDate": "today",
+          "errorMessage": "Filing date cannot be in the future"
+        },
+        "partyName": {
+          "type": "string",
+          "required": true,
+          "minLength": 2,
+          "maxLength": 255,
+          "errorMessage": "Party name must be 2-255 characters"
+        },
+        "partyRole": {
+          "type": "string",
+          "required": true,
+          "enum": ["plaintiff", "defendant", "petitioner", "respondent"],
+          "errorMessage": "Please select a valid party role"
+        }
+      }
+    },
+    "contractReview": {
+      "description": "Validation schema for contract review intake",
+      "fields": {
+        "contractType": {
+          "type": "string",
+          "required": true,
+          "enum": ["NDA", "Services Agreement", "Lease", "Purchase Agreement", "Employment", "Other"],
+          "errorMessage": "Please select a valid contract type"
+        },
+        "contractValue": {
+          "type": "number",
+          "required": true,
+          "minimum": 0,
+          "errorMessage": "Contract value must be a positive number"
+        },
+        "executionDate": {
+          "type": "date",
+          "required": false,
+          "maxDate": "today",
+          "errorMessage": "Execution date cannot be in the future"
+        },
+        "expirationDate": {
+          "type": "date",
+          "required": false,
+          "minDate": "today",
+          "errorMessage": "Expiration date must be in the future"
+        }
+      }
+    }
+  },
+  "validationRules": {
+    "crossFieldValidation": [
+      {
+        "rule": "retainerNotGreaterThanEstimate",
+        "condition": "retainerAmount <= (estimatedHours * hourlyRate)",
+        "errorMessage": "Retainer should not exceed estimated total hours cost"
+      },
+      {
+        "rule": "contingencyOrHourly",
+        "condition": "isContingency !== (retainerAmount > 0)",
+        "errorMessage": "Must specify either contingency OR hourly arrangement"
+      },
+      {
+        "rule": "expirationAfterExecution",
+        "condition": "expirationDate > executionDate",
+        "errorMessage": "Expiration date must be after execution date"
+      }
+    ]
+  }
+}

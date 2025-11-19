@@ -1,0 +1,254 @@
+{
+  "dpia_template": {
+    "metadata": {
+      "template_version": "2.1",
+      "created_date": "2024-01-15",
+      "last_updated": "2024-01-15",
+      "regulatory_framework": "GDPR Article 35"
+    },
+    "assessment_header": {
+      "assessment_id": "{{ASSESSMENT_ID}}",
+      "organization": "{{ORGANIZATION_NAME}}",
+      "data_protection_officer": "{{DPO_NAME}}",
+      "assessment_date": "{{CURRENT_DATE}}",
+      "processing_activity_name": "{{PROCESSING_NAME}}",
+      "data_controller": "{{CONTROLLER_NAME}}",
+      "joint_controllers": "{{JOINT_CONTROLLERS}}",
+      "data_processors": "{{PROCESSOR_LIST}}"
+    },
+    "executive_summary": {
+      "processing_overview": "{{PROCESSING_DESCRIPTION}}",
+      "purpose": "{{PROCESSING_PURPOSE}}",
+      "legal_basis": "{{LEGAL_BASIS}}",
+      "assessment_conclusion": "{{CONCLUSION}}",
+      "high_risks_identified": "{{HIGH_RISK_COUNT}}",
+      "mitigation_measures": "{{MITIGATION_COUNT}}",
+      "authority_consultation_required": "{{CONSULTATION_REQUIRED}}"
+    },
+    "step_1_necessity_and_proportionality": {
+      "title": "Necessity and Proportionality Assessment",
+      "questions": [
+        {
+          "id": 1.1,
+          "question": "Is this processing necessary to achieve the stated purpose?",
+          "answer": "{{Q1_1_ANSWER}}",
+          "justification": "{{Q1_1_JUSTIFICATION}}"
+        },
+        {
+          "id": 1.2,
+          "question": "Are there less intrusive alternatives?",
+          "answer": "{{Q1_2_ANSWER}}",
+          "alternatives_considered": "{{Q1_2_ALTERNATIVES}}"
+        },
+        {
+          "id": 1.3,
+          "question": "Is the processing proportionate to the purpose?",
+          "answer": "{{Q1_3_ANSWER}}",
+          "justification": "{{Q1_3_JUSTIFICATION}}"
+        }
+      ],
+      "assessment_result": "{{NECESSITY_ASSESSMENT_RESULT}}"
+    },
+    "step_2_data_categories_and_subjects": {
+      "title": "Data Categories and Data Subjects",
+      "data_categories": [
+        {
+          "category_name": "{{CATEGORY_NAME}}",
+          "description": "{{CATEGORY_DESCRIPTION}}",
+          "sensitivity_level": "{{SENSITIVITY_1_5}}",
+          "special_category": "{{IS_SPECIAL_CATEGORY}}",
+          "examples": "{{EXAMPLES}}"
+        }
+      ],
+      "data_subjects": [
+        {
+          "subject_type": "{{SUBJECT_TYPE}}",
+          "estimated_count": "{{ESTIMATED_COUNT}}",
+          "vulnerabilities": "{{VULNERABILITIES}}"
+        }
+      ]
+    },
+    "step_3_legal_basis": {
+      "title": "Legal Basis and Legitimacy Assessment",
+      "legal_bases_relied_upon": [
+        {
+          "basis": "{{BASIS_TYPE}}",
+          "description": "{{BASIS_DESCRIPTION}}",
+          "compliance_notes": "{{COMPLIANCE_NOTES}}"
+        }
+      ],
+      "legitimate_interests_assessment": {
+        "reliance_on_legitimate_interests": "{{RELIES_ON_LEGITIMATE_INTERESTS}}",
+        "identified_legitimate_interests": "{{LEGITIMATE_INTERESTS_LIST}}",
+        "necessity_assessment": "{{NECESSITY_ASSESSMENT}}",
+        "balancing_test": "{{BALANCING_TEST_RESULT}}"
+      }
+    },
+    "step_4_data_transfers": {
+      "title": "Data Transfers Assessment",
+      "international_transfers": [
+        {
+          "recipient_country": "{{RECIPIENT_COUNTRY}}",
+          "transfer_mechanism": "{{TRANSFER_MECHANISM}}",
+          "adequacy_decision": "{{ADEQUACY_DECISION}}",
+          "scc_in_place": "{{SCC_IN_PLACE}}",
+          "supplementary_measures": "{{SUPPLEMENTARY_MEASURES}}"
+        }
+      ]
+    },
+    "step_5_risk_assessment": {
+      "title": "Privacy Risk Assessment",
+      "methodology": "DPIA risk scoring methodology",
+      "identified_risks": [
+        {
+          "risk_id": "RISK_{{RISK_NUMBER}}",
+          "risk_description": "{{RISK_DESCRIPTION}}",
+          "affected_rights": "{{AFFECTED_RIGHTS}}",
+          "likelihood": "{{LIKELIHOOD_1_5}}",
+          "impact": "{{IMPACT_1_5}}",
+          "risk_score": "{{RISK_SCORE}}",
+          "risk_level": "{{RISK_LEVEL}}",
+          "affected_data_categories": "{{DATA_CATEGORIES}}"
+        }
+      ],
+      "risk_summary": {
+        "total_risks": "{{TOTAL_RISKS}}",
+        "critical_risks": "{{CRITICAL_RISK_COUNT}}",
+        "high_risks": "{{HIGH_RISK_COUNT}}",
+        "medium_risks": "{{MEDIUM_RISK_COUNT}}",
+        "low_risks": "{{LOW_RISK_COUNT}}"
+      }
+    },
+    "step_6_mitigations": {
+      "title": "Mitigation Measures",
+      "mitigations": [
+        {
+          "mitigation_id": "MIT_{{MITIGATION_NUMBER}}",
+          "risk_addressed": "{{RISK_ID}}",
+          "mitigation_description": "{{MITIGATION_DESCRIPTION}}",
+          "implementation_timeline": "{{TIMELINE}}",
+          "responsible_party": "{{RESPONSIBLE_PARTY}}",
+          "status": "{{STATUS}}",
+          "residual_risk_level": "{{RESIDUAL_RISK}}"
+        }
+      ]
+    },
+    "step_7_consultation": {
+      "title": "Authority Consultation",
+      "consultation_required": "{{CONSULTATION_REQUIRED}}",
+      "consultation_criteria_met": [
+        "{{CRITERION_1}}",
+        "{{CRITERION_2}}"
+      ],
+      "authority_to_consult": "{{AUTHORITY_NAME}}",
+      "consultation_status": "{{CONSULTATION_STATUS}}",
+      "consultation_date": "{{CONSULTATION_DATE}}",
+      "authority_response": "{{AUTHORITY_RESPONSE}}"
+    },
+    "step_8_data_subject_rights": {
+      "title": "Data Subject Rights Assessment",
+      "rights_analysis": {
+        "right_of_access": {
+          "affected": "{{IS_AFFECTED}}",
+          "safeguards": "{{SAFEGUARDS}}"
+        },
+        "right_of_rectification": {
+          "affected": "{{IS_AFFECTED}}",
+          "safeguards": "{{SAFEGUARDS}}"
+        },
+        "right_to_erasure": {
+          "affected": "{{IS_AFFECTED}}",
+          "safeguards": "{{SAFEGUARDS}}"
+        },
+        "right_to_restrict_processing": {
+          "affected": "{{IS_AFFECTED}}",
+          "safeguards": "{{SAFEGUARDS}}"
+        },
+        "right_to_data_portability": {
+          "affected": "{{IS_AFFECTED}}",
+          "safeguards": "{{SAFEGUARDS}}"
+        },
+        "right_to_object": {
+          "affected": "{{IS_AFFECTED}}",
+          "safeguards": "{{SAFEGUARDS}}"
+        },
+        "rights_related_to_automated_decision_making": {
+          "affected": "{{IS_AFFECTED}}",
+          "safeguards": "{{SAFEGUARDS}}"
+        }
+      }
+    },
+    "step_9_privacy_by_design": {
+      "title": "Privacy by Design Measures",
+      "technical_organizational_measures": [
+        {
+          "measure_name": "{{MEASURE_NAME}}",
+          "description": "{{MEASURE_DESCRIPTION}}",
+          "implementation_status": "{{STATUS}}",
+          "effectiveness": "{{EFFECTIVENESS}}"
+        }
+      ]
+    },
+    "approval_and_sign_off": {
+      "prepared_by": "{{PREPARED_BY}}",
+      "prepared_date": "{{PREPARED_DATE}}",
+      "reviewed_by_dpo": "{{DPO_REVIEW}}",
+      "dpo_sign_off_date": "{{DPO_SIGN_OFF_DATE}}",
+      "reviewed_by_legal": "{{LEGAL_REVIEW}}",
+      "legal_sign_off_date": "{{LEGAL_SIGN_OFF_DATE}}",
+      "approved_by": "{{APPROVED_BY}}",
+      "approval_date": "{{APPROVAL_DATE}}",
+      "approval_status": "{{APPROVAL_STATUS}}"
+    },
+    "compliance_checklist": [
+      {
+        "item": "Necessity and proportionality assessed",
+        "status": "{{STATUS}}"
+      },
+      {
+        "item": "Data categories and subjects identified",
+        "status": "{{STATUS}}"
+      },
+      {
+        "item": "Legal basis documented",
+        "status": "{{STATUS}}"
+      },
+      {
+        "item": "International transfers assessed",
+        "status": "{{STATUS}}"
+      },
+      {
+        "item": "Privacy risks identified and scored",
+        "status": "{{STATUS}}"
+      },
+      {
+        "item": "Mitigations designed and assigned",
+        "status": "{{STATUS}}"
+      },
+      {
+        "item": "Authority consultation completed (if required)",
+        "status": "{{STATUS}}"
+      },
+      {
+        "item": "Data subject rights safeguarded",
+        "status": "{{STATUS}}"
+      },
+      {
+        "item": "Privacy by design measures documented",
+        "status": "{{STATUS}}"
+      },
+      {
+        "item": "DPO review and approval obtained",
+        "status": "{{STATUS}}"
+      },
+      {
+        "item": "Legal review completed",
+        "status": "{{STATUS}}"
+      },
+      {
+        "item": "Executive approval obtained",
+        "status": "{{STATUS}}"
+      }
+    ]
+  }
+}

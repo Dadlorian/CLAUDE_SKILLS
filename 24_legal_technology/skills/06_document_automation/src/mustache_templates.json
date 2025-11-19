@@ -1,0 +1,32 @@
+{
+  "templates": {
+    "engagement_letter": {
+      "name": "Engagement Letter",
+      "content": "{{FIRM_NAME}}\n{{FIRM_ADDRESS}}\n\nDate: {{DATE}}\n\nRe: Engagement Letter\n\nDear {{CLIENT_NAME}},\n\nThis letter sets forth the terms of our engagement.\n\nSCOPE OF SERVICES:\n{{#SERVICES}}\n- {{.}}\n{{/SERVICES}}\n\nFEES:\n- Hourly Rate: {{HOURLY_RATE}}\n- Retainer: {{RETAINER}}\n\n{{#IS_CONTINGENCY}}\nCONTINGENCY:\nThis matter is handled on a contingency basis at {{CONTINGENCY_PERCENT}}%.\n{{/IS_CONTINGENCY}}\n\nSincerely,\n{{ATTORNEY_NAME}}"
+    },
+    "motion_template": {
+      "name": "Motion",
+      "content": "IN THE {{COURT_NAME}}\n{{COUNTY}} COUNTY\n\nCASE NO. {{CASE_NUMBER}}\n\n{{PLAINTIFF}} v. {{DEFENDANT}},\n\nPlaintiff(s) v. Defendant(s).\n\n_______________________________________________\n\nMOTION {{MOTION_TYPE}}\n\nNow comes {{MOVING_PARTY}}, by and through undersigned counsel, and respectfully submits this Motion {{MOTION_TYPE}} and in support thereof states:\n\nFACTS:\n{{#FACTS}}\n{{.}}\n{{/FACTS}}\n\nLAW:\n{{#LEGAL_ARGUMENTS}}\n{{.}}\n{{/LEGAL_ARGUMENTS}}\n\nWHEREFORE, {{MOVING_PARTY}} respectfully requests that this Honorable Court {{RELIEF_REQUESTED}}.\n\nCertificate of Service\n\nI hereby certify that a true and correct copy of the foregoing Motion was served upon all counsel of record via {{SERVICE_METHOD}} on {{SERVICE_DATE}}."
+    },
+    "settlement_agreement": {
+      "name": "Settlement Agreement",
+      "content": "SETTLEMENT AGREEMENT\n\nThis Settlement Agreement (\"Agreement\") is made and entered into as of {{DATE}}, by and between {{PLAINTIFF}} (\"Plaintiff\") and {{DEFENDANT}} (\"Defendant\").\n\nWHEREAS, Plaintiff and Defendant are parties to a litigation styled {{CASE_NAME}}, Case No. {{CASE_NUMBER}};\n\nWHEREAS, Plaintiff and Defendant desire to resolve their disputes and settle all claims;\n\nNOW, THEREFORE, in consideration of the mutual covenants herein:\n\n1. SETTLEMENT AMOUNT\nDefendant agrees to pay Plaintiff the sum of {{SETTLEMENT_AMOUNT}} (\"Settlement Amount\").\n\n2. PAYMENT TERMS\nPayment shall be made as follows:\n{{#PAYMENT_SCHEDULE}}\n- {{.}}\n{{/PAYMENT_SCHEDULE}}\n\n3. RELEASE\nExcept as provided herein, each party releases all claims against the other.\n\n4. CONFIDENTIALITY\n{{#IS_CONFIDENTIAL}}\nThe parties agree that the terms of this settlement shall remain confidential.\n{{/IS_CONFIDENTIAL}}\n\nIN WITNESS WHEREOF, the parties have executed this Agreement.\n\n{{PLAINTIFF_SIGNATURE}}\n{{PLAINTIFF_NAME}}\n\n{{DEFENDANT_SIGNATURE}}\n{{DEFENDANT_NAME}}"
+    }
+  },
+  "data_example": {
+    "FIRM_NAME": "Johnson & Associates LLP",
+    "FIRM_ADDRESS": "100 Legal Plaza, Boston, MA 02101",
+    "DATE": "January 15, 2024",
+    "CLIENT_NAME": "John Smith",
+    "SERVICES": [
+      "Contract Review",
+      "Legal Advice",
+      "Document Preparation"
+    ],
+    "HOURLY_RATE": "$350/hour",
+    "RETAINER": "$5,000",
+    "IS_CONTINGENCY": false,
+    "CONTINGENCY_PERCENT": "33%",
+    "ATTORNEY_NAME": "Sarah Johnson, Esq."
+  }
+}

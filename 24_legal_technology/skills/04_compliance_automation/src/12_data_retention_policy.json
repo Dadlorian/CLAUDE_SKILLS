@@ -1,0 +1,296 @@
+{
+  "data_retention_policy": {
+    "policy_id": "DRP_001",
+    "version": "2.1",
+    "effective_date": "2024-01-15",
+    "last_updated": "2024-01-15",
+    "policy_owner": "Data Protection Officer",
+    "approval_date": "2024-01-15",
+    "review_frequency_months": 12,
+    "next_review_date": "2025-01-15",
+    "regulatory_framework": ["GDPR", "CCPA", "PIPEDA"],
+    "policy_statement": "This policy establishes guidelines for the retention and secure deletion of personal data to comply with data protection regulations and minimize privacy risk.",
+    "data_categories": [
+      {
+        "category_id": "CAT_001",
+        "category_name": "Customer Personal Data",
+        "description": "Name, email, phone number, address",
+        "sensitivity_level": "medium",
+        "legal_basis": "contractual_necessity",
+        "retention_rules": [
+          {
+            "rule_id": "RET_001_001",
+            "purpose": "Customer account management",
+            "retention_period_months": 24,
+            "retention_period_description": "2 years from last account activity",
+            "justification": "Necessary to maintain active customer relationships and handle inquiries",
+            "deletion_trigger": "Account deletion or inactivity > 24 months",
+            "deletion_method": "Secure deletion after data classification review"
+          },
+          {
+            "rule_id": "RET_001_002",
+            "purpose": "Transactional records",
+            "retention_period_months": 84,
+            "retention_period_description": "7 years from transaction date",
+            "justification": "Legal requirement for financial/tax records",
+            "deletion_trigger": "After 7 years from transaction",
+            "deletion_method": "Secure deletion with legal hold verification"
+          }
+        ]
+      },
+      {
+        "category_id": "CAT_002",
+        "category_name": "Employee Data",
+        "description": "Employee personal information, performance records, salary",
+        "sensitivity_level": "high",
+        "legal_basis": "employment_contract",
+        "retention_rules": [
+          {
+            "rule_id": "RET_002_001",
+            "purpose": "Active employment records",
+            "retention_period_months": 0,
+            "retention_period_description": "For duration of employment plus 12 months",
+            "justification": "Necessary for employment management and legal obligations",
+            "deletion_trigger": "12 months after employment termination",
+            "deletion_method": "Secure deletion with audit trail"
+          },
+          {
+            "rule_id": "RET_002_002",
+            "purpose": "Payroll and tax records",
+            "retention_period_months": 84,
+            "retention_period_description": "7 years after employment termination",
+            "justification": "Legal requirement for tax and labor law compliance",
+            "deletion_trigger": "After 7 years from employment end",
+            "deletion_method": "Secure deletion with legal hold verification"
+          }
+        ]
+      },
+      {
+        "category_id": "CAT_003",
+        "category_name": "Health Data (Special Category)",
+        "description": "Medical records, health insurance information, disability data",
+        "sensitivity_level": "very_high",
+        "legal_basis": "explicit_consent_or_legal_obligation",
+        "retention_rules": [
+          {
+            "rule_id": "RET_003_001",
+            "purpose": "Active health service provision",
+            "retention_period_months": 24,
+            "retention_period_description": "2 years from last service",
+            "justification": "Necessary for health service continuity and follow-up",
+            "deletion_trigger": "2 years from last service provision",
+            "deletion_method": "Secure deletion with verification"
+          },
+          {
+            "rule_id": "RET_003_002",
+            "purpose": "Legal/regulatory requirement",
+            "retention_period_months": 120,
+            "retention_period_description": "10 years from last service",
+            "justification": "Legal requirement in many jurisdictions",
+            "deletion_trigger": "After 10 years or regulatory requirement change",
+            "deletion_method": "Secure deletion only after regulatory clearance"
+          }
+        ]
+      },
+      {
+        "category_id": "CAT_004",
+        "category_name": "Marketing and Consent Data",
+        "description": "Email subscriptions, consent records, marketing preferences",
+        "sensitivity_level": "low",
+        "legal_basis": "consent",
+        "retention_rules": [
+          {
+            "rule_id": "RET_004_001",
+            "purpose": "Active marketing communications",
+            "retention_period_months": 24,
+            "retention_period_description": "2 years from last consent or engagement",
+            "justification": "Necessary for consent management and compliance",
+            "deletion_trigger": "Consent withdrawal or 2 years inactivity",
+            "deletion_method": "Immediate deletion upon withdrawal"
+          },
+          {
+            "rule_id": "RET_004_002",
+            "purpose": "Proof of consent retention",
+            "retention_period_months": 36,
+            "retention_period_description": "3 years from consent date",
+            "justification": "Legal requirement to maintain proof of consent",
+            "deletion_trigger": "After 3 years from consent date",
+            "deletion_method": "Secure deletion with archival backup"
+          }
+        ]
+      },
+      {
+        "category_id": "CAT_005",
+        "category_name": "Financial Data",
+        "description": "Credit card information, bank account details, payment records",
+        "sensitivity_level": "very_high",
+        "legal_basis": "contractual_necessity",
+        "retention_rules": [
+          {
+            "rule_id": "RET_005_001",
+            "purpose": "Transaction processing",
+            "retention_period_months": 3,
+            "retention_period_description": "3 months from transaction",
+            "justification": "Necessary for dispute resolution and reconciliation",
+            "deletion_trigger": "After 3 months from transaction",
+            "deletion_method": "Tokenization or secure deletion"
+          },
+          {
+            "rule_id": "RET_005_002",
+            "purpose": "PCI-DSS compliance",
+            "retention_period_months": 12,
+            "retention_period_description": "12 months from transaction",
+            "justification": "PCI-DSS compliance requirement",
+            "deletion_trigger": "After 12 months from transaction",
+            "deletion_method": "Cryptographic erasure or secure deletion"
+          }
+        ]
+      },
+      {
+        "category_id": "CAT_006",
+        "category_name": "Audit and Compliance Records",
+        "description": "Access logs, security logs, compliance audit trails",
+        "sensitivity_level": "high",
+        "legal_basis": "legal_obligation",
+        "retention_rules": [
+          {
+            "rule_id": "RET_006_001",
+            "purpose": "Security and audit trail",
+            "retention_period_months": 24,
+            "retention_period_description": "2 years from creation",
+            "justification": "Necessary for security monitoring and audit compliance",
+            "deletion_trigger": "After 2 years",
+            "deletion_method": "Secure deletion with verification"
+          },
+          {
+            "rule_id": "RET_006_002",
+            "purpose": "Breach investigation records",
+            "retention_period_months": 84,
+            "retention_period_description": "7 years from breach discovery",
+            "justification": "Legal requirement for breach documentation",
+            "deletion_trigger": "After 7 years from breach date",
+            "deletion_method": "Secure deletion with legal clearance"
+          }
+        ]
+      }
+    ],
+    "deletion_procedures": {
+      "secure_deletion_methods": [
+        {
+          "method_id": "DEL_001",
+          "method_name": "Cryptographic Erasure",
+          "description": "Deletion of encryption keys rendering data unrecoverable",
+          "effectiveness": "high",
+          "suitable_for": ["all_data_types"],
+          "implementation_time_minutes": 1
+        },
+        {
+          "method_id": "DEL_002",
+          "method_name": "Overwriting",
+          "description": "Multiple overwrite passes using NIST-approved patterns",
+          "effectiveness": "high",
+          "suitable_for": ["electronic_storage"],
+          "implementation_time_minutes": 30
+        },
+        {
+          "method_id": "DEL_003",
+          "method_name": "Physical Destruction",
+          "description": "Destruction of physical storage media",
+          "effectiveness": "very_high",
+          "suitable_for": ["physical_documents", "harddrives"],
+          "implementation_time_minutes": 60
+        },
+        {
+          "method_id": "DEL_004",
+          "method_name": "Anonymization",
+          "description": "Irreversible anonymization rendering data non-identifiable",
+          "effectiveness": "varies",
+          "suitable_for": ["statistical_data"],
+          "implementation_time_minutes": 120
+        }
+      ],
+      "verification_requirements": [
+        "Deletion must be verified and documented",
+        "Audit trail must be maintained for deletion events",
+        "Backup systems must also implement deletion",
+        "Third-party processors must provide deletion confirmation",
+        "Legal hold exceptions must be documented"
+      ]
+    },
+    "exceptions_and_holds": {
+      "legal_hold": {
+        "description": "Retention override for legal proceedings or investigations",
+        "approval_required": "Legal Department",
+        "documentation_required": "Legal hold notice with case details",
+        "duration": "Until legal matter resolved"
+      },
+      "regulatory_investigation": {
+        "description": "Retention override for regulatory investigation",
+        "approval_required": "Compliance Officer",
+        "documentation_required": "Investigation notice from authority",
+        "duration": "Per regulatory requirement"
+      },
+      "pending_data_subject_request": {
+        "description": "Retention during processing of data subject request",
+        "approval_required": "Automatic",
+        "documentation_required": "Request documentation",
+        "duration": "Until request fulfilled or rejected"
+      }
+    },
+    "accountability_and_documentation": {
+      "retention_schedule_maintenance": {
+        "frequency": "quarterly",
+        "owner": "Data Protection Officer",
+        "process": "Review and update retention schedules"
+      },
+      "deletion_execution": {
+        "frequency": "per_policy",
+        "owner": "Data Systems Team",
+        "process": "Execute deletion per schedule"
+      },
+      "deletion_verification": {
+        "frequency": "per_deletion",
+        "owner": "Compliance Team",
+        "process": "Verify deletion completion and document"
+      },
+      "audit_and_reporting": {
+        "frequency": "annual",
+        "owner": "Internal Audit",
+        "process": "Audit compliance with retention policy"
+      }
+    },
+    "roles_and_responsibilities": {
+      "data_protection_officer": [
+        "Develop and maintain retention policy",
+        "Ensure GDPR and regulatory compliance",
+        "Approve retention periods",
+        "Review exceptions and legal holds",
+        "Report on compliance metrics"
+      ],
+      "data_owner": [
+        "Classify data according to categories",
+        "Implement retention rules",
+        "Manage data in systems",
+        "Cooperate with deletion processes"
+      ],
+      "it_systems_team": [
+        "Implement deletion procedures",
+        "Maintain system capabilities",
+        "Execute scheduled deletions",
+        "Verify successful deletion"
+      ],
+      "legal_department": [
+        "Advise on legal retention requirements",
+        "Approve legal hold exceptions",
+        "Review third-party obligations",
+        "Provide regulatory updates"
+      ]
+    },
+    "effective_date_provisions": {
+      "transition_period": "90 days",
+      "legacy_data_handling": "Transition to new schedules within 6 months",
+      "grandfather_clause": "Existing retention schedules honoring longer periods",
+      "customer_notification": "Policy changes communicated via privacy notice"
+    }
+  }
+}
