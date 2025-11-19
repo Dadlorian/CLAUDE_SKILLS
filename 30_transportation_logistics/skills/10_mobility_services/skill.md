@@ -141,10 +141,205 @@ Mobility as a Service (MaaS) represents the convergence of multi-modal transport
 - **Safety validation**: Simulation, testing frameworks, certification
 
 ### Pooling & Shared Rides
-- **Ride matching**: Compatible rider pairing, route deviation limits
-- **Dynamic pricing**: Discount models for sharing, fairness constraints
-- **Routing algorithms**: Sequential pickup/dropoff optimization (VRP)
-- **UX considerations**: Acceptable wait times, detour limits
+
+```python
+class RidePoolingEngine:
+    """Match compatible rides for pooling optimization."""
+
+    def find_compatible_riders(self, new_request, pending_requests, max_detour_factor=1.3):
+        """
+        Find existing requests compatible with new request.
+        Compatible = within reasonable detour and time constraints.
+        """
+        compatible = []
+
+        for request in pending_requests:
+            # Check if routes are compatible
+            direct_distance = self._haversine_distance(
+                new_request['pickup'], request['dropoff'])
+            pooled_distance = (
+                self._haversine_distance(new_request['pickup'], request['pickup']) +
+                self._haversine_distance(request['pickup'], new_request['dropoff']) +
+                self._haversine_distance(new_request['dropoff'], request['dropoff'])
+            )
+
+            detour_factor = pooled_distance / direct_distance
+
+            # Check pricing impact
+            pooled_price = request['estimated_price'] * 0.75  # 25% discount for pooling
+            new_price = new_request['estimated_price'] * 0.75
+
+            # Both riders benefit from pooling
+            rider_1_saves = request['estimated_price'] - pooled_price
+            rider_2_saves = new_request['estimated_price'] - new_price
+
+            # Check acceptance criteria
+            if (detour_factor <= max_detour_factor and
+                rider_1_saves > 0 and rider_2_saves > 0):
+                compatible.append({
+                    'request_id': request['id'],
+                    'detour_factor': detour_factor,
+                    'rider_1_savings': rider_1_saves,
+                    'rider_2_savings': rider_2_saves,
+                    'compatibility_score': 1 - (detour_factor - 1)
+                })
+
+        return sorted(compatible, key=lambda x: x['compatibility_score'], reverse=True)
+
+    def optimize_pooled_route(self, requests):
+        """
+        Optimize pickup/dropoff order for pooled ride.
+        Solves PDVRP (Pickup and Delivery VRP).
+        """
+        from ortools.constraint_solver import routing_enums_pb2, pywrapcp
+
+        # Create distance matrix
+        num_locations = len(requests) * 2 + 1  # +1 for vehicle start/end
+        distance_matrix = self._build_distance_matrix(requests)
+
+        # Create routing problem
+        manager = pywrapcp.RoutingIndexManager(num_locations, 1, 0)
+        routing = pywrapcp.RoutingModel(manager)
+
+        def distance_callback(from_idx, to_idx):
+            return int(distance_matrix[from_idx][to_idx])
+
+        transit_callback_idx = routing.RegisterTransitCallback(distance_callback)
+        routing.SetArcCostEvaluatorOfAllVehicles(transit_callback_idx)
+
+        # Add pickup/delivery constraint: pickup must come before dropoff
+        for i, request in enumerate(requests):
+            pickup_idx = manager.NodeToIndex(i)
+            dropoff_idx = manager.NodeToIndex(len(requests) + i)
+            routing.AddDisjunctive([pickup_idx, dropoff_idx])
+
+        # Solve
+        search_params = pywrapcp.DefaultRoutingSearchParameters()
+        search_params.first_solution_strategy = (
+            routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC)
+        solution = routing.SolveWithParameters(search_params)
+
+        return self._extract_route_sequence(solution, manager)
+```
+
+### Dynamic Pricing Models
+
+```python
+class DynamicPricingEngine:
+    """Optimize pricing based on supply, demand, and other factors."""
+
+    def calculate_surge_multiplier(self, zone, timestamp):
+        """
+        Calculate surge pricing multiplier.
+        Factors: supply/demand ratio, time of day, events, weather.
+        """
+        # Base supply/demand ratio
+        demand = self._get_demand(zone, timestamp)
+        supply = self._get_available_drivers(zone)
+
+        supply_demand_ratio = supply / max(demand, 1)  # Avoid division by zero
+
+        # Multiplier: lower ratio = higher price
+        if supply_demand_ratio > 1.5:
+            multiplier = 1.0  # Excess supply
+        elif supply_demand_ratio > 1.0:
+            multiplier = 1.1
+        elif supply_demand_ratio > 0.5:
+            multiplier = 1.2  # Moderate demand
+        elif supply_demand_ratio > 0.3:
+            multiplier = 1.5  # High demand
+        else:
+            multiplier = 2.0  # Critical shortage
+
+        # Adjust for time of day
+        hour = timestamp.hour
+        if hour in range(7, 10) or hour in range(17, 20):  # Rush hours
+            multiplier *= 1.2
+        elif hour in range(0, 5):  # Late night
+            multiplier *= 1.3
+
+        # Adjust for weather
+        weather = self._get_weather(zone)
+        if weather['condition'] == 'rain' or weather['condition'] == 'snow':
+            multiplier *= 1.15
+
+        # Adjust for events (sports, concerts, etc.)
+        events = self._get_events(zone, timestamp)
+        if events:
+            multiplier *= 1.25
+
+        return min(multiplier, 5.0)  # Cap at 5x multiplier
+
+    def recommend_price(self, origin, destination, requested_eta=None):
+        """
+        Recommend price based on cost and demand.
+        Uses cost-plus-demand pricing model.
+        """
+        # Base cost: distance * fuel_cost + driver_time
+        distance_km = self._get_distance(origin, destination)
+        duration_minutes = distance_km / 0.5  # ~30 km/h avg
+
+        base_cost = (
+            distance_km * 0.10 +  # Fuel: $0.10 per km
+            (duration_minutes / 60) * 15  # Driver: $15 per hour
+        )
+
+        # Add platform margin (30%)
+        base_price = base_cost * 1.3
+
+        # Adjust for demand
+        surge = self.calculate_surge_multiplier(
+            origin['zone'],
+            datetime.now()
+        )
+
+        final_price = base_price * surge
+
+        return {
+            'base_price': base_price,
+            'surge_multiplier': surge,
+            'final_price': final_price,
+            'estimated_duration_minutes': int(duration_minutes),
+            'distance_km': distance_km
+        }
+
+    def ab_test_pricing(self, user_segments, price_variants):
+        """
+        Run A/B test on pricing to maximize conversion.
+        Tracks acceptance rate, revenue, and utilization.
+        """
+        results = {}
+
+        for segment, variant_price in price_variants.items():
+            # Show variant A (control): base price
+            # Show variant B (test): variant price
+
+            segment_results = {
+                'price': variant_price,
+                'requests': [],
+                'acceptances': 0,
+                'total_revenue': 0,
+                'avg_acceptance_time': 0
+            }
+
+            # Simulate or measure results
+            for request in segment:
+                # Offer ride at variant price
+                acceptance_prob = self._estimate_acceptance(request, variant_price)
+
+                if acceptance_prob > np.random.random():
+                    segment_results['acceptances'] += 1
+                    segment_results['total_revenue'] += variant_price
+
+            acceptance_rate = segment_results['acceptances'] / len(segment) if segment else 0
+            results[segment] = {
+                **segment_results,
+                'acceptance_rate': acceptance_rate,
+                'revenue_per_request': segment_results['total_revenue'] / len(segment) if segment else 0
+            }
+
+        return results
+```
 
 ### Sustainability & Equity
 - **Carbon footprint**: Emissions tracking, EV incentives, mode shift analysis
@@ -153,10 +348,103 @@ Mobility as a Service (MaaS) represents the convergence of multi-modal transport
 - **Public-private partnerships**: Integration with municipal transit
 
 ### Global Expansion
-- **Localization**: Language, currency, cultural norms, payment methods
-- **Regulatory navigation**: Licensing, insurance, labor classification
-- **Market entry**: Competitive analysis, pricing strategies, launch operations
-- **Operational adaptation**: Infrastructure constraints, driver ecosystems
+
+```python
+class GlobalExpansionStrategy:
+    """Plan and execute market expansion."""
+
+    def assess_market(self, city, country):
+        """
+        Assess viability of market entry.
+        Evaluates regulatory, competitive, and operational factors.
+        """
+        assessment = {
+            'city': city,
+            'country': country,
+            'viability_score': 0,
+            'key_factors': {}
+        }
+
+        # 1. Regulatory Environment
+        regulatory_score = self._assess_regulations(country)
+        assessment['key_factors']['regulatory'] = regulatory_score
+        assessment['viability_score'] += regulatory_score * 0.25
+
+        # 2. Market Size & Growth
+        market_size = self._estimate_market_size(city)
+        market_growth = self._estimate_market_growth(country)
+        market_score = (market_size + market_growth) / 2
+        assessment['key_factors']['market'] = market_score
+        assessment['viability_score'] += market_score * 0.25
+
+        # 3. Competition
+        competitive_intensity = self._analyze_competition(city)
+        competition_score = 1 - (competitive_intensity / 10)  # Lower = less competitive
+        assessment['key_factors']['competition'] = competition_score
+        assessment['viability_score'] += competition_score * 0.20
+
+        # 4. Operational Feasibility
+        infrastructure = self._assess_infrastructure(city)
+        driver_availability = self._assess_driver_supply(city, country)
+        operations_score = (infrastructure + driver_availability) / 2
+        assessment['key_factors']['operations'] = operations_score
+        assessment['viability_score'] += operations_score * 0.20
+
+        # 5. Financial Potential
+        avg_fare = self._estimate_avg_fare(city, country)
+        potential_trips_per_day = market_size / 100
+        monthly_revenue = avg_fare * potential_trips_per_day * 30
+        assessment['key_factors']['financial_potential'] = min(monthly_revenue / 100000, 1.0)
+
+        return assessment
+
+    def localization_roadmap(self, target_market):
+        """
+        Create localization roadmap for target market.
+        Covers payments, language, regulations, marketing.
+        """
+        return {
+            'phase_1_preparation': {
+                'duration_weeks': 4,
+                'tasks': [
+                    'Legal entity registration',
+                    'Regulatory approval applications',
+                    'Local hiring and team building',
+                    'Payment system integration (local methods)',
+                    'Translation and localization'
+                ]
+            },
+            'phase_2_soft_launch': {
+                'duration_weeks': 4,
+                'scope': '100-500 rides',
+                'tasks': [
+                    'Limited geographic rollout',
+                    'Driver recruitment and training',
+                    'Operations and customer support setup',
+                    'Quality monitoring and feedback',
+                    'Local marketing campaign'
+                ]
+            },
+            'phase_3_scale': {
+                'duration_weeks': 12,
+                'scope': '10,000+ rides per day',
+                'tasks': [
+                    'Fleet expansion',
+                    'City-wide coverage',
+                    'Full product feature rollout',
+                    'Partnership development',
+                    'Performance optimization'
+                ]
+            },
+            'cultural_considerations': {
+                'payment_methods': self._get_payment_methods(target_market),
+                'language_support': True,
+                'local_customer_support': True,
+                'regulatory_compliance': True,
+                'driver_incentive_adaptation': True
+            }
+        }
+```
 
 ## Learning Resources
 

@@ -340,4 +340,331 @@ void calibrate_accelerometer(sensor_calibration_t *cal) {
 
 ---
 
+---
+
+## Advanced Sensor Integration
+
+### Multi-Sensor Fusion Framework
+```c
+/* Combine multiple sensors for better accuracy */
+typedef struct {
+    float temperature_primary;
+    float temperature_secondary;
+    float humidity_primary;
+    float humidity_secondary;
+    uint32_t timestamp_ms;
+} multi_sensor_reading_t;
+
+typedef struct {
+    float primary_weight;
+    float secondary_weight;
+    uint32_t sync_interval_ms;
+    uint32_t last_sync_ms;
+} fusion_config_t;
+
+void fuse_sensor_readings(const multi_sensor_reading_t *readings,
+                          const fusion_config_t *config,
+                          float *fused_temp, float *fused_humidity) {
+    /* Weighted average with confidence */
+    float temp_error = fabsf(readings->temperature_primary -
+                              readings->temperature_secondary);
+
+    if (temp_error > MAX_SENSOR_DISAGREEMENT) {
+        /* Sensors disagree - use primary with lower confidence */
+        *fused_temp = readings->temperature_primary;
+    } else {
+        /* Sensors agree - blend them */
+        *fused_temp = (readings->temperature_primary * config->primary_weight +
+                      readings->temperature_secondary * config->secondary_weight) /
+                     (config->primary_weight + config->secondary_weight);
+    }
+
+    /* Same for humidity */
+    float humidity_error = fabsf(readings->humidity_primary -
+                                  readings->humidity_secondary);
+
+    if (humidity_error > MAX_SENSOR_DISAGREEMENT) {
+        *fused_humidity = readings->humidity_primary;
+    } else {
+        *fused_humidity = (readings->humidity_primary * config->primary_weight +
+                          readings->humidity_secondary * config->secondary_weight) /
+                         (config->primary_weight + config->secondary_weight);
+    }
+}
+```
+
+### Temperature Compensation
+```c
+/* Compensate sensor readings based on temperature variations */
+typedef struct {
+    float reference_temp;
+    float reference_value;
+    float temp_coeff;  /* Change per degree C */
+} temperature_compensation_t;
+
+float apply_temperature_compensation(float raw_value,
+                                     float current_temp,
+                                     const temperature_compensation_t *comp) {
+    /* Adjust for temperature drift */
+    float temp_delta = current_temp - comp->reference_temp;
+    float compensation = comp->temp_coeff * temp_delta;
+
+    return raw_value - compensation;
+}
+
+/* Calibration with known reference */
+void calibrate_temperature_dependency(float *readings, int num_readings,
+                                       float *temperatures,
+                                       temperature_compensation_t *comp) {
+    /* Least-squares fit to find temperature coefficient */
+    float sum_temp = 0, sum_reading = 0;
+    float sum_temp_reading = 0, sum_temp_sq = 0;
+
+    for (int i = 0; i < num_readings; i++) {
+        float temp_norm = temperatures[i] - comp->reference_temp;
+        sum_temp += temp_norm;
+        sum_reading += readings[i];
+        sum_temp_reading += temp_norm * readings[i];
+        sum_temp_sq += temp_norm * temp_norm;
+    }
+
+    /* Linear regression */
+    comp->temp_coeff = (sum_temp_reading - (sum_temp * sum_reading / num_readings)) /
+                       (sum_temp_sq - (sum_temp * sum_temp / num_readings));
+}
+```
+
+---
+
+## Practical ADC Configuration
+
+### Multi-Channel ADC Sequencing
+```c
+/* Efficiently read multiple ADC channels */
+#define NUM_ADC_CHANNELS 8
+
+typedef struct {
+    uint16_t channel_sequence[NUM_ADC_CHANNELS];
+    uint16_t raw_values[NUM_ADC_CHANNELS];
+    float converted_values[NUM_ADC_CHANNELS];
+    uint32_t sample_count;
+} adc_sequencer_t;
+
+void configure_adc_dma(adc_sequencer_t *sequencer) {
+    /* DMA: ADC -> Memory automatically */
+    adc_enable_dma();
+    adc_configure_channel_sequence(sequencer->channel_sequence,
+                                   NUM_ADC_CHANNELS);
+
+    /* Trigger conversion periodically */
+    timer_setup_adc_trigger(SAMPLE_RATE_HZ);
+}
+
+void convert_adc_values(adc_sequencer_t *sequencer) {
+    for (int i = 0; i < NUM_ADC_CHANNELS; i++) {
+        /* Convert ADC counts to physical values */
+        uint16_t adc_count = sequencer->raw_values[i];
+
+        if (i == VOLTAGE_CHANNEL) {
+            sequencer->converted_values[i] = (adc_count * 3.3f) / 4096.0f;
+        } else if (i == TEMPERATURE_CHANNEL) {
+            sequencer->converted_values[i] = convert_temp_sensor(adc_count);
+        } else if (i == CURRENT_CHANNEL) {
+            sequencer->converted_values[i] = (adc_count - 2048) * CURRENT_SCALE;
+        }
+    }
+
+    sequencer->sample_count++;
+}
+```
+
+### Noise Reduction Techniques
+```c
+/* Median filter for outlier rejection */
+#define MEDIAN_FILTER_SIZE 5
+
+typedef struct {
+    float buffer[MEDIAN_FILTER_SIZE];
+    int index;
+} median_filter_t;
+
+float apply_median_filter(median_filter_t *filter, float new_sample) {
+    /* Add sample to circular buffer */
+    filter->buffer[filter->index] = new_sample;
+    filter->index = (filter->index + 1) % MEDIAN_FILTER_SIZE;
+
+    /* Sort and find median */
+    float sorted[MEDIAN_FILTER_SIZE];
+    memcpy(sorted, filter->buffer, sizeof(sorted));
+
+    /* Simple bubble sort for small array */
+    for (int i = 0; i < MEDIAN_FILTER_SIZE - 1; i++) {
+        for (int j = i + 1; j < MEDIAN_FILTER_SIZE; j++) {
+            if (sorted[j] < sorted[i]) {
+                float temp = sorted[i];
+                sorted[i] = sorted[j];
+                sorted[j] = temp;
+            }
+        }
+    }
+
+    /* Return middle value */
+    return sorted[MEDIAN_FILTER_SIZE / 2];
+}
+
+/* Combined filtering: Median + Kalman */
+void robust_sensor_read(median_filter_t *median,
+                       kalman_filter_t *kalman,
+                       float *output) {
+    /* Get raw sample */
+    float raw = adc_read_channel(ADC_CHANNEL_SENSOR);
+
+    /* Apply median filter first (rejects spikes) */
+    float median_filtered = apply_median_filter(median, raw);
+
+    /* Then Kalman filter (smooth and estimate) */
+    *output = kalman_update(kalman, median_filtered);
+}
+```
+
+---
+
+## Real-World Sensor Challenges
+
+### Sensor Timeout & Fault Detection
+```c
+/* Detect stuck or failed sensors */
+typedef struct {
+    float last_value;
+    float last_change_time;
+    uint32_t no_change_timeout_ms;
+    bool is_responding;
+} sensor_health_t;
+
+void check_sensor_health(sensor_health_t *health, float current_value) {
+    uint32_t now_ms = get_time_ms();
+
+    /* Check if sensor value is changing */
+    if (fabsf(current_value - health->last_value) > MIN_CHANGE_THRESHOLD) {
+        /* Value changed - sensor is responding */
+        health->last_value = current_value;
+        health->last_change_time = now_ms;
+        health->is_responding = true;
+    } else {
+        /* No change detected */
+        uint32_t elapsed = now_ms - health->last_change_time;
+
+        if (elapsed > health->no_change_timeout_ms) {
+            /* Sensor is stuck/not responding */
+            health->is_responding = false;
+            log_error("Sensor timeout - possibly disconnected");
+
+            /* Trigger recovery: restart sensor or switch to backup */
+            restart_sensor();
+        }
+    }
+}
+
+/* Backup sensor selection */
+typedef struct {
+    float primary_value;
+    float backup_value;
+    bool primary_healthy;
+    bool backup_healthy;
+} dual_sensor_t;
+
+float get_sensor_value(dual_sensor_t *dual) {
+    if (dual->primary_healthy) {
+        return dual->primary_value;
+    } else if (dual->backup_healthy) {
+        log_warning("Using backup sensor");
+        return dual->backup_value;
+    } else {
+        log_error("Both sensors failed");
+        return INVALID_SENSOR_VALUE;
+    }
+}
+```
+
+### Rate-of-Change Validation
+```c
+/* Detect physically impossible sensor changes */
+typedef struct {
+    float max_rate_per_second;
+    float last_value;
+    uint32_t last_time_ms;
+} rate_validator_t;
+
+bool validate_sensor_rate_of_change(rate_validator_t *validator,
+                                    float new_value) {
+    uint32_t now_ms = get_time_ms();
+    uint32_t elapsed_ms = now_ms - validator->last_time_ms;
+
+    if (elapsed_ms == 0) {
+        return true;  /* No time has passed */
+    }
+
+    float elapsed_sec = elapsed_ms / 1000.0f;
+    float delta = fabsf(new_value - validator->last_value);
+    float rate = delta / elapsed_sec;
+
+    if (rate > validator->max_rate_per_second) {
+        /* Impossible rate of change - likely glitch */
+        log_error("Sensor rate of change violation: %.2f/s", rate);
+        return false;  /* Reject this reading */
+    }
+
+    validator->last_value = new_value;
+    validator->last_time_ms = now_ms;
+    return true;
+}
+```
+
+---
+
+## Sensor Calibration Best Practices
+
+### Multi-Point Calibration
+```c
+#define NUM_CALIBRATION_POINTS 5
+
+typedef struct {
+    float reference_values[NUM_CALIBRATION_POINTS];
+    float sensor_readings[NUM_CALIBRATION_POINTS];
+    float slope;
+    float intercept;
+    uint32_t calibration_time;
+} calibration_data_t;
+
+void perform_linear_calibration(calibration_data_t *cal) {
+    /* Linear regression: sensor_value = slope * reference + intercept */
+    float sum_x = 0, sum_y = 0, sum_xy = 0, sum_x2 = 0;
+    int n = NUM_CALIBRATION_POINTS;
+
+    for (int i = 0; i < n; i++) {
+        float ref = cal->reference_values[i];
+        float sens = cal->sensor_readings[i];
+
+        sum_x += ref;
+        sum_y += sens;
+        sum_xy += ref * sens;
+        sum_x2 += ref * ref;
+    }
+
+    /* Least-squares calculation */
+    cal->slope = (n * sum_xy - sum_x * sum_y) /
+                 (n * sum_x2 - sum_x * sum_x);
+    cal->intercept = (sum_y - cal->slope * sum_x) / n;
+    cal->calibration_time = get_time_ms();
+
+    printf("Calibration: %.4f * x + %.4f\n", cal->slope, cal->intercept);
+}
+
+float apply_calibration(const calibration_data_t *cal, float raw_sensor) {
+    return cal->slope * raw_sensor + cal->intercept;
+}
+```
+
+---
+
 **Implement robust, calibrated, and noise-filtered sensor systems with professional-grade signal processing.**

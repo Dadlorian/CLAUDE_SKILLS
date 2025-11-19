@@ -918,6 +918,258 @@ Capacity_Model:
 - **UPF:** User Plane Function
 - **URLLC:** Ultra-Reliable Low-Latency Communications
 
+## 15. Advanced Troubleshooting Guide
+
+### 15.1 Common 5G Deployment Issues
+
+#### Issue 1: Poor RAN Coverage After Deployment
+
+**Symptoms:**
+- Cell edge throughput <20 Mbps (target: >50 Mbps)
+- Connection failures in specific geographic areas
+- Excessive handovers to LTE
+- User complaints about "5G not working" in apparent coverage areas
+
+**Root Cause Analysis Steps:**
+```
+1. Verify gNodeB transmit power
+   - Check DL Power setting (should be 43 dBm nominal)
+   - Verify power amplifier bias voltage
+   - Test with network analyzer (AWGN bench testing)
+
+2. Assess antenna configuration
+   - Confirm antenna gain (typical: 15-17 dBi for macro)
+   - Check antenna tilt (electrical + mechanical)
+   - Verify antenna connector integrity
+   - Measure S11 (return loss) - should be <-10 dB
+
+3. Perform RF propagation modeling
+   - Compare predicted vs. measured coverage
+   - Identify blockage/shadowing factors
+   - Check for multipath issues in urban canyons
+
+4. Analyze gNodeB logs
+   - Check PDCCH reception quality
+   - Review RLC retransmission rates
+   - Monitor HARQ failures
+```
+
+**Remediation Actions:**
+- Increase transmit power if available (vendor-dependent)
+- Add additional gNodeB site in coverage gap
+- Optimize antenna tilt and orientation
+- Implement beamforming optimization
+- Consider dual connectivity to LTE for enhanced coverage
+- **Cost Impact:** $50-200K per site (depending on solution)
+- **Timeline:** 2-4 weeks per site
+
+#### Issue 2: Core Network Signaling Failures
+
+**Symptoms:**
+- Registration success rate <95% (target: >99.5%)
+- PDU session creation failures (>"5% failure rate)
+- AMF or SMF becoming unresponsive
+- Timeout errors in N2/N11 interface logs
+
+**Root Cause Analysis:**
+```
+Diagnostic Procedure:
+1. Verify network function connectivity
+   └─ Check AMF ↔ UDM S6m interface
+   └─ Verify SMF ↔ UPF N4 (PFCP) connectivity
+   └─ Test gNodeB ↔ AMF N2 interface (SCTP)
+
+2. Check database connectivity
+   └─ Confirm UDM database reachability
+   └─ Verify database response time (<100ms)
+   └─ Check for database locks or slow queries
+
+3. Monitor signaling load
+   └─ Measure AMF attach rate (target: <5000/min)
+   └─ Check PDU session creation rate
+   └─ Monitor queue depths on network functions
+
+4. Review firewall rules
+   └─ Confirm SCTP protocol allowed (port 38412)
+   └─ Verify load balancer is passing signaling correctly
+   └─ Check for stateful inspection timeouts
+```
+
+**Remediation Actions:**
+- Scale network functions (add more AMF/SMF instances)
+- Optimize database indexing
+- Increase firewall session table size
+- Distribute load more evenly
+- Enable connection pooling in database
+- **Typical Cost:** $30-50K (licensing + configuration)
+- **Timeline:** 1-2 weeks
+
+#### Issue 3: Network Slicing Not Isolating Traffic
+
+**Symptoms:**
+- eMBB slice experiencing degradation when URLLC slice is loaded
+- Traffic leakage between slices detected
+- Cross-slice resource contention
+- Slice isolation tests failing
+
+**Investigation Steps:**
+```
+1. Verify slice configuration
+   - Confirm S-NSSAI values match service requirements
+   - Check RAN resource partitioning configuration
+   - Validate UPF segregation per slice
+
+2. Test RAN resource isolation
+   - Create traffic load in one slice
+   - Monitor impact on other slices (target: <5% variance)
+   - Check PRB allocation per slice
+
+3. Verify core network isolation
+   - Confirm different UPF instances per slice (not shared)
+   - Validate QoS policy enforcement
+   - Check for slice-crossing traffic
+
+4. Check policy enforcement
+   - Verify PCF policies applied correctly
+   - Monitor NSSF slice selection decisions
+   - Test failover scenarios
+```
+
+**Remediation Actions:**
+- Separate UPF instances for critical slices (URLLC)
+- Enable stricter QoS enforcement at AMF
+- Implement traffic filtering rules
+- Deploy traffic shaping/policing
+- Add dedicated DU resources per slice
+- **Cost:** $100-150K for full isolation
+- **Timeline:** 2-3 weeks
+
+### 15.2 Performance Optimization Procedures
+
+#### Throughput Optimization
+
+```yaml
+Optimization Checklist:
+  Antenna_Configuration:
+    - Enable beamforming (TDD reciprocity)
+    - Optimize beam sweeping parameters
+    - Adjust beam width for coverage/capacity tradeoff
+    - Expected Improvement: 15-20% throughput
+
+  Bandwidth_Expansion:
+    - Add second 5G carrier (CA)
+    - Enable 4x4 MIMO if available
+    - Increase channel bandwidth (60MHz → 100MHz)
+    - Expected Improvement: 30-50% throughput
+
+  Modulation_Optimization:
+    - Increase MCS (Modulation & Coding Scheme)
+    - Use higher order modulation (256-QAM, 1024-QAM)
+    - Monitor CQI reports from UE
+    - Expected Improvement: 10-15% throughput
+
+  RLC_Tuning:
+    - Increase RLC PDU size
+    - Optimize retransmission timers
+    - Adjust status report frequency
+    - Expected Improvement: 5-10% throughput
+
+  Handover_Optimization:
+    - Reduce ping-pong effects
+    - Fine-tune measurement thresholds
+    - Optimize hysteresis parameters
+    - Expected Improvement: Stability + reduced retransmissions
+```
+
+#### Latency Reduction
+
+```
+Latency Optimization Steps:
+1. RAN-side optimizations
+   - Enable low-latency mode (shorter TTI)
+   - Use 30 kHz subcarrier spacing (vs 15 kHz)
+   - Reduce HARQ processing time
+   - Target: E2E latency <20ms (from >100ms)
+
+2. Core network optimizations
+   - Deploy local UPF (MEC) near RAN
+   - Reduce N2/N11 latency via load balancer proximity
+   - Enable fast path for uplink (UL CL)
+   - Target: Core contribution <10ms
+
+3. Application layer
+   - Use URLLC slice for latency-critical services
+   - Disable compression for real-time traffic
+   - Use UDP instead of TCP where possible
+   - Target: Overall latency <5ms (URLLC)
+```
+
+### 15.3 Deployment Runbooks
+
+#### Emergency Network Scaling
+
+**Scenario:** Traffic surge (event, holiday, emergency) causing congestion
+
+```
+Actions (in order, RTO target: 30 minutes):
+1. Alert threshold: Cell utilization >90% for >5 minutes
+
+2. Immediate mitigation (0-5 min):
+   ├─ Enable load balancing across cells
+   ├─ Reduce unnecessary services (disable analytics)
+   └─ Implement traffic shaping for non-critical services
+
+3. Short-term (5-15 min):
+   ├─ Activate standby gNodeB (if pre-configured)
+   ├─ Enable carrier aggregation (if not active)
+   ├─ Scale up UPF processing
+   └─ Implement admission control (reject new registrations)
+
+4. Medium-term (15-30 min):
+   ├─ Provision temporary edge computing resources
+   ├─ Redirect traffic to alternate core network functions
+   ├─ Enable DL CQI-based scheduling
+   └─ Communicate with customers (public message)
+
+5. Long-term (30+ min):
+   ├─ Deploy additional gNodeB in congested area
+   ├─ Expand core network capacity
+   ├─ Hire load balancing consultant for optimization
+   └─ Schedule post-incident review
+```
+
+#### gNodeB Hardware Failure Recovery
+
+**Scenario:** gNodeB goes offline unexpectedly
+
+```
+Recovery Procedure (RTO target: 15 minutes):
+
+Detection & Diagnosis (0-2 min):
+  ├─ Automated monitoring alerts on heartbeat failure
+  ├─ Check N2 connectivity from AMF perspective
+  └─ Confirm gNodeB not responding to pings
+
+Initial Response (2-5 min):
+  ├─ Notify network operations team
+  ├─ Begin redirection of traffic to adjacent cells
+  ├─ Load balance connected UEs to neighboring gNodeBs
+  └─ Collect hardware diagnostics (logs, crash dumps)
+
+Escalation (5-10 min):
+  ├─ Contact vendor for hardware replacement
+  ├─ Assess if spares available on-site
+  ├─ Request expedited shipping if needed
+  └─ Temporary measures to restore partial coverage
+
+Recovery (10-15 min):
+  ├─ If spare hardware available: Hot-swap gNodeB
+  ├─ Restore configuration from backup
+  ├─ Run integration tests with core network
+  ├─ Monitor for post-recovery issues
+  └─ Return service to normal load balancing
+```
+
 ---
 
 **Document Version:** 1.0

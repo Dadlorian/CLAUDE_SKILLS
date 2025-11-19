@@ -92,43 +92,282 @@ Master the development, deployment, and operations of autonomous vehicle systems
 ## Development Workflow
 
 ### 1. Requirements Analysis
+
+Define the Operational Design Domain (ODD):
+- **Geographic scope**: highways vs. urban vs. mixed
+- **Speed range**: 0-40 mph (urban) vs. 40-80 mph (highway)
+- **Weather conditions**: dry, wet, snow, fog handling
+- **Light conditions**: day, night, twilight performance
+- **Traffic scenarios**: dense vs. sparse, pedestrians, cyclists
+- **Infrastructure**: HD maps availability, connectivity assumptions
+
+Establish Safety Requirements (ISO 26262 ASIL):
 ```
-- Define operational design domain (ODD)
-- Establish safety requirements (ASIL levels)
-- Specify functional capabilities
-- Set performance targets
+ASIL A (QM): Non-critical components
+ASIL B (Low Risk): Moderate risk, recoverable failures
+ASIL C (Medium Risk): High risk, some hazards managed by driver
+ASIL D (High Risk): Hazardous failures, full autonomous mitigation required
+
+For L4/L5 autonomous trucking: Most systems at ASIL C-D
 ```
 
 ### 2. System Architecture
+
 ```
-- Sensor configuration design
-- Compute platform selection
-- Network architecture (CAN, Ethernet)
-- Redundancy and failover strategy
+┌─────────────────────────────────────────────────────────┐
+│                   Perception Layer                       │
+│  (LiDAR, Radar, Cameras, Ultrasonic Fusion)             │
+└─────────────────────────────────────────────────────────┘
+           │              │              │
+┌──────────▼──────────────▼──────────────▼──────────────┐
+│              Perception Processing                    │
+│  (Object Detection, Tracking, Prediction)            │
+└─────────────────────────────────────────────────────┘
+           │
+┌──────────▼──────────────────────────────────────────┐
+│          Localization & Mapping (SLAM)              │
+│  (HD Maps, GPS/IMU Fusion, Calibration)            │
+└─────────────────────────────────────────────────────┘
+           │
+┌──────────▼──────────────────────────────────────────┐
+│           Decision & Planning Layer                 │
+│  (Behavior Planning, Route Planning, Avoidance)    │
+└─────────────────────────────────────────────────────┘
+           │
+┌──────────▼──────────────────────────────────────────┐
+│            Control Layer                            │
+│  (Steering, Acceleration, Braking)                 │
+└─────────────────────────────────────────────────────┘
+           │
+┌──────────▼──────────────────────────────────────────┐
+│           Vehicle Interface (CAN/Ethernet)          │
+└─────────────────────────────────────────────────────┘
 ```
 
-### 3. Algorithm Development
+Redundancy Strategy:
+- **Sensor redundancy**: Multiple sensors per function (e.g., 2 LiDAR + 6 cameras)
+- **Compute redundancy**: Primary + backup processors
+- **Communication redundancy**: Dual CAN buses, fallback links
+- **Power redundancy**: Battery backup for critical functions
+- **Fail-safe states**: Safe parking, lane holding, gradual deceleration
+
+### 3. Algorithm Development & Validation
+
+Perception Stack Implementation:
+```python
+import torch
+import torchvision
+from yolov5 import YOLOv5
+
+class PerceptionPipeline:
+    """End-to-end perception processing."""
+
+    def __init__(self):
+        self.object_detector = YOLOv5('yolov5l', device='cuda:0')
+        self.tracker = DeepSORT()
+        self.trajectory_predictor = TrajectoryPredictor()
+
+    def process_sensor_fusion(self, camera_frames, lidar_points, radar_data):
+        """Fuse multiple sensors for robust perception."""
+
+        # Camera-based detection
+        detections_camera = []
+        for frame in camera_frames:
+            dets = self.object_detector(frame)
+            detections_camera.extend(dets)
+
+        # LiDAR-based detection
+        detections_lidar = self._detect_from_lidar(lidar_points)
+
+        # Radar-based detection
+        detections_radar = self._detect_from_radar(radar_data)
+
+        # Sensor fusion: combine and deduplicate
+        fused_detections = self._fuse_detections(
+            detections_camera, detections_lidar, detections_radar)
+
+        # Track objects over time
+        tracked_objects = self.tracker.update(fused_detections)
+
+        # Predict future trajectories
+        predictions = []
+        for obj in tracked_objects:
+            traj = self.trajectory_predictor.predict(obj, horizon=3)  # 3 seconds ahead
+            predictions.append({
+                'id': obj['id'],
+                'current_position': obj['position'],
+                'predicted_trajectory': traj,
+                'confidence': obj['confidence']
+            })
+
+        return {
+            'detections': fused_detections,
+            'tracked_objects': tracked_objects,
+            'predictions': predictions,
+            'timestamp': datetime.utcnow()
+        }
+
+    def _fuse_detections(self, cam_dets, lidar_dets, radar_dets):
+        """Combine detections from multiple sensors."""
+        # Use spatial proximity to match detections across sensors
+        # Weight by sensor reliability (e.g., LiDAR more reliable for distance)
+        # Output: consolidated detection list with confidence scores
+        pass
 ```
-- Perception model training
-- Planning algorithm implementation
-- Control system tuning
-- Sensor fusion calibration
+
+Path Planning Implementation:
+```python
+from scipy.spatial import distance
+import numpy as np
+
+class PathPlanner:
+    """Hybrid path planning combining global and local planning."""
+
+    def plan_path(self, start, goal, obstacles, traffic_rules):
+        """
+        Compute safe, efficient path from start to goal.
+        Balances optimality with safety and comfort.
+        """
+
+        # 1. Global path (route level): A* on graph
+        global_path = self._astar_global_planning(start, goal, traffic_rules)
+
+        # 2. Local path (maneuver level): velocity obstacles + cost functions
+        local_trajectories = self._generate_candidate_trajectories(
+            current_state=start,
+            constraints=traffic_rules
+        )
+
+        # 3. Trajectory evaluation
+        best_trajectory = None
+        best_cost = float('inf')
+
+        for traj in local_trajectories:
+            # Check safety: no collision with obstacles
+            if not self._is_collision_free(traj, obstacles):
+                continue
+
+            # Evaluate comfort
+            cost = (
+                0.4 * self._compute_smoothness_cost(traj) +  # Jerk minimization
+                0.3 * self._compute_efficiency_cost(traj) +  # Distance minimization
+                0.2 * self._compute_time_cost(traj) +  # Time minimization
+                0.1 * self._compute_lane_comfort_cost(traj)  # Stay in center
+            )
+
+            if cost < best_cost:
+                best_cost = cost
+                best_trajectory = traj
+
+        return best_trajectory if best_trajectory else local_trajectories[0]
+
+    def _generate_candidate_trajectories(self, current_state, constraints):
+        """Generate multiple candidate trajectories for evaluation."""
+        trajectories = []
+
+        # Lateral (lane change) options
+        lateral_options = ['keep_lane', 'change_left', 'change_right']
+
+        # Longitudinal (speed) options
+        speed_options = [
+            current_state['speed'] - 2,  # Slow down
+            current_state['speed'],  # Maintain
+            current_state['speed'] + 1   # Accelerate
+        ]
+
+        # Generate combinations
+        for lateral in lateral_options:
+            for target_speed in speed_options:
+                traj = self._generate_trajectory(
+                    current_state, lateral, target_speed, duration=3.0)
+                trajectories.append(traj)
+
+        return trajectories
 ```
 
 ### 4. Integration & Testing
+
+Hardware-in-the-Loop (HIL) Testing:
 ```
-- Hardware-in-the-loop (HIL) testing
-- Software-in-the-loop (SIL) validation
-- Vehicle integration
-- Closed-course testing
+Test real vehicle hardware with simulated autonomous stack
+- Use CARLA or LGSVL simulator
+- Inject sensor data into actual vehicle ECUs
+- Validate hardware responses
+- Check timing and synchronization
+```
+
+Software-in-the-Loop (SIL) Validation:
+```
+Simulation only - all components run in software
+- 100x+ faster than real-time
+- Easy to inject failures and edge cases
+- Generate billions of miles of simulation
+- Used for algorithm development and regression testing
+```
+
+Closed-Course Testing:
+```
+Controlled environment for real-world validation
+- Known obstacles and traffic patterns
+- Multiple iterations for safety refinement
+- Measure perception accuracy, planning quality
+- Typically: hours/days of closed-course before public roads
 ```
 
 ### 5. Deployment & Operations
+
+Fleet Rollout Strategy:
 ```
-- Fleet rollout strategy
-- Remote monitoring setup
-- OTA update infrastructure
-- Incident response procedures
+1. Limited pilot (5-10 vehicles)
+   - Monitor for edge cases and failures
+   - Collect data for model improvement
+   - Duration: 4-12 weeks
+
+2. Early adopter rollout (50-200 vehicles)
+   - Specific routes/conditions (e.g., highway only)
+   - 24/7 remote operations center monitoring
+   - Driver/operator escalation capability
+   - Duration: 3-6 months
+
+3. Scaled rollout (1000+ vehicles)
+   - Expand to additional routes/conditions
+   - Reduced remote operations support
+   - Regional operations centers
+```
+
+OTA Update Infrastructure:
+```python
+class FleetUpdateManager:
+    """Manage over-the-air software updates."""
+
+    def deploy_update(self, vehicles, new_version, rollout_percentage=10):
+        """
+        Deploy update to fleet with gradual rollout.
+        Monitor for issues before full deployment.
+        """
+        # 1. Validation
+        if not self._validate_update(new_version):
+            raise ValueError("Update failed validation")
+
+        # 2. Staging: upload to edge servers
+        self._stage_update(new_version)
+
+        # 3. Gradual rollout
+        vehicles_to_update = vehicles[:int(len(vehicles) * rollout_percentage / 100)]
+
+        for vehicle in vehicles_to_update:
+            # Schedule update for off-peak hours
+            update_time = self._calculate_optimal_update_time(vehicle)
+
+            # Push update with fallback capability
+            self._push_update(vehicle, new_version, fallback_version)
+
+            # Monitor for issues
+            self._monitor_vehicle_health(vehicle, duration_hours=24)
+
+        # If no issues, rollout to remaining fleet
+        if self._check_rollout_health():
+            self._deploy_to_remaining_fleet(vehicles, new_version)
 ```
 
 ## Performance Optimization

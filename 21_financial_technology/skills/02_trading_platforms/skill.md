@@ -104,6 +104,181 @@ Expert in designing and implementing high-performance trading platforms with mic
 - **Risk Management**: Risk engine design, exposure monitoring, regulatory reporting
 - **Regulatory Preparation**: MiFID II implementation, SEC compliance, audit support
 
+## Core System Components
+
+### Order Management System (OMS)
+- Order entry and validation workflows
+- Order state machines and lifecycle management
+- Order amendments, cancellations, and rejections
+- Order book management and optimization
+- Integration with pre-trade risk systems
+- Execution algorithm invocation
+
+### Execution Management System (EMS)
+- Algorithmic execution implementation
+- Parent-child order relationships
+- Slicing and dicing strategies
+- Participation rate algorithms
+- Passive execution modes
+- Execution quality monitoring
+
+### Market Data System
+- Real-time feed handling and aggregation
+- Snapshot reconstruction from incremental updates
+- Order book maintenance and optimization
+- Symbol cross-reference management
+- Data quality monitoring and alerting
+- High-frequency tick data processing
+
+### Risk Management Engine
+- Pre-trade risk checks and limits
+- Credit limit monitoring
+- Concentration limit tracking
+- Greeks calculation and sensitivity analysis
+- Counterparty credit risk assessment
+- Real-time exposure aggregation
+
+## Performance Optimization Techniques
+
+### Latency Reduction
+1. **CPU Affinity**: Pin threads to specific CPU cores
+2. **Memory Optimization**: Pre-allocate buffers, use memory pools
+3. **Lock-Free Data Structures**: Implement concurrent data structures without locks
+4. **Network Optimization**: Custom TCP stacks, kernel bypass (DPDK)
+5. **Batch Processing**: Group operations to improve cache utilization
+6. **Hardware Acceleration**: FPGA/GPU for specific computations
+
+### Throughput Optimization
+1. **Parallel Processing**: Multi-threaded order processing
+2. **Message Batching**: Aggregate messages for efficiency
+3. **Database Optimization**: Batch inserts, connection pooling
+4. **Network Efficiency**: Compress data, optimize packet sizes
+5. **Caching Strategy**: Cache frequently accessed data
+6. **Load Balancing**: Distribute load across multiple instances
+
+### Cost Optimization
+1. **Routing Optimization**: Minimize exchange fees
+2. **Venue Selection**: Intelligent venue choice based on liquidity
+3. **Bandwidth Management**: Compress feeds, selective subscription
+4. **Co-location Strategy**: Optimize placement across facilities
+5. **Cloud Resource Optimization**: Right-sizing instances
+
+## Best Practices
+
+### Design Principles
+1. **Separation of Concerns**: Distinct modules for OMS, EMS, risk, market data
+2. **Deterministic Processing**: Ensure reproducible order flow
+3. **Immutable Audit Trails**: Complete and tamper-proof logging
+4. **Graceful Degradation**: Continue operation with reduced functionality
+5. **Monitoring First**: Build comprehensive monitoring into design
+6. **Testability**: Design for thorough testing and simulation
+
+### Operational Excellence
+1. **Continuous Monitoring**: Real-time monitoring of all systems
+2. **Alert Management**: Intelligent alerting to prevent alert fatigue
+3. **Incident Response**: Well-defined procedures and playbooks
+4. **Regular Testing**: Chaos engineering, failover testing
+5. **Documentation**: Clear runbooks and operational guides
+6. **Post-Mortems**: Analysis of incidents and continuous improvement
+
+### Compliance & Regulatory
+1. **Regulatory Expertise**: Deep understanding of applicable regulations
+2. **Documentation**: Complete audit trails for regulatory inspection
+3. **Testing**: Regular compliance testing and validation
+4. **Vendor Management**: Assessment of third-party compliance
+5. **Record Keeping**: Retention policies aligned with regulations
+
+## Knowledge Base Coverage
+
+### Reference Materials
+- Order book algorithms and data structures
+- FIX protocol specification and implementation
+- Market microstructure concepts
+- Execution algorithm specifications
+- Risk calculation methodologies
+- Regulatory compliance frameworks
+- Performance profiling techniques
+
+### Implementation Guides
+- Building an OMS from scratch
+- Implementing an EMS with algorithmic execution
+- Market data feed integration
+- Risk engine design and implementation
+- FIX connectivity setup
+- High-frequency data processing
+- Testing and validation strategies
+
+### Code Examples
+- Order book implementation (C++)
+- FIX parser and message builder
+- Market data aggregator
+- Risk calculation engine
+- Execution algorithms (TWAP, VWAP)
+- Monitoring and alerting systems
+
+## Success Metrics
+
+### Performance Metrics
+- End-to-end latency: <100 microseconds for normal operations
+- Order throughput: 100K+ orders per second
+- Quote processing: 1M+ quotes per second
+- System availability: 99.99%+ uptime
+- Order acceptance rate: >99.9% (after risk checks)
+
+### Business Metrics
+- Execution quality: VWAP/TWAP deviation minimization
+- Cost per transaction: Industry-leading efficiency
+- Revenue generation: Alpha capture and profit maximization
+- Market share: Competitive positioning in venues
+
+### Operational Metrics
+- Mean time to recovery (MTTR): <1 minute
+- False positive rate: <0.1% for risk violations
+- Regulatory violations: Zero tolerance
+- Audit success rate: 100% compliance
+
+## Learning Resources
+
+### Recommended Technologies
+- **C++**: Essential for latency-critical systems
+- **Java**: Enterprise trading platforms
+- **Linux**: Kernel tuning for performance
+- **FPGA**: Hardware acceleration
+- **Docker/Kubernetes**: Containerization and orchestration
+
+### Industry Standards
+- FIX protocol specifications
+- MiFID II requirements
+- SEC regulations and rules
+- FINRA trading rules
+- Exchange specifications and connectivity requirements
+
+### Advanced Topics
+- Machine learning for execution prediction
+- Dark pool mechanics and Smart Order Routing
+- Cryptocurrency trading systems
+- Options market making
+- Statistical arbitrage implementations
+
+## When to Engage This Skill
+
+Use this skill when you need to:
+- Design or optimize trading system architecture
+- Achieve microsecond-level latency targets
+- Implement order management or execution systems
+- Integrate with multiple trading venues
+- Ensure regulatory compliance in trading systems
+- Debug complex multi-venue execution issues
+- Optimize trade execution quality and costs
+- Build risk management and monitoring systems
+- Scale trading infrastructure for growth
+- Investigate performance bottlenecks
+
 ---
 
 **Philosophy**: Build systems that are simultaneously fast, resilient, compliant, and profitable. Speed without safety is recklessness; compliance without efficiency is waste. The art is achieving all objectives.
+
+**Version**: 2.0
+**Last Updated**: 2025-11-19
+**Domain**: Trading Platforms & Markets Infrastructure
+**Expertise Level**: Elite Professional

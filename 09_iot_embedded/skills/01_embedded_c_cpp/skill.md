@@ -380,4 +380,216 @@ i2c_status_t bme280_init(bme280_t *sensor) {
 
 ---
 
+---
+
+## Common Issues & Troubleshooting
+
+### Stack Overflow Detection
+```c
+/* Detect stack/heap collision at runtime */
+extern uint32_t _estack;
+extern uint32_t _ebss;
+
+void check_memory_health(void) {
+    uint32_t *sp;
+    asm volatile ("mov %0, sp" : "=r" (sp));
+
+    /* Calculate free space */
+    uint32_t free_bytes = (uint32_t)sp - (uint32_t)&_ebss;
+
+    if (free_bytes < MINIMUM_STACK_MARGIN) {
+        /* Stack overflow risk */
+        log_error("Stack near overflow");
+    }
+}
+```
+
+### Volatile vs Non-Volatile
+```c
+/* Memory-mapped register access REQUIRES volatile */
+#define REG_STATUS  (*(volatile uint32_t *)0x40000000)
+
+/* Global data modified by ISR REQUIRES volatile */
+static volatile uint32_t timer_tick_count = 0;
+
+void SysTick_Handler(void) {
+    timer_tick_count++;  /* Without volatile, compiler may optimize away */
+}
+```
+
+### Debugging Embedded Systems
+```c
+/* Printf debugging on UART */
+#include <stdio.h>
+
+int _write(int file, char *ptr, int len) {
+    for (int i = 0; i < len; i++) {
+        uart_send_char(ptr[i]);
+    }
+    return len;
+}
+
+/* Conditional compilation for debug */
+#ifdef DEBUG
+    #define DBG_PRINT(fmt, ...) printf(fmt, ##__VA_ARGS__)
+#else
+    #define DBG_PRINT(fmt, ...) do {} while(0)
+#endif
+```
+
+---
+
+## Integration Patterns
+
+### Hardware Abstraction Layer (HAL)
+```c
+/* Generic GPIO interface */
+typedef struct {
+    void (*set_high)(void);
+    void (*set_low)(void);
+    void (*toggle)(void);
+} gpio_interface_t;
+
+/* STM32 implementation */
+const gpio_interface_t gpio_led = {
+    .set_high = stm32_gpio_set_high,
+    .set_low = stm32_gpio_set_low,
+    .toggle = stm32_gpio_toggle
+};
+
+/* Allows testing without hardware */
+const gpio_interface_t gpio_led_mock = {
+    .set_high = mock_set_high,
+    .set_low = mock_set_low,
+    .toggle = mock_toggle
+};
+```
+
+### Module Initialization Pattern
+```c
+/* Self-contained module with init/deinit */
+typedef enum {
+    MODULE_STATE_UNINITIALIZED,
+    MODULE_STATE_INITIALIZING,
+    MODULE_STATE_READY,
+    MODULE_STATE_ERROR
+} module_state_t;
+
+typedef struct {
+    module_state_t state;
+    uint32_t error_code;
+} module_t;
+
+status_t module_init(module_t *mod) {
+    if (mod->state != MODULE_STATE_UNINITIALIZED) {
+        return STATUS_ERROR;  /* Already initialized */
+    }
+
+    mod->state = MODULE_STATE_INITIALIZING;
+    /* Initialization logic */
+    mod->state = MODULE_STATE_READY;
+    return STATUS_OK;
+}
+
+status_t module_deinit(module_t *mod) {
+    if (mod->state == MODULE_STATE_UNINITIALIZED) {
+        return STATUS_OK;  /* Already de-initialized */
+    }
+
+    /* Cleanup logic */
+    mod->state = MODULE_STATE_UNINITIALIZED;
+    return STATUS_OK;
+}
+```
+
+---
+
+## Performance Optimization Techniques
+
+### Memory Access Patterns
+```c
+/* Poor: Random memory access (cache misses) */
+for (int i = 0; i < 1000; i++) {
+    for (int j = 0; j < 1000; j++) {
+        matrix[j][i] += 1;  /* Column-major = poor cache locality */
+    }
+}
+
+/* Good: Sequential memory access (cache hits) */
+for (int i = 0; i < 1000; i++) {
+    for (int j = 0; j < 1000; j++) {
+        matrix[i][j] += 1;  /* Row-major = good cache locality */
+    }
+}
+```
+
+### ISR Optimization
+```c
+/* Keep ISR short - defer work to task */
+volatile bool g_sensor_data_ready = false;
+volatile uint16_t g_sensor_value = 0;
+
+void TIMER_IRQHandler(void) {
+    g_sensor_value = ADC_read();
+    g_sensor_data_ready = true;  /* Set flag, exit ISR */
+    TIMER_clear_flag();
+}
+
+void sensor_task(void *param) {
+    for (;;) {
+        if (g_sensor_data_ready) {
+            g_sensor_data_ready = false;
+            process_sensor(g_sensor_value);  /* Heavy processing in task */
+        }
+        vTaskDelay(1);
+    }
+}
+```
+
+---
+
+## Testing Embedded Code
+
+### Unit Testing with Mocks
+```c
+/* Mock implementation for testing */
+int mock_i2c_read(uint8_t addr, uint8_t *data, size_t len) {
+    if (addr == 0x68) {  /* MPU6050 */
+        data[0] = 0x42;  /* Mock sensor data */
+        return 0;  /* Success */
+    }
+    return -1;  /* Error */
+}
+
+/* Test function */
+void test_sensor_initialization(void) {
+    uint8_t chip_id;
+    status_t status = read_chip_id(&chip_id);
+
+    assert(status == STATUS_OK);
+    assert(chip_id == 0x42);
+}
+```
+
+### Integration Testing
+```c
+/* Test entire subsystem */
+void test_temperature_monitoring_system(void) {
+    /* Initialize */
+    sensor_init();
+    filter_init();
+
+    /* Simulate sensor readings */
+    for (int i = 0; i < 100; i++) {
+        uint16_t raw = adc_simulate_temperature(25.0f + i * 0.1f);
+        float filtered = filter_update(raw);
+
+        /* Verify filtering is working */
+        assert(fabsf(filtered - (25.0f + i * 0.1f)) < 0.5f);
+    }
+}
+```
+
+---
+
 **Provide production-grade, MISRA-compliant, optimized embedded C/C++ code with comprehensive error handling and hardware awareness.**

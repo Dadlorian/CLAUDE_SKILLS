@@ -194,6 +194,73 @@ Executing a coordinated product launch that builds awareness, drives adoption, a
 - **30-90 days**: Iterate based on feedback, drive momentum
 - **Beyond 90 days**: Scale proven channels and messages
 
+## Demand Generation & Buyer Journey
+
+### Understanding the Buyer Journey
+
+Product marketing must align with how customers actually discover and evaluate your product:
+
+**Awareness Stage**
+- Customer recognizes a problem exists
+- PMM role: Make your solution discoverable through thought leadership, content, and PR
+- Tactics: Blog posts, webinars, social content, industry events, speaking opportunities
+
+**Consideration Stage**
+- Customer is actively evaluating alternatives
+- PMM role: Position your product and create comparison content
+- Tactics: Comparison guides, competitive battle cards, case studies, product demos, customer testimonials
+- Critical: Differentiation messaging must be crystal clear
+
+**Decision Stage**
+- Customer is comparing shortlist finalists
+- PMM role: Provide sales with tools to win the deal
+- Tactics: ROI calculators, business case templates, proof of value templates, sales playbooks
+
+**Retention & Advocacy Stage**
+- Customer is onboarded and realizing value
+- PMM role: Enable customer success and create upsell opportunities
+- Tactics: Best practice guides, advanced feature education, case study development, user community building
+
+### Demand Generation Strategy
+
+Demand generation goes beyond awareness to create qualified opportunities for sales:
+
+**Inbound Demand Gen**
+- Build content that attracts the right audience
+- Examples: SEO-optimized blogs, downloadable guides, webinars, tools
+- Success metric: MQLs (marketing qualified leads) from owned channels
+
+**Outbound Demand Gen**
+- Proactively reach target accounts or audiences
+- Examples: Direct outreach, account-based marketing, targeted advertising
+- Success metric: Sales conversations initiated and won
+
+**ABM (Account-Based Marketing) for B2B**
+- Coordinate marketing and sales to target high-value accounts
+- Select target accounts strategically
+- Develop personalized messaging for each account
+- Align marketing and sales on account strategy
+- Expected impact: Higher deal value, faster sales cycles
+
+### Pricing & Packaging Strategy
+
+Pricing decisions have profound marketing implications:
+
+**Positioning Impact**
+- Premium pricing signals quality (position as premium alternative)
+- Freemium model signals low switching cost (position on ease of adoption)
+- Custom enterprise pricing signals complexity (position as most full-featured)
+
+**Messaging Around Pricing**
+- Value-based messaging focuses on ROI, not price
+- Use anchoring to position value: "Compare to X at $Y, we're just $Z"
+- Create packaging tiers with clear customer segment mapping
+
+**Common Pricing Mistakes**
+- Changing pricing without PMM input on messaging impact
+- Not having clear value narrative to justify pricing
+- Pricing positioned as "discount" rather than "value optimization"
+
 ## Advanced Topics
 
 ### Positioning in Crowded Markets
@@ -404,6 +471,52 @@ Different buyer personas need different messages:
 - SiriusDecisions
 - Mind the Product
 
+## Win/Loss Analysis & Competitive Insights
+
+### Building a Win/Loss Program
+
+Win/loss analysis is critical to validating positioning and messaging effectiveness:
+
+**How to Conduct Win/Loss Analysis**
+
+**Interview Process**
+1. Interview recent customers who chose your product (won)
+2. Interview recent prospects who chose a competitor (lost)
+3. Ask specific questions about decision process, not product features
+4. Focus on: perception of differentiation, message effectiveness, objections
+
+**Key Questions to Ask**
+- What other solutions did you evaluate?
+- What was the primary reason you chose/didn't choose us?
+- How did our messaging compare to competitors?
+- What would have changed your decision?
+- Which features mattered most to your decision?
+
+**What to Do With Findings**
+- Update messaging if positioning isn't landing
+- Identify feature gaps that are losing deals
+- Improve sales resources for common objections
+- Validate or refine target customer definition
+- Track win/loss trends over time to see messaging impact
+
+### Competitive War Room
+
+In fast-moving markets, maintain competitive intelligence:
+
+**Maintain Competitive Landscape**
+- Monitor competitor websites, pricing, features
+- Track competitor marketing and messaging
+- Sign up for competitor products
+- Follow competitor news and funding
+- Analyze competitive job postings (signals product direction)
+
+**Update Battle Cards**
+- One-page comparison of you vs. each major competitor
+- Focus on messaging benefits, not just features
+- Include common objections and responses
+- Share with sales and success teams
+- Update quarterly based on competitive changes
+
 ## Metrics That Matter
 
 **Awareness Metrics**
@@ -411,24 +524,28 @@ Different buyer personas need different messages:
 - Website traffic and engagement
 - Social media reach and engagement
 - Press mentions and coverage
+- SEO rankings for key positioning keywords
 
 **Consideration Metrics**
-- Competitive preference
-- Message resonance and recall
-- Sales pipeline influenced by positioning
-- Content engagement rates
+- Competitive preference (how prospects perceive you vs. competitors)
+- Message resonance and recall (do prospects remember your positioning?)
+- Sales pipeline influenced by positioning (attribution)
+- Content engagement rates (webinar attendance, guide downloads)
+- Win rate for target personas
 
 **Conversion Metrics**
 - Win rates for specific customer segments
 - Sales cycle length
 - Customer acquisition cost
 - Deal size for targeted segments
+- Price realization (are deals closing at expected price?)
 
-**Retention Metrics**
+**Retention & Expansion Metrics**
 - Customer retention and churn
 - Customer satisfaction (CSAT/NPS)
 - Customer lifetime value
-- Expansion revenue
+- Expansion revenue from upsell/cross-sell
+- Net dollar retention
 
 ## Next Steps for Mastery
 

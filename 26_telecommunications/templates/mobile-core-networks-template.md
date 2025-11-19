@@ -905,3 +905,239 @@ Tracking Metrics:
 - ITU-T Y.3100: Network 2030
 - GSMA Guidelines for Network Slicing
 - TM Forum Network Function Virtualization
+
+---
+
+## 11. OPERATIONAL PROCEDURES AND RUNBOOKS
+
+### 11.1 Daily Operational Monitoring
+
+**Morning Health Check (06:00 - 08:00 Daily)**
+
+```yaml
+Health_Check_Procedures:
+  Network_Element_Status:
+    - [ ] Verify all MME/AMF nodes responding (ping, SSH)
+    - [ ] Confirm all SGW-C/SMF nodes operational
+    - [ ] Check UPF/SGW-U user plane traffic flowing
+    - [ ] Validate HSS/UDM database reachability
+    - [ ] Ensure PCRF/PCF responding to policy queries
+    - [ ] Monitor SCTP connectivity (gNodeB ↔ MME/AMF)
+    - Alert Threshold: Any component down >2 minutes requires escalation
+
+  Database_Health:
+    - Check HSS/UDM transaction latency (<100ms P95)
+    - Verify no slow queries blocking
+    - Monitor disk space utilization (<80%)
+    - Confirm backup completion (from prior night)
+    - Check replication lag (should be <1 second)
+    - Review error logs for corruption warnings
+
+  Traffic_Baseline:
+    - Compare current vs. historical trends
+    - Flag unusual growth (>20% variance)
+    - Monitor peak hour forecasts
+    - Check for abnormal churn rate changes
+
+  Alarm_Review:
+    - Clear non-critical alarms from prior day
+    - Investigate any unacknowledged critical alarms
+    - Document manual interventions
+    - Prepare incident report if needed
+
+  Performance_KPIs:
+    - Generate daily KPI report
+    - Flag KPIs outside normal ranges
+    - Escalate to engineering if threshold exceeded
+    - Archive metrics for trending analysis
+```
+
+### 11.2 Advanced Failure Scenarios
+
+#### Scenario 1: Cascading Failure During Peak Hour
+
+**Trigger Condition:** SMF becomes saturated, causing N4 timeout to UPF
+
+```
+Timeline and Recovery Actions:
+
+T+0:00 - Initial Detection
+- UPF reports "PFCP no response from SMF" warnings
+- User data plane flows continue (existing sessions)
+- New session creations begin timing out at T+5 seconds
+
+T+0:30 - Escalation Phase
+- SMF queue length exceeds 5000 pending messages
+- Database CPU reaches 80% utilization
+- Customer complaints start arriving (service desk queue >20)
+
+T+1:00 - Critical Phase
+- 5% of session setup attempts failing (should be <0.1%)
+- Churn rate increasing as UEs retry registration
+- Each retry adds more load (positive feedback loop)
+
+T+1:30 - RECOVERY INITIATION
+Actions (prioritized):
+1. Implement immediate rate limiting
+   ├─ SMF: Drop sessions from non-critical slices
+   ├─ AMF: Reject new registration attempts
+   └─ Threshold: Return to <2% load per SMF instance
+
+2. Scale SMF capacity (T+1:30 to T+3:00)
+   ├─ Spin up additional SMF instance(s)
+   ├─ Update load balancer configuration
+   ├─ Monitor for stabilization
+
+3. Database optimization (parallel with #2)
+   ├─ Kill long-running queries
+   ├─ Disable non-essential services (analytics)
+   ├─ Increase connection pool size
+   └─ Monitor query response time <50ms
+
+4. Traffic steering (if SMF scaling slow)
+   ├─ Route new UEs to alternate SMF
+   ├─ Prioritize mobile/IoT over broadband
+   └─ Implement temporary SLA reduction
+
+T+5:00 - Stabilization
+- Session success rate recovered to >99%
+- SMF queue length <100 messages
+- Database CPU normalized to 40%
+- Begin load balancing return to normal
+
+T+6:00 - POST-INCIDENT
+- Automated alerts triggered to management
+- Begin root cause analysis
+- Document timeline and recovery actions
+- Schedule engineering review meeting
+```
+
+#### Scenario 2: Database Replication Failure
+
+**Trigger:** Primary HSS database goes offline unexpectedly
+
+```
+Discovery & Response Timeline:
+
+T+0:00 - Failure Detection
+- Database replication monitoring detects connection loss
+- Automatic failover mechanisms activate
+- SIEM alerts generated (replication lag critical)
+
+T+0:01 to T+0:30 - Failover Phase
+Decision Point:
+  IF replica is in sync:
+    - Promote replica to primary (automatic, <10 sec)
+    - Update all DNS/VIP pointers (5-15 sec)
+    - Impact: ~15-30 second service interruption
+    - New registrations fail during this window
+  ELSE IF replica is out of sync:
+    - Immediate notification to operator
+    - Service continues on replica with stale data
+    - Risk: Authentication failures possible
+
+T+0:30 to T+5:00 - Stabilization
+- Monitor authentication success rate
+- Watch for SIM authentication failures
+- Alert if failure rate exceeds 1%
+- Prepare manual recovery procedures
+
+T+5:00 - Recovery from Backup
+If replica is corrupted:
+  1. Stop all database operations (brief outage)
+  2. Restore from hourly backup tape
+  3. Apply transaction logs up to last known good state
+  4. Validate data integrity
+  5. Resume service
+  Timeline: 15-45 minutes depending on backup size
+
+Post-Incident:
+- Investigate root cause (disk failure, network partition)
+- Schedule maintenance on hardware
+- Improve backup/recovery procedures
+- Increase replication monitoring sensitivity
+```
+
+#### Scenario 3: Roaming Partner Attack (SS7 Fraud)
+
+**Trigger:** Anomalous subscriber activity detected in roaming network
+
+```
+Detection (SIEM + Threshold Alerts):
+- Roaming subscriber making 500+ calls in 5 minutes (normal: 2-3)
+- All calls to premium-rate numbers (+20 minutes each)
+- From multiple countries simultaneously
+- SMS flooding to short codes
+
+Immediate Response (T+0 to T+5):
+1. [ ] Identify victim subscriber(s)
+   ├─ Extract IMSI from CDR
+   ├─ Correlate with customer database
+   └─ Attempt to contact customer
+
+2. [ ] Block further fraud
+   ├─ Deactivate IMSI in HSS (immediate)
+   ├─ Notify roaming partners to drop traffic
+   ├─ Enable fraud detection rules
+   └─ Stop billing for fraudulent calls
+
+3. [ ] Isolate attack vector
+   ├─ Determine if SS7, Diameter, or other protocol
+   ├─ Identify if MCC/MNC of attack source
+   ├─ Check logs for unauthorized access
+   └─ Review access control logs
+
+Incident Escalation (T+5 to T+30):
+- Notify subscriber
+- Prepare fraud reversal credits
+- Document evidence for investigation
+- Contact law enforcement if appropriate
+- Review SEPP logs for exploitation
+
+Prevention (T+30+ minutes):
+- Implement per-IMSI rate limiting
+- Enable MCC-based routing validation
+- Stricter SUPI protection enforcement
+- Enhanced roaming partner authentication
+- Monitor for similar patterns
+```
+
+### 11.3 Change Management and Maintenance Windows
+
+**Software Patch Process:**
+
+```yaml
+Patch_Management:
+  Preparation_Phase:
+    - Identify affected network functions
+    - Test patch in lab environment (minimum 2 weeks)
+    - Create rollback procedure
+    - Schedule maintenance window (6-hour minimum)
+    - Notify customers of expected impact (<1 hour outage)
+    - Prepare rollback plan if issues occur
+
+  Deployment_Phase:
+    - [ ] Backup current database (full)
+    - [ ] Apply patch to standby instance first
+    - [ ] Run smoke tests on patched instance
+    - [ ] Shift 10% traffic to patched instance
+    - [ ] Monitor for 1 hour (success rate, latency)
+    - [ ] Shift 50% traffic
+    - [ ] Monitor for 2 hours
+    - [ ] Shift 100% traffic
+    - [ ] Decommission old instance
+
+  Validation_Phase:
+    - Run end-to-end regression tests
+    - Verify all KPIs within normal ranges
+    - Check for database corruption
+    - Validate backup/recovery works
+
+  Post-Patch:
+    - Monitor for 24 hours (production metrics)
+    - Check for performance regressions
+    - Review system logs for warnings
+    - Schedule post-mortem if issues found
+```
+
+---

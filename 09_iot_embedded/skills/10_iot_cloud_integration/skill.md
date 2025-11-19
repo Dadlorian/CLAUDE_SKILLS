@@ -395,4 +395,333 @@ void aws_iot_subscribe_jobs(void) {
 
 ---
 
+---
+
+## Advanced Cloud Integration Patterns
+
+### Device Lifecycle Management
+```c
+/* Complete device lifecycle: provisioning -> operation -> decommissioning */
+typedef enum {
+    DEVICE_STATE_UNPROVISIONED,
+    DEVICE_STATE_PROVISIONING,
+    DEVICE_STATE_ACTIVE,
+    DEVICE_STATE_MAINTENANCE,
+    DEVICE_STATE_RETIRED
+} device_state_t;
+
+typedef struct {
+    char device_id[64];
+    device_state_t state;
+    uint32_t provisioned_timestamp;
+    uint32_t last_heartbeat;
+    uint32_t firmware_version;
+} device_lifecycle_t;
+
+status_t provision_device_to_cloud(device_lifecycle_t *device,
+                                    const char *api_key,
+                                    const char *provisioning_code) {
+    device->state = DEVICE_STATE_PROVISIONING;
+
+    /* Register device with cloud backend */
+    status_t status = cloud_api_register_device(device->device_id,
+                                                api_key,
+                                                provisioning_code);
+
+    if (status == STATUS_OK) {
+        device->state = DEVICE_STATE_ACTIVE;
+        device->provisioned_timestamp = get_time_s();
+        return STATUS_OK;
+    } else {
+        device->state = DEVICE_STATE_UNPROVISIONED;
+        return STATUS_ERROR;
+    }
+}
+
+void send_device_heartbeat(device_lifecycle_t *device,
+                           cloud_client_t *client) {
+    char heartbeat[256];
+    snprintf(heartbeat, sizeof(heartbeat),
+             "{\"deviceId\":\"%s\",\"state\":%d,\"uptime\":%lu,\"fwVersion\":%u}",
+             device->device_id, device->state,
+             get_time_s() - device->provisioned_timestamp,
+             device->firmware_version);
+
+    cloud_send_message(client, "devices/heartbeat", heartbeat);
+    device->last_heartbeat = get_time_s();
+}
+```
+
+### Offline Queue & Sync
+```c
+/* Queue messages when offline, sync when reconnected */
+#define MAX_OFFLINE_MESSAGES 100
+
+typedef struct {
+    char topic[64];
+    char payload[256];
+    uint32_t timestamp;
+    bool synced;
+} queued_message_t;
+
+typedef struct {
+    queued_message_t messages[MAX_OFFLINE_MESSAGES];
+    uint32_t queue_head;
+    uint32_t queue_tail;
+    uint32_t message_count;
+    bool is_online;
+} offline_queue_t;
+
+status_t enqueue_message(offline_queue_t *queue, const char *topic,
+                        const char *payload) {
+    if (queue->message_count >= MAX_OFFLINE_MESSAGES) {
+        return STATUS_ERROR;  /* Queue full */
+    }
+
+    queued_message_t *msg = &queue->messages[queue->queue_tail];
+    strncpy(msg->topic, topic, sizeof(msg->topic) - 1);
+    strncpy(msg->payload, payload, sizeof(msg->payload) - 1);
+    msg->timestamp = get_time_s();
+    msg->synced = false;
+
+    queue->queue_tail = (queue->queue_tail + 1) % MAX_OFFLINE_MESSAGES;
+    queue->message_count++;
+
+    return STATUS_OK;
+}
+
+void sync_offline_messages(offline_queue_t *queue,
+                          cloud_client_t *client) {
+    uint32_t synced_count = 0;
+
+    while (queue->message_count > 0 && synced_count < 10) {
+        queued_message_t *msg = &queue->messages[queue->queue_head];
+
+        /* Attempt to send */
+        if (cloud_send_message(client, msg->topic, msg->payload) == STATUS_OK) {
+            msg->synced = true;
+            queue->queue_head = (queue->queue_head + 1) % MAX_OFFLINE_MESSAGES;
+            queue->message_count--;
+            synced_count++;
+        } else {
+            break;  /* Stop on first failure */
+        }
+    }
+
+    if (synced_count > 0) {
+        printf("Synced %u offline messages\n", synced_count);
+    }
+}
+```
+
+---
+
+## Fleet Management & Analytics
+
+### Device Group Management
+```c
+typedef enum {
+    DEPLOYMENT_STABLE,
+    DEPLOYMENT_BETA,
+    DEPLOYMENT_CANARY
+} deployment_track_t;
+
+typedef struct {
+    char group_id[32];
+    deployment_track_t track;
+    char firmware_version[16];
+    uint32_t device_count;
+    float error_rate;
+} device_group_t;
+
+/* Canary deployment: gradual rollout to detect issues */
+status_t deploy_firmware_canary(const device_group_t *group,
+                                const char *new_firmware_url,
+                                uint8_t canary_percentage) {
+    uint32_t canary_count = (group->device_count * canary_percentage) / 100;
+
+    printf("Starting canary deployment: %u/%u devices (%.0f%%)\n",
+           canary_count, group->device_count, (float)canary_percentage);
+
+    /* Deploy to subset of devices */
+    for (uint32_t i = 0; i < canary_count; i++) {
+        char device_id[64];
+        get_device_in_group(group->group_id, i, device_id);
+
+        /* Create OTA job for this device */
+        create_ota_job(device_id, new_firmware_url, "canary");
+    }
+
+    /* Monitor canary devices for errors */
+    sleep_s(60);  /* Wait for deployment
+
+*/
+    float canary_error_rate = get_group_error_rate(group->group_id, "canary");
+
+    if (canary_error_rate > 5.0f) {  /* >5% error rate */
+        printf("Canary failed - aborting rollout\n");
+        return STATUS_ERROR;
+    }
+
+    printf("Canary successful - proceeding with full rollout\n");
+    return STATUS_OK;
+}
+```
+
+### Telemetry Aggregation & Storage
+```c
+/* Efficient telemetry with compression */
+typedef struct {
+    uint16_t temperature;      /* Celsius * 100 */
+    uint16_t humidity;         /* RH * 100 */
+    uint32_t timestamp;        /* Unix timestamp */
+    uint8_t flags;             /* Status flags */
+} compact_telemetry_t;
+
+/* Batch telemetry for efficiency */
+typedef struct {
+    compact_telemetry_t readings[60];  /* 1 hour @ 1 min intervals */
+    uint32_t count;
+    uint32_t batch_size;
+} telemetry_batch_t;
+
+void send_telemetry_batch(telemetry_batch_t *batch,
+                         cloud_client_t *client) {
+    /* Create compact JSON representation */
+    char buffer[512];
+    int pos = 0;
+
+    pos += snprintf(&buffer[pos], sizeof(buffer) - pos, "{\"readings\":[");
+
+    for (uint32_t i = 0; i < batch->count; i++) {
+        compact_telemetry_t *r = &batch->readings[i];
+
+        pos += snprintf(&buffer[pos], sizeof(buffer) - pos,
+                       "{\"t\":%u,\"temp\":%.2f,\"hum\":%.2f}%s",
+                       r->timestamp,
+                       r->temperature / 100.0f,
+                       r->humidity / 100.0f,
+                       i < batch->count - 1 ? "," : "");
+    }
+
+    pos += snprintf(&buffer[pos], sizeof(buffer) - pos, "]}");
+
+    cloud_send_message(client, "telemetry/batch", buffer);
+    batch->count = 0;  /* Reset batch */
+}
+```
+
+---
+
+## Edge-to-Cloud Synchronization
+
+### Bi-Directional Configuration Sync
+```c
+/* Device config managed in cloud, synced to device */
+typedef struct {
+    uint32_t sample_interval_ms;
+    uint32_t report_interval_s;
+    bool enable_local_processing;
+    float anomaly_threshold;
+    uint32_t config_version;
+} device_config_t;
+
+/* Configuration change callback from cloud */
+void on_config_change(const char *config_json,
+                      device_config_t *config) {
+    /* Parse new configuration */
+    uint32_t sample_interval = json_get_int(config_json, "sampleInterval");
+    uint32_t report_interval = json_get_int(config_json, "reportInterval");
+    float threshold = json_get_float(config_json, "anomalyThreshold");
+
+    /* Validate changes */
+    if (sample_interval < 100 || sample_interval > 60000) {
+        log_error("Invalid sample interval");
+        return;
+    }
+
+    /* Apply configuration */
+    config->sample_interval_ms = sample_interval;
+    config->report_interval_s = report_interval;
+    config->anomaly_threshold = threshold;
+    config->config_version = json_get_int(config_json, "version");
+
+    /* Persist to flash for recovery */
+    save_config_to_flash(config);
+
+    printf("Configuration updated to v%u\n", config->config_version);
+}
+
+void confirm_config_change(cloud_client_t *client,
+                          const device_config_t *config) {
+    char message[128];
+    snprintf(message, sizeof(message),
+             "{\"configVersion\":%u,\"status\":\"applied\"}",
+             config->config_version);
+
+    cloud_send_message(client, "device/config/ack", message);
+}
+```
+
+### Two-Way Firmware Updates with Rollback
+```c
+typedef struct {
+    char current_version[16];
+    char previous_version[16];
+    uint32_t update_timestamp;
+    bool rollback_available;
+} firmware_state_t;
+
+status_t install_and_verify_firmware(const uint8_t *firmware_data,
+                                     size_t fw_size,
+                                     firmware_state_t *fw_state) {
+    /* Backup current firmware */
+    if (save_firmware_backup(fw_state->current_version) != STATUS_OK) {
+        return STATUS_ERROR;
+    }
+
+    /* Install new firmware */
+    if (flash_write_firmware(firmware_data, fw_size) != STATUS_OK) {
+        restore_firmware_from_backup();
+        return STATUS_ERROR;
+    }
+
+    /* Verify integrity (checksum/signature) */
+    uint8_t expected_hash[32], actual_hash[32];
+    calculate_firmware_hash(firmware_data, fw_size, actual_hash);
+    extract_expected_hash(firmware_data, expected_hash);
+
+    if (memcmp(expected_hash, actual_hash, 32) != 0) {
+        log_error("Firmware verification failed");
+        restore_firmware_from_backup();
+        return STATUS_ERROR;
+    }
+
+    /* Firmware valid - update state */
+    strcpy(fw_state->previous_version, fw_state->current_version);
+    extract_version_from_firmware(firmware_data, fw_state->current_version);
+    fw_state->update_timestamp = get_time_s();
+    fw_state->rollback_available = true;
+
+    return STATUS_OK;
+}
+
+status_t rollback_firmware(firmware_state_t *fw_state) {
+    if (!fw_state->rollback_available) {
+        return STATUS_ERROR;
+    }
+
+    if (restore_firmware_from_backup() != STATUS_OK) {
+        return STATUS_ERROR;
+    }
+
+    strcpy(fw_state->current_version, fw_state->previous_version);
+    fw_state->rollback_available = false;
+
+    return STATUS_OK;
+}
+```
+
+---
+
 **Build scalable, secure IoT cloud integrations with automated provisioning, fleet management, and real-time telemetry.**
